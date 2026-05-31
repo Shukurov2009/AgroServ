@@ -1,0 +1,129 @@
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #faf9f5;
+}
+
+header{ 
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    padding: 20px 50px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+}
+
+.logo {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    transform: translateY(-5px);
+}
+
+.logo img{
+    transform: translateY(-10px);
+}
+
+.logo h1{
+    transform: translateX(-15px);
+}
+
+.logo-text {
+    color: #418e56;
+    cursor: pointer;
+    font-size: 35px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.navbar {
+    display: flex;
+    align-items: center;
+    padding-left: 50px;
+    padding-right: 50px;
+}
+
+img {
+    width: 80px;
+    height: 80px;
+}
+
+.nav_links {
+    padding: 30px;
+    display: flex;
+    flex-wrap: nowrap;
+    text-align: center;
+    gap: 50px;
+}
+
+li {
+    list-style: none;
+}
+
+.list-item {
+    position: relative;
+    display: inline-block;
+    text-decoration: none;
+    color: #000000;
+    font-size: 25px;
+    font-weight: 600;
+}
+
+.list-item::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 3px;
+    background-color: #000000;
+    left: 0;
+    bottom: -2px;
+    transition: width 0.3s ease-in-out;
+}
+
+.list-item:hover::after {
+    width: 100%;
+}
+
+.list-item:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+    transition: transform 0.2s ease, opacity 0.1s ease;
+}
+
+button {
+    padding: 10px 20px;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.sign-in {
+    background-color: #faf9f5;
+    color: #000000;
+    border: 2px solid #000000;
+}
+
+.register {
+    background-color: #418e56;
+}
+
+button:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+    transition: transform 0.2s ease, opacity 0.1s ease;
+}
