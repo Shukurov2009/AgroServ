@@ -1,0 +1,185 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #faf9f5;
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    padding: 20px 50px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+}
+
+.logo {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    transform: translateY(-5px);
+}
+
+.logo img{
+    transform: translateY(-10px);
+    height: 90px;
+    width: auto;
+}
+
+.logo h1{
+    transform: translateX(-15px);
+}
+
+.logo-text {
+    color: #418e56;
+    cursor: pointer;
+    font-size: 35px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    padding: 20px 50px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+}
+
+.qaytish-btn {
+    padding: 10px 20px;
+    background-color: #418e56;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+}
+
+.qaytish-link {
+    color: #fff;
+    text-decoration: none;
+    transform: translateY(-100px);
+}
+
+.qaytish-btn:hover {
+    background-color: #2e6b3c;
+}
+
+.qaytish-btn:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+    transition: transform 0.2s ease, opacity 0.1s ease;
+}
+
+.cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    padding: 50px;
+    justify-content: center;
+}
+
+h3 {
+    font-size: 20px;
+    padding-bottom: 10px;
+}
+
+p {
+    font-size: 18px;
+    color: #333;
+}
+
+.card1 {
+    background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+    border-radius: 15px;
+    width: 220px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin: 20px;
+}
+
+.card2 {
+    background: linear-gradient(135deg, #e8f5f0, #c8e6da);
+    border-radius: 15px;
+    width: 220px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin: 20px;
+}
+
+.card3 {
+    background: linear-gradient(135deg, #e8f1f5, #bbced6);
+    border-radius: 15px;
+    width: 220px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin: 20px;
+}
+
+.card4 {
+    background: linear-gradient(135deg, #edf5e8, #afbba7);
+    border-radius: 15px;
+    width: 220px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin: 20px;
+}
+
+.card5 {
+    background: linear-gradient(135deg, #e2f6f5, #9abab8);
+    border-radius: 15px;
+    width: 220px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin: 20px;
+}
+
+.leaves-icon {
+    width: 50px;
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.tractor-icon {
+    width: 50px;
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.product-icon {
+    width: 50px;
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.technique-icon {
+    width: 50px;
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.inform-icon {
+    width: 50px;
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.card1:hover, .card2:hover, .card3:hover, .card4:hover, .card5:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+div {
+    cursor: default;
+}

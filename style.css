@@ -34,10 +34,8 @@ header{
 
 .logo img{
     transform: translateY(-10px);
-}
-
-.logo h1{
-    transform: translateX(-15px);
+    height: 90px;
+    width: auto;
 }
 
 .logo-text {
@@ -110,7 +108,10 @@ button {
     cursor: pointer;
     font-size: 18px;
     font-weight: 600;
+    transition: background-color 0.3s ease;
 }
+
+
 
 .sign-in {
     background-color: #faf9f5;
@@ -122,8 +123,90 @@ button {
     background-color: #418e56;
 }
 
+.register:hover {
+    background-color: #2e6b3c;
+}
+
 button:active {
     transform: scale(0.95);
     opacity: 0.8;
     transition: transform 0.2s ease, opacity 0.1s ease;
+}
+
+.welcome-sec {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 150px 50px 50px 50px;
+    flex-wrap: wrap;
+    gap: 50px;
+}
+
+
+.typing-text {
+  white-space: nowrap;
+  overflow: hidden;
+  border-right: 3px solid #2e7d32;
+  width: 0;
+  font-weight: 900;
+  animation: typing 2.5s steps(24, end) forwards,
+             blink 0.75s step-end 3,
+             hide-cursor 0s 2.5s forwards;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+@keyframes blink {
+  0%, 100% { border-color: #2e7d32 }
+  50% { border-color: transparent }
+}
+@keyframes hide-cursor {
+  to { border-color: transparent; border-width: 0; }
+}
+
+.sub-text {
+  opacity: 0;
+  animation: fadeIn 0.8s ease 2.6s forwards;
+}
+
+.learn-more {
+  opacity: 0;
+  animation: fadeIn 0.8s ease 3s forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1 }
+}
+
+.sub-text {
+    font-size: 25px;
+    font-weight: 600;
+    color: #000000;
+    margin-top: 20px;
+}
+
+.learn-more {
+  color: #2e7d32;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: gap 0.2s ease;
+  margin-top: 20px;
+}
+
+.learn-more:hover {
+  gap: 12px;
+}
+
+.learn-more:active {
+  gap: 20px;
+}
+
+.learn-more::after {
+  content: '→';
 }
