@@ -138,3 +138,18 @@ body {
     box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
+
+.search-icon {
+    position: relative;
+    width: 25px;
+    height: 25px;
+    background-image: url('/img/search-icon.png');
+    background-size: cover;
+    transform: translateX(300px);
+    transition: transform 0.3s ease;
+}
+
+.search-icon:hover {
+    cursor: pointer;
+    transform: translateX(300px) scale(1.1);
+}
