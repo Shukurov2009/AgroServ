@@ -120,41 +120,36 @@ export default function Login() {
               Davom etish uchun email va parolingizni kiriting.
             </p>
 
-            <div className="mt-6">
-              {GOOGLE_CLIENT_ID ? (
-                <div className="flex justify-center overflow-hidden rounded-xl">
-                  <GoogleLogin
-                    onSuccess={(response) => handleGoogleCredential(response.credential)}
-                    onError={() => toast.error('Google orqali kirish bekor qilindi')}
-                    theme="outline"
-                    shape="rectangular"
-                    size="large"
-                    text="continue_with"
-                    width="360"
-                  />
+            {GOOGLE_CLIENT_ID && (
+              <>
+                <div className="mt-6">
+                  <div className="flex justify-center overflow-hidden rounded-xl">
+                    <GoogleLogin
+                      onSuccess={(response) => handleGoogleCredential(response.credential)}
+                      onError={() => toast.error('Google orqali kirish bekor qilindi')}
+                      theme="outline"
+                      shape="rectangular"
+                      size="large"
+                      text="continue_with"
+                      width="360"
+                    />
+                  </div>
+                  {googleLoading && (
+                    <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-700">
+                      <Loader2 size={13} className="animate-spin" /> Google tekshirilmoqda...
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-3 text-center">
-                  <p className="text-xs font-bold text-stone-500">Google orqali kirish</p>
-                  <p className="mt-1 text-[10px] text-stone-400">
-                    Google OAuth hali sozlanmagan. Email va parol bilan davom eting.
-                  </p>
+
+                <div className="my-5 flex items-center gap-3">
+                  <span className="h-px flex-1 bg-stone-200" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-400">yoki email bilan</span>
+                  <span className="h-px flex-1 bg-stone-200" />
                 </div>
-              )}
-              {googleLoading && (
-                <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-700">
-                  <Loader2 size={13} className="animate-spin" /> Google tekshirilmoqda...
-                </p>
-              )}
-            </div>
+              </>
+            )}
 
-            <div className="my-5 flex items-center gap-3">
-              <span className="h-px flex-1 bg-stone-200" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-400">yoki email bilan</span>
-              <span className="h-px flex-1 bg-stone-200" />
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            <form onSubmit={handleSubmit} className={`space-y-3.5 ${GOOGLE_CLIENT_ID ? '' : 'mt-6'}`}>
               <div>
                 <label className="label" htmlFor="login-email">Email manzil</label>
                 <div className="relative">
@@ -222,8 +217,8 @@ export default function Login() {
           <div className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-900/10 bg-white/80 p-4 backdrop-blur">
             <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-600" />
             <p className="text-[10px] leading-relaxed text-stone-500">
-              Ma'lumotlaringiz serverda himoyalangan holda saqlanadi. Demo hisoblar va parolsiz kirish
-              o'chirilgan — har bir foydalanuvchi o'z hisobini o'zi yaratadi.
+              Ma'lumotlaringiz serverda himoyalangan holda saqlanadi. Har bir foydalanuvchi o'z
+              hisobini o'zi yaratadi va faqat o'z paroli bilan kiradi.
             </p>
           </div>
         </div>

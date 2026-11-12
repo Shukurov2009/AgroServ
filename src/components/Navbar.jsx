@@ -205,11 +205,14 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
-                <Link to="/login" className="btn btn-ghost btn-sm hidden sm:inline-flex">
-                  Kirish
-                </Link>
+                <div className="hidden sm:block">
+                  <Link to="/login" className="btn btn-ghost btn-sm">
+                    Kirish
+                  </Link>
+                </div>
                 <Link to="/register" className="btn btn-primary btn-sm">
-                  Ro'yxatdan o'tish
+                  <span className="hidden sm:inline">Ro'yxatdan o'tish</span>
+                  <span className="sm:hidden">Ro'yxat</span>
                 </Link>
               </div>
             )}

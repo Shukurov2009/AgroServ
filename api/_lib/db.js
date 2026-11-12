@@ -13,6 +13,7 @@ export function getPool() {
       max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 15000,
+      keepAlive: true,
     })
     globalForPg.__agroservPool.on('error', (error) => {
       console.error('Postgres pool error:', error.message)
@@ -21,8 +22,19 @@ export function getPool() {
   return globalForPg.__agroservPool
 }
 
-export function query(text, params) {
-  return getPool().query(text, params)
+export async function query(text, params) {
+  try {
+    return await getPool().query(text, params)
+  } catch (error) {
+    const transient =
+      ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EPIPE'].includes(error.code) ||
+      /Connection terminated|connection error/i.test(error.message || '')
+    const readOnly = /^\s*(select|with)\b/i.test(text)
+    if (transient && readOnly) {
+      return getPool().query(text, params)
+    }
+    throw error
+  }
 }
 
 export async function withTransaction(callback) {

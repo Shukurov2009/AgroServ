@@ -157,7 +157,7 @@ export default function AiAdvisor() {
       <section className="container-page py-6 sm:py-8">
         <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
           {/* CHAT */}
-          <div className="card flex h-[640px] flex-col overflow-hidden">
+          <div className="card flex h-[520px] flex-col overflow-hidden sm:h-[640px]">
             <div className="flex items-center justify-between gap-3 border-b border-emerald-900/5 bg-gradient-to-r from-emerald-50 to-lime-50 px-4 py-3">
               <div className="flex items-center gap-2.5">
                 <span className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
