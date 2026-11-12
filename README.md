@@ -1,61 +1,85 @@
 # AgroServ — agro xizmatlar platformasi
 
-O'zbekiston fermerlari uchun mahsulot bozori, texnika xizmatlari, ish o'rinlari, video darslar va AI maslahatchini birlashtirgan to'liq interaktiv demo platforma.
+O'zbekiston fermerlari uchun mahsulot bozori, texnika xizmatlari, ish o'rinlari, video darslar va AI maslahatchini birlashtirgan platforma.
+
+Loyiha demo emas: foydalanuvchilar, mahsulotlar, buyurtmalar, to'lovlar va statistika Neon Postgres bazasida saqlanadi.
 
 ## Texnologiyalar
 
 - React 19 + Vite 8
 - Tailwind CSS v4
 - React Router 7
-- React Hot Toast
-- Lucide ikonkalari
-- `localStorage` asosidagi offline ma'lumotlar bazasi
+- Vercel Serverless Functions (`api/index.js`)
+- Neon Postgres + `pg`
+- `bcryptjs` parol hash’i, `jose` JWT sessiya cookie’si
+- `google-auth-library` orqali Google ID token tekshiruvi
+
+## Muhit o'zgaruvchilari
+
+`.env.local` (lokal) yoki Vercel Environment Variables:
+
+| Kalit | Majburiy | Izoh |
+| --- | --- | --- |
+| `DATABASE_URL` | Ha | Neon Postgres connection string |
+| `AUTH_SECRET` | Ha | Kamida 32 belgili tasodifiy sir |
+| `APP_URL` | Ha | Sayt manzili, masalan `https://agroserv-lake.vercel.app` |
+| `GOOGLE_CLIENT_ID` | Yo'q | Google OAuth server client ID |
+| `VITE_GOOGLE_CLIENT_ID` | Yo'q | Google OAuth client ID (frontend) |
+| `PAYME_MERCHANT_ID`, `PAYME_KEY` | Yo'q | Payme merchant sozlamalari |
+| `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` | Yo'q | Click merchant sozlamalari |
+
+Google yoki Payme/Click sozlanmagan bo'lsa, tegishli tugma foydalanuvchiga ko'rsatilmaydi; qolgan oqimlar ishlayveradi.
 
 ## Ishga tushirish
 
 ```bash
 npm install
+vercel env pull .env.local   # yoki .env.local ni qo'lda to'ldiring
+npm run db:init
 npm run dev
 ```
 
-Production build:
+`db:init` sxemani yaratadi, sozlamalar va promo kodlarni seed qiladi hamda admin hisobini ochadi:
+
+- `ADMIN_EMAIL` — sukut bo'yicha `admin@agroserv.uz`
+- `ADMIN_PASSWORD` — berilmasa tasodifiy parol generatsiya qilinadi va konsolga chiqadi
+- Mavjud admin parolini almashtirish: `RESET_ADMIN=true` bilan qayta ishga tushiring
+
+Boshqa demo hisoblar yaratilmaydi.
+
+## API testlari
+
+```bash
+$env:TEST_ADMIN_PASSWORD='<admin paroli>'
+node --env-file=.env.local scripts/test-api.mjs
+```
+
+Testlar vaqtinchalik foydalanuvchilar yaratadi va oxirida ularni bazadan tozalaydi. 40 ta test auth, rollar, mahsulot/xizmat, savat, hamyon, manual to'lov, naqd komissiya, tarif, promo kod va parol tiklash oqimlarini qamrab oladi.
+
+## Asosiy imkoniyatlar
+
+- **Auth:** email/parol, 30 kunlik HttpOnly session cookie, Google OAuth, rol tanlash, admin vositachiligida parol tiklash.
+- **Bozor:** qidiruv, kategoriya, filtr, mahsulot sahifasi, savat, sevimlilar, sharhlar.
+- **Xizmatlar:** usta va agronomlar, buyurtma, sharh, xizmat holati.
+- **Ish o'rinlari:** e'lon joylash, ariza yuborish va arizalarni ko'rish.
+- **Videolar:** YouTube havolalari va o'z video e'lonlari.
+- **AI maslahatchi:** tarifga bog'liq oylik limit bilan serverda hisoblanadi.
+- **Rollar:** fermer, sotuvchi, usta, agronom va admin uchun alohida kabinet.
+- **Monetizatsiya:** Bepul/Plus/Pro tariflar, komissiya, hamyon, top mahsulot, promo kodlar.
+- **Admin panel:** real foydalanuvchilar, mahsulotlar, buyurtmalar, to'lovlar, xabarlar, kartalar, parol so'rovlari va sozlamalar.
+
+## To'lov oqimlari
+
+- **Hamyon:** balansdan darhol yechiladi, sotuvchilarga darhol o'tkaziladi.
+- **Manual bank o'tkazmasi:** buyurtma `pending` holatida turadi; admin chekni tasdiqlagach faollashadi.
+- **Naqd:** buyurtma yakunlanganda sotuvchi tushumidan komissiya yechiladi.
+- **Payme/Click:** merchant credential’lari bo'lsa redirect va webhook orqali ishlaydi.
+
+## Deploy
 
 ```bash
 npm run build
-npm run preview
-```
-
-## Demo hisoblar
-
-| Rol | Email | Parol |
-| --- | --- | --- |
-| Admin | `admin@agroserv.uz` | `admin123` |
-| Sotuvchi | `sotuvchi@agroserv.uz` | `demo123` |
-| Fermer | `fermer@agroserv.uz` | `demo123` |
-| Texnika ustasi | `ishchi@agroserv.uz` | `demo123` |
-| Agronom | `agronom@agroserv.uz` | `demo123` |
-
-Qo'shimcha sotuvchilar: `meva@agroserv.uz`, `kimyo@agroserv.uz` — parol `demo123`.
-
-## Imkoniyatlar
-
-- **Bozor:** qidiruv, kategoriya, saralash, mahsulot sahifasi, savat, sevimlilar.
-- **Xizmatlar:** usta va agronomlar, buyurtma berish, sharh qoldirish.
-- **Ish o'rinlari:** e'lon joylash va ariza yuborish.
-- **Videolar:** demo pleer, YouTube havolalari, o'z video e'loni.
-- **AI maslahatchi:** offline bilim bazasi asosida javob beradi.
-- **Rollar:** fermer, sotuvchi, usta, agronom va administrator uchun alohida kabinet.
-- **Monetizatsiya:** Free/Plus/Pro tariflar, 1–5% komissiya, hamyon, top mahsulot, promo kodlar.
-- **Admin panel:** foydalanuvchilar, mahsulotlar, buyurtmalar, xabarlar, kartalar va sozlamalar.
-
-## Ma'lumotlar
-
-Barcha ma'lumotlar brauzerdagi `agroserv.state.v1` kalitida saqlanadi. Hech qanday tashqi API ishlatilmaydi. Demo ma'lumotlarni tiklash uchun **Admin → Sozlamalar → Demo ma'lumotlarni tiklash** tugmasidan foydalaning.
-
-## Vercel
-
-Loyiha `vercel.json` orqali SPA routing bilan sozlangan. Har qanday `/mahsulot/p1` kabi deep link to'g'ridan-to'g'ri ochilganda `index.html` ga qayta yo'naltiriladi.
-
-```bash
 vercel --prod
 ```
+
+`vercel.json` barcha `/api/*` yo'llarini `api/index.js` funksiyasiga, qolgan yo'llarni SPA `index.html` ga yo'naltiradi. Deep link’lar (masalan `/mahsulot/...`) to'g'ridan-to'g'ri ochiladi.

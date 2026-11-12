@@ -439,7 +439,15 @@ try {
   }
 
   console.log('\nBarcha API testlari muvaffaqiyatli o‘tdi.')
+} catch (error) {
+  console.error('\nAPI testlari muvaffaqiyatsiz:', error.message)
+  process.exitCode = 1
 } finally {
-  await cleanup()
-  process.exit(0)
+  try {
+    await cleanup()
+  } catch (cleanupError) {
+    console.error('Tozalashda xato:', cleanupError.message)
+    process.exitCode = 1
+  }
+  process.exit(process.exitCode || 0)
 }
