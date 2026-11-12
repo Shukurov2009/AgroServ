@@ -11,18 +11,18 @@ export default function ProductCard({ product, compact = false }) {
   const category = CATEGORIES.find((item) => item.id === product.category)
   const soldOut = product.stock <= 0
 
-  function handleFavorite(event) {
+  async function handleFavorite(event) {
     event.preventDefault()
     event.stopPropagation()
-    const result = toggleFavorite(product.id)
+    const result = await toggleFavorite(product.id)
     if (result.ok) toast.success(result.added ? 'Sevimlilarga qo\'shildi' : 'Sevimlilardan olib tashlandi')
     else toast.error(result.error)
   }
 
-  function handleAdd(event) {
+  async function handleAdd(event) {
     event.preventDefault()
     event.stopPropagation()
-    const result = addToCart(product.id, 1)
+    const result = await addToCart(product.id, 1)
     if (result.ok) toast.success('Savatga qo\'shildi')
     else toast.error(result.error)
   }

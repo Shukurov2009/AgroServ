@@ -69,9 +69,9 @@ export default function ServiceDetail() {
     })
   }
 
-  function handleReview(event) {
+  async function handleReview(event) {
     event.preventDefault()
-    const result = addReview({
+    const result = await addReview({
       targetType: 'service',
       targetId: service.id,
       stars: reviewStars,

@@ -56,13 +56,13 @@ export default function Videos() {
     return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   }, [videos, category, query])
 
-  function handleAdd(event) {
+  async function handleAdd(event) {
     event.preventDefault()
     if (!currentUser) {
       toast.error('Video qo\'shish uchun tizimga kiring')
       return
     }
-    const result = addVideo(form)
+    const result = await addVideo(form)
     if (result.ok) {
       toast.success('Video muvaffaqiyatli qo\'shildi!')
       setAddOpen(false)
@@ -80,8 +80,8 @@ export default function Videos() {
     }
   }
 
-  function handleDelete(video) {
-    const result = deleteVideo(video.id)
+  async function handleDelete(video) {
+    const result = await deleteVideo(video.id)
     if (result.ok) {
       toast.success('Video o\'chirildi')
       if (playing?.id === video.id) setPlaying(null)
@@ -95,7 +95,7 @@ export default function Videos() {
       <PageHero
         eyebrow="Bilim markazi"
         title="Agro bilim videolari"
-        description="Tomchilatib sug'orish, kasalliklarni aniqlash, o'g'itlash va texnika xizmati bo'yicha amaliy darslar. Offline demo rejimida video tavsiflari va materiallar mavjud."
+        description="Tomchilatib sug'orish, kasalliklarni aniqlash, o'g'itlash va texnika xizmati bo'yicha amaliy darslar."
         breadcrumbs={[{ label: 'Videolar' }]}
         actions={
           <>
@@ -224,7 +224,7 @@ export default function Videos() {
                 </div>
               </div>
               <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-emerald-950/40 px-2.5 py-1 text-[9px] font-bold text-white backdrop-blur">
-                <Play size={10} className="fill-white" /> Demo pleyer
+                <Play size={10} className="fill-white" /> Video ko'rinishi
               </div>
             </div>
 
@@ -237,7 +237,7 @@ export default function Videos() {
               </div>
             ) : (
               <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-800">
-                Bu demo video. Offline rejimda to'liq video o'ynatilmaydi — tavsif va materiallar taqdim etiladi.
+                Bu video uchun YouTube havolasi kiritilmagan. Tavsif va materiallar mavjud.
               </div>
             )}
 
@@ -269,7 +269,7 @@ export default function Videos() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         title="Video qo'shish"
-        subtitle="YouTube havolasini kiriting yoki demo video yarating."
+        subtitle="YouTube havolasini kiriting yoki video tavsifini yarating."
         size="md"
       >
         <form onSubmit={handleAdd} className="space-y-3">

@@ -19,7 +19,7 @@ import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
 
 export default function Jobs() {
-  const { jobs, currentUser, addJob, applyToJob, applications } = useStore()
+  const { jobs, users, currentUser, addJob, applyToJob, applications } = useStore()
   const [query, setQuery] = useState('')
   const [type, setType] = useState('all')
   const [location, setLocation] = useState('all')
@@ -67,9 +67,9 @@ export default function Jobs() {
     })
   }
 
-  function handleApply(event) {
+  async function handleApply(event) {
     event.preventDefault()
-    const result = applyToJob(applyJob.id, application)
+    const result = await applyToJob(applyJob.id, application)
     if (result.ok) {
       toast.success('Arizangiz yuborildi! Ish beruvchi tez orada bog\'lanadi.')
       setApplyJob(null)
@@ -79,13 +79,13 @@ export default function Jobs() {
     }
   }
 
-  function handleAddJob(event) {
+  async function handleAddJob(event) {
     event.preventDefault()
     if (!currentUser) {
       toast.error("E'lon joylash uchun tizimga kiring")
       return
     }
-    const result = addJob(jobForm)
+    const result = await addJob(jobForm)
     if (result.ok) {
       toast.success("Ish e'loni joylandi!")
       setAddOpen(false)
@@ -276,7 +276,11 @@ export default function Jobs() {
 
         <div className="mt-8 grid gap-3 sm:grid-cols-3">
           {[
-            { icon: Users, title: '900+ mutaxassis', text: "Platformada ro'yxatdan o'tgan agro mutaxassislar." },
+            {
+              icon: Users,
+              title: `${users.filter((user) => ['worker', 'agronomist'].includes(user.role)).length} mutaxassis`,
+              text: "Platformada ro'yxatdan o'tgan usta va agronomlar.",
+            },
             { icon: Briefcase, title: "Oson ariza", text: "Bir necha maydon to'ldirib, arizani yuboring." },
             { icon: ClipboardList, title: 'Barcha arizalar', text: "Yuborilgan arizalarni kabinetda kuzatib boring." },
           ].map((item) => {

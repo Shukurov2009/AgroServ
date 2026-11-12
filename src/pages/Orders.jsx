@@ -71,9 +71,9 @@ export default function Orders() {
     .filter((order) => ['paid', 'processing', 'shipped', 'completed'].includes(order.status))
     .reduce((sum, order) => sum + order.subtotal - order.platformFee, 0)
 
-  function cancelOrder(order) {
+  async function cancelOrder(order) {
     if (!window.confirm('Buyurtmani bekor qilmoqchimisiz? To\'langan summa hamyoningizga qaytariladi.')) return
-    const result = updateOrderStatus(order.id, 'cancelled')
+    const result = await updateOrderStatus(order.id, 'cancelled')
     if (result.ok) {
       toast.success('Buyurtma bekor qilindi')
       setDetail(null)
@@ -82,12 +82,12 @@ export default function Orders() {
     }
   }
 
-  function advance(order) {
+  async function advance(order) {
     const flow = ['pending', 'paid', 'processing', 'shipped', 'completed']
     const index = flow.indexOf(order.status)
     const next = flow[index + 1]
     if (!next) return
-    const result = updateOrderStatus(order.id, next)
+    const result = await updateOrderStatus(order.id, next)
     if (result.ok) {
       toast.success(`Holat «${ORDER_STATUS[next].label}» ga o'zgartirildi`)
       setDetail({ ...order, status: next })
@@ -96,8 +96,8 @@ export default function Orders() {
     }
   }
 
-  function confirmReceipt(order) {
-    const result = updateOrderStatus(order.id, 'completed')
+  async function confirmReceipt(order) {
+    const result = await updateOrderStatus(order.id, 'completed')
     if (result.ok) {
       toast.success('Buyurtma yakunlandi. Sharh qoldirishingiz mumkin!')
       setDetail(null)

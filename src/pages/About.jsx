@@ -8,7 +8,6 @@ import {
   Bot,
   CheckCircle2,
   ChevronDown,
-  Globe,
   Handshake,
   HeartHandshake,
   Mail,
@@ -26,6 +25,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
+import { formatNumber, formatSom } from '../lib/format'
 import PageHero from '../components/PageHero'
 import SectionHeader from '../components/SectionHeader'
 import StatCard from '../components/StatCard'
@@ -75,22 +75,15 @@ const TIMELINE = [
   },
   {
     year: '2026',
-    title: '14 viloyat',
-    text: "Platforma butun O'zbekiston bo'ylab faoliyat yuritadi: 12 000+ fermer, 8 500+ mahsulot va 900+ mutaxassis.",
+    title: 'Milliy miqyos',
+    text: "Platforma O'zbekistonning barcha viloyatlarida ishlaydi. Har bir yangi foydalanuvchi va e'lon real vaqtda bazaga qo'shiladi.",
   },
-]
-
-const TEAM = [
-  { name: 'Sardor Rahimov', role: 'Asoschi va CEO', avatar: '👨‍🌾', note: "12 yillik agro biznes tajribasi" },
-  { name: 'Dilnoza Yusupova', role: 'Bosh agronom', avatar: '👩‍🔬', note: "Donli ekinlar bo'yicha PhD" },
-  { name: 'Jasur Karimov', role: 'Texnologiya rahbari', avatar: '👨‍💻', note: 'Raqamli platformalar mutaxassisi' },
-  { name: 'Madina Aliyeva', role: 'Operatsiyalar', avatar: '👩‍💼', note: "Sotuvchilar va fermerlar bilan ishlash" },
 ]
 
 const FAQ = [
   {
-    q: 'AgroServ offline ishlaydimi?',
-    a: "Ha, bu demo versiya to'liq brauzerda ishlaydi. Barcha ma'lumotlar localStorage'da saqlanadi va internet talab qilinmaydi. Real loyihada server va to'lov integratsiyasi ulanadi.",
+    q: 'AgroServ qanday ishlaydi?',
+    a: "AgroServ to'liq serverda ishlaydi: hisoblar, mahsulotlar, buyurtmalar va to'lovlar Neon Postgres bazasida saqlanadi. Internet va brauzer yetarli.",
   },
   {
     q: "Ro'yxatdan o'tish pullikmi?",
@@ -98,7 +91,7 @@ const FAQ = [
   },
   {
     q: "To'lovlar qanday amalga oshiriladi?",
-    a: "Demo rejimda karta, hamyon va naqd to'lov simulyatsiya qilinadi. Hamyonni karta orqali to'ldirish, obuna sotib olish va top mahsulot xizmati to'liq ishlaydi.",
+    a: "Hamyon, bank o'tkazmasi va naqd to'lov qo'llab-quvvatlanadi. Bank o'tkazmasi admin tasdig'idan keyin, hamyon esa darhol faollashadi. Payme va Click credentiallari ulanganda onlayn to'lov ham ishlaydi.",
   },
   {
     q: 'Rolimni qanday o\'zgartirman?',
@@ -110,7 +103,7 @@ const FAQ = [
   },
   {
     q: 'AI maslahatchi qanday ishlaydi?',
-    a: "Demo rejimda AI lokal bilim bazasi asosida javob beradi: ekinlar, kasalliklar, o'g'itlash, sug'orish va platforma bo'yicha. Rasm yuklasangiz, demo tahlil ko'rsatiladi.",
+    a: "AI maslahatchi ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha bilim bazasidan javob beradi. Har bir savol serverda hisoblanadi va tarif limitingizga mos tekshiriladi.",
   },
 ]
 
@@ -122,14 +115,14 @@ const CONTACTS = [
 ]
 
 export default function About() {
-  const { sendMessage, products, services, orders } = useStore()
+  const { sendMessage, products, services, orders, users, reviews } = useStore()
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [openFaq, setOpenFaq] = useState(0)
   const [sent, setSent] = useState(false)
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    const result = sendMessage(form)
+    const result = await sendMessage(form)
     if (result.ok) {
       toast.success("Xabaringiz yuborildi! Tez orada javob beramiz.")
       setForm({ name: '', email: '', subject: '', message: '' })
@@ -141,7 +134,12 @@ export default function About() {
 
   const totalSales = orders
     .filter((order) => order.status !== 'cancelled')
-    .reduce((sum, order) => sum + order.subtotal, 0)
+    .reduce((sum, order) => sum + order.total, 0)
+  const completedOrders = orders.filter((order) => order.status === 'completed').length
+  const providersCount = users.filter((user) => ['worker', 'agronomist'].includes(user.role)).length
+  const averageRating = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
+    : 0
 
   return (
     <div>
@@ -163,9 +161,9 @@ export default function About() {
       >
         <div className="grid w-64 grid-cols-2 gap-2 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
           {[
-            ['12K+', 'Fermer'],
-            ['8.5K+', 'Mahsulot'],
-            ['900+', 'Mutaxassis'],
+            [formatNumber(users.length), 'Foydalanuvchi'],
+            [formatNumber(products.length + services.length), "E'lon"],
+            [formatNumber(providersCount), 'Mutaxassis'],
             ['14', 'Viloyat'],
           ].map(([value, label]) => (
             <div key={label} className="rounded-xl bg-emerald-950/40 p-3 text-center">
@@ -210,10 +208,10 @@ export default function About() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <StatCard icon={<Users size={18} />} label="Foydalanuvchilar" value="12 400+" hint="Fermer, sotuvchi va mutaxassis" tone="emerald" />
-            <StatCard icon={<Store size={18} />} label="Faol e'lonlar" value={`${products.length + services.length}+`} hint="Bozor va xizmatlar" tone="sky" />
-            <StatCard icon={<TrendingUp size={18} />} label="Savdo hajmi" value={`${Math.round((totalSales + 1680000000) / 1000000)} mln`} hint="So'mlarda, demo ma'lumot" tone="amber" />
-            <StatCard icon={<HeartHandshake size={18} />} label="Mamuniyat" value="98%" hint="Xizmatdan qaytgan mijozlar" tone="rose" />
+            <StatCard icon={<Users size={18} />} label="Foydalanuvchilar" value={formatNumber(users.length)} hint="Fermer, sotuvchi va mutaxassis" tone="emerald" />
+            <StatCard icon={<Store size={18} />} label="E'lonlar" value={formatNumber(products.length + services.length)} hint="Bozor va xizmatlar" tone="sky" />
+            <StatCard icon={<TrendingUp size={18} />} label="Savdo hajmi" value={formatSom(totalSales)} hint={`${formatNumber(orders.length)} ta buyurtma`} tone="amber" />
+            <StatCard icon={<HeartHandshake size={18} />} label="O'rtacha reyting" value={averageRating ? `${averageRating.toFixed(1)}/5` : '—'} hint={`${formatNumber(reviews.length)} ta fikr`} tone="rose" />
           </div>
         </div>
       </section>
@@ -268,32 +266,21 @@ export default function About() {
         </div>
       </section>
 
-      {/* TEAM */}
+      {/* PLATFORM TODAY */}
       <section className="bg-emerald-950 text-white">
         <div className="container-page section-pad">
           <SectionHeader
             light
-            eyebrow="Jamoa"
-            title="Agro bilim va texnologiyani birlashtirgan odamlar"
-            description="Agronomlar, muhandislar va biznes mutaxassislari — hammasi bitta maqsad uchun."
+            eyebrow="Platforma bugun"
+            title="Real foydalanuvchilar, real natijalar"
+            description="Bu raqamlar serverdagi haqiqiy ma'lumotlardan olinadi. Sun'iy o'sish yoki demo hisoblar yo'q."
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {TEAM.map((member) => (
-              <div key={member.name} className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400/30 to-lime-400/20 text-3xl">
-                  {member.avatar}
-                </span>
-                <h3 className="mt-3 text-sm font-black text-white">{member.name}</h3>
-                <p className="text-[10px] font-bold text-lime-300">{member.role}</p>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-emerald-100/55">{member.note}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8 grid gap-3 sm:grid-cols-3">
             {[
-              { icon: Globe, label: '14 viloyat', text: "Butun O'zbekiston bo'ylab" },
-              { icon: Award, label: '900+ mutaxassis', text: "Tekshirilgan ustalar va agronomlar" },
-              { icon: Rocket, label: '24/7 platforma', text: "AI va avtomatik buyurtma tizimi" },
+              { icon: Users, label: `${formatNumber(users.length)} foydalanuvchi`, text: "Ro'yxatdan o'tgan hisoblar" },
+              { icon: Store, label: `${formatNumber(products.length + services.length)} e'lon`, text: 'Mahsulot va xizmatlar' },
+              { icon: Award, label: `${formatNumber(providersCount)} mutaxassis`, text: 'Usta va agronomlar' },
+              { icon: Rocket, label: `${formatNumber(completedOrders)} buyurtma`, text: 'Yakunlangan bitimlar' },
             ].map((item) => {
               const Icon = item.icon
               return (
@@ -415,7 +402,7 @@ export default function About() {
             </h2>
             <p className="mt-2.5 text-sm leading-relaxed text-stone-500">
               Hamkorlik, texnik yordam, sotuvchilik yoki takliflar bo'yicha murojaat qiling.
-              Demo rejimda xabarlar admin panelida ko'rinadi.
+              Xabar admin paneliga tushadi va qo'llab-quvvatlash jamoasi javob beradi.
             </p>
 
             <div className="mt-5 grid gap-2">
@@ -448,8 +435,8 @@ export default function About() {
               </p>
               <p className="mt-1 text-[11px] text-stone-600">Dushanba–Shanba, 09:00–19:00</p>
               <p className="mt-2 text-[10px] leading-relaxed text-stone-500">
-                Demo rejim: xabar yuborilganda u brauzeringizda saqlanadi. Administrator
-                panelidagi «Xabarlar» bo'limida ko'rish mumkin.
+                Xabar serverda saqlanadi. Administrator panelidagi «Xabarlar» bo'limida
+                ko'rish va javob berish mumkin.
               </p>
             </div>
           </div>

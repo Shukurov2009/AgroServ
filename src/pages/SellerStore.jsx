@@ -161,13 +161,13 @@ export default function SellerStore() {
     setModalOpen(true)
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     const payload = {
       ...form,
       year: form.year ? Number(form.year) : undefined,
     }
-    const result = editId ? updateProduct(editId, payload) : addProduct(payload)
+    const result = editId ? await updateProduct(editId, payload) : await addProduct(payload)
     if (result.ok) {
       toast.success(editId ? "Mahsulot yangilandi" : "Mahsulot do'konga qo'shildi")
       setModalOpen(false)
@@ -178,9 +178,9 @@ export default function SellerStore() {
     }
   }
 
-  function toggleStatus(product) {
+  async function toggleStatus(product) {
     const next = product.status === 'active' ? 'paused' : 'active'
-    const result = updateProduct(product.id, { status: next })
+    const result = await updateProduct(product.id, { status: next })
     if (result.ok) {
       toast.success(next === 'active' ? 'Mahsulot faollashtirildi' : "Mahsulot to'xtatildi")
     } else {
@@ -188,11 +188,11 @@ export default function SellerStore() {
     }
   }
 
-  function handleDelete(product) {
+  async function handleDelete(product) {
     if (!window.confirm(`«${product.title}» mahsulotini o'chirmoqchimisiz? Bu amalni qaytarib bo'lmaydi.`)) {
       return
     }
-    const result = deleteProduct(product.id)
+    const result = await deleteProduct(product.id)
     if (result.ok) toast.success("Mahsulot o'chirildi")
     else toast.error(result.error)
   }

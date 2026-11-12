@@ -286,15 +286,3 @@ export function promoDiscount(promo, amount) {
   if (promo.maxDiscount) discount = Math.min(discount, promo.maxDiscount)
   return Math.min(Math.round(discount), amount)
 }
-
-export function validatePromo(code, scope, amount) {
-  const normalized = String(code || '').trim().toUpperCase()
-  if (!normalized) return { ok: false, error: 'Promo kodni kiriting' }
-  const promo = PROMOS[normalized]
-  if (!promo) return { ok: false, error: 'Bunday promo kod topilmadi' }
-  if (promo.scope !== scope) return { ok: false, error: 'Bu promo kod ushbu to\'lov uchun mos emas' }
-  if (amount < (promo.minTotal || 0)) {
-    return { ok: false, error: `Promo kod ${new Intl.NumberFormat('uz-UZ').format(promo.minTotal)} so'mdan boshlab ishlaydi` }
-  }
-  return { ok: true, promo, discount: promoDiscount(promo, amount) }
-}

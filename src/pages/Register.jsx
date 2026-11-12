@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ArrowRight, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, User } from 'lucide-react'
+import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail, MapPin, Phone, User } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { REGIONS, ROLES, SELF_ROLES } from '../lib/constants'
 import AuthVisual from '../components/AuthVisual'
@@ -13,7 +13,7 @@ const INITIAL = {
   region: 'Toshkent',
   password: '',
   confirm: '',
-  role: 'user',
+  role: '',
 }
 
 export default function Register() {
@@ -23,6 +23,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [accepted, setAccepted] = useState(false)
   const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
 
   if (currentUser) {
     const target =
@@ -41,12 +42,13 @@ export default function Register() {
     setErrors((prev) => ({ ...prev, [field]: undefined }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     const nextErrors = {}
     if (form.name.trim().length < 2) nextErrors.name = 'Ismni kiriting'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) nextErrors.email = 'Email noto\'g\'ri'
-    if (form.password.length < 6) nextErrors.password = 'Kamida 6 ta belgi'
+    if (!SELF_ROLES.includes(form.role)) nextErrors.role = 'Rolni tanlang'
+    if (form.password.length < 8) nextErrors.password = 'Kamida 8 ta belgi'
     if (form.password !== form.confirm) nextErrors.confirm = 'Parollar mos kelmadi'
     if (!accepted) nextErrors.accepted = 'Foydalanish shartlarini qabul qiling'
     if (Object.keys(nextErrors).length > 0) {
@@ -55,7 +57,8 @@ export default function Register() {
       return
     }
 
-    const result = signUp({
+    setSubmitting(true)
+    const result = await signUp({
       name: form.name,
       email: form.email,
       phone: form.phone,
@@ -63,6 +66,7 @@ export default function Register() {
       password: form.password,
       role: form.role,
     })
+    setSubmitting(false)
 
     if (!result.ok) {
       toast.error(result.error)
@@ -126,7 +130,10 @@ export default function Register() {
                     )
                   })}
                 </div>
-                <p className="mt-1.5 text-[10px] text-stone-400">{ROLES[form.role].description}</p>
+                <p className="mt-1.5 text-[10px] text-stone-400">
+                  {form.role ? ROLES[form.role].description : "O'zingizga mos rolni tanlang — bu keyin o'zgartirilishi mumkin."}
+                </p>
+                {errors.role && <p className="mt-1 text-[10px] font-semibold text-rose-500">{errors.role}</p>}
               </div>
 
               <div className="grid gap-3.5 sm:grid-cols-2">
@@ -205,7 +212,7 @@ export default function Register() {
                       type={showPassword ? 'text' : 'password'}
                       value={form.password}
                       onChange={(event) => update('password', event.target.value)}
-                      placeholder="Kamida 6 ta belgi"
+                      placeholder="Kamida 8 ta belgi"
                       className="input pl-10 pr-10"
                       required
                     />
@@ -278,7 +285,8 @@ export default function Register() {
               </label>
               {errors.accepted && <p className="text-[10px] font-semibold text-rose-500">{errors.accepted}</p>}
 
-              <button type="submit" className="btn btn-primary w-full">
+              <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
                 Hisob yaratish <ArrowRight size={16} />
               </button>
             </form>

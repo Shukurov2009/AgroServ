@@ -58,15 +58,6 @@ export function initials(name = '') {
     .join('')
 }
 
-export function simpleHash(value = '') {
-  let hash = 5381
-  const source = `${value}::agroserv-demo-salt`
-  for (let index = 0; index < source.length; index += 1) {
-    hash = (hash * 33) ^ source.charCodeAt(index)
-  }
-  return `h${(hash >>> 0).toString(36)}`
-}
-
 export function parseYoutubeId(url = '') {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/)([\w-]{6,})/i,
@@ -87,10 +78,6 @@ export function maskCard(number = '') {
 
 export function todayKey() {
   return new Date().toISOString().slice(0, 10)
-}
-
-export function daysFromNow(days = 0) {
-  return new Date(Date.now() + days * 86400000).toISOString()
 }
 
 export function addMonths(dateValue, months) {

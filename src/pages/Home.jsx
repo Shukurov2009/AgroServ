@@ -41,28 +41,7 @@ const STEPS = [
   {
     icon: CheckCircle2,
     title: 'Xavfsiz yakunlang',
-    text: "Karta yoki hamyon orqali to'lang, buyurtmani kuzatib boring va baho qoldiring.",
-  },
-]
-
-const TESTIMONIALS = [
-  {
-    name: 'Aziz Fermer',
-    role: 'Samarqand, 12 gektar bog\'',
-    avatar: '🌾',
-    text: "AgroServ orqali olma bog'im uchun agronom topdim. Kasallikni aniq aniqlab, hosilni 20% oshirdik.",
-  },
-  {
-    name: 'Sardor Agro Savdo',
-    role: 'Texnika sotuvchisi',
-    avatar: '🚜',
-    text: "Plus tarifiga o'tgach, mahsulotlarim 3 baravar ko'proq ko'rildi. Komissiya ham kamaydi.",
-  },
-  {
-    name: 'Dilnoza Yusupova',
-    role: 'Agronom, 15 yillik tajriba',
-    avatar: '🌿',
-    text: "Platforma orqali mijozlar oqimi barqaror. Har hafta yangi maslahat so'rovlari keladi.",
+    text: "Hamyon, bank o'tkazmasi yoki naqd orqali to'lang, buyurtmani kuzatib boring va baho qoldiring.",
   },
 ]
 
@@ -75,7 +54,7 @@ const TRUST = [
 
 export default function Home() {
   const navigate = useNavigate()
-  const { products, services, videos, users, orders, currentUser } = useStore()
+  const { products, services, videos, users, orders, reviews, settings, currentUser } = useStore()
   const [query, setQuery] = useState('')
 
   const featured = [
@@ -88,7 +67,35 @@ export default function Home() {
   const plan = currentUser ? getPlan(currentUser) : PLANS.free
   const totalRevenue = orders
     .filter((order) => order.status !== 'cancelled')
-    .reduce((sum, order) => sum + order.platformFee, 0)
+    .reduce((sum, order) => sum + order.total, 0)
+  const completedOrders = orders.filter((order) => order.status === 'completed').length
+  const averageRating = reviews.length
+    ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
+    : 0
+  const regionsCount = new Set(users.map((user) => user.region).filter(Boolean)).size
+  const weeklyBars = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date()
+    day.setDate(day.getDate() - (6 - index))
+    const key = day.toISOString().slice(0, 10)
+    return orders
+      .filter((order) => order.status !== 'cancelled' && order.createdAt?.slice(0, 10) === key)
+      .reduce((sum, order) => sum + order.total, 0)
+  })
+  const maxBar = Math.max(...weeklyBars, 1)
+
+  const heroStats = [
+    [formatNumber(users.length), 'Foydalanuvchi'],
+    [formatNumber(products.length + services.length), "E'lon"],
+    [String(regionsCount), 'Viloyat'],
+    [averageRating ? `${averageRating.toFixed(1)}/5` : '—', 'Reyting'],
+  ]
+
+  const trustStats = [
+    [averageRating ? `${averageRating.toFixed(1)}/5` : '—', "O'rtacha reyting"],
+    [settings.workingHours || '09:00–19:00', "Qo'llab-quvvatlash"],
+    [formatNumber(completedOrders), 'Yakunlangan buyurtma'],
+    ['1%', 'Pro tarif komissiyasi'],
+  ]
 
   function handleSearch(event) {
     event.preventDefault()
@@ -155,12 +162,7 @@ export default function Home() {
             </div>
 
             <div className="mt-8 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                ['12 000+', 'Faol fermer'],
-                ['8 500+', 'Mahsulot'],
-                ['14', 'Viloyat'],
-                ['4.9/5', 'Reyting'],
-              ].map(([value, label]) => (
+              {heroStats.map(([value, label]) => (
                 <div key={label}>
                   <p className="text-xl font-black text-white">{value}</p>
                   <p className="text-[10px] font-semibold text-emerald-100/45">{label}</p>
@@ -179,19 +181,19 @@ export default function Home() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-100/45">Platforma savdosi</p>
-                    <p className="mt-1 text-2xl font-black text-white">{formatNumber(totalRevenue + 45800000)} so'm</p>
+                    <p className="mt-1 text-2xl font-black text-white">{formatNumber(totalRevenue)} so'm</p>
                   </div>
                   <span className="flex items-center gap-1 rounded-full bg-lime-400/15 px-2 py-1 text-[10px] font-bold text-lime-300">
-                    <TrendingUp size={11} /> +18.4%
+                    <TrendingUp size={11} /> {formatNumber(orders.length)} buyurtma
                   </span>
                 </div>
 
                 <div className="mt-4 flex h-24 items-end gap-2">
-                  {[38, 55, 44, 68, 57, 82, 96].map((height, index) => (
+                  {weeklyBars.map((value, index) => (
                     <div key={index} className="flex-1">
                       <div
                         className="rounded-t-md bg-gradient-to-t from-emerald-500/40 to-lime-300"
-                        style={{ height: `${height}%` }}
+                        style={{ height: `${Math.max(4, Math.round((value / maxBar) * 100))}%` }}
                       />
                     </div>
                   ))}
@@ -205,11 +207,11 @@ export default function Home() {
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-white/5 p-3">
                     <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-100/40">Buyurtmalar</p>
-                    <p className="mt-1 text-lg font-black text-white">{formatNumber(orders.length + 324)}</p>
+                    <p className="mt-1 text-lg font-black text-white">{formatNumber(orders.length)}</p>
                   </div>
                   <div className="rounded-xl bg-white/5 p-3">
                     <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-100/40">Foydalanuvchilar</p>
-                    <p className="mt-1 text-lg font-black text-white">{formatNumber(users.length + 12000)}</p>
+                    <p className="mt-1 text-lg font-black text-white">{formatNumber(users.length)}</p>
                   </div>
                 </div>
               </div>
@@ -468,18 +470,14 @@ export default function Home() {
             <div>
               <span className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Ishonch</span>
               <h2 className="mt-2.5 text-2xl font-black leading-tight text-emerald-950 sm:text-3xl">
-                Minglab fermerlar allaqachon biz bilan
+                Har bir raqam — real foydalanuvchi va real bitim
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-stone-500">
-                Platformadagi har bir bitim, xizmat va maslahat real foydalanuvchilar tajribasiga asoslanadi.
+                Platformadagi barcha statistika serverdagi haqiqiy ma'lumotlardan olinadi.
+                Yangi foydalanuvchi qo'shilmaguncha raqamlar o'zgarmaydi.
               </p>
               <div className="mt-6 grid grid-cols-2 gap-3">
-                {[
-                  ['98%', 'Mamuniy mijozlar'],
-                  ['24 soat', "O'rtacha javob vaqti"],
-                  ['5 000+', 'Yakunlangan buyurtma'],
-                  ['1%', 'Pro tarif komissiyasi'],
-                ].map(([value, label]) => (
+                {trustStats.map(([value, label]) => (
                   <div key={label} className="rounded-xl border border-emerald-900/10 bg-white p-3">
                     <p className="text-lg font-black text-emerald-950">{value}</p>
                     <p className="text-[10px] font-semibold text-stone-400">{label}</p>
@@ -488,25 +486,42 @@ export default function Home() {
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-1">
-              {TESTIMONIALS.map((item) => (
-                <div key={item.name} className="card flex gap-4 p-4">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-lime-100 text-xl">
-                    {item.avatar}
+              {reviews.length === 0 ? (
+                <div className="card p-6 text-center">
+                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">
+                    💬
                   </span>
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-black text-emerald-950">{item.name}</p>
-                      <span className="text-[10px] font-semibold text-stone-400">{item.role}</span>
-                    </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-stone-500">“{item.text}”</p>
-                    <div className="mt-2 flex gap-0.5 text-amber-400">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <span key={star} className="text-xs">★</span>
-                      ))}
+                  <p className="mt-2 text-sm font-black text-emerald-950">Hozircha fikrlar yo'q</p>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-500">
+                    Birinchi xaridni amalga oshirib, sotuvchi yoki xizmat haqida fikr qoldiring.
+                  </p>
+                  <Link to="/bozor" className="btn btn-primary btn-sm mt-3">
+                    Bozorga o'tish
+                  </Link>
+                </div>
+              ) : (
+                reviews.slice(0, 3).map((review) => (
+                  <div key={review.id} className="card flex gap-4 p-4">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-lime-100 text-xl">
+                      {review.targetType === 'service' ? '🌿' : '🌾'}
+                    </span>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-black text-emerald-950">{review.userName || 'Foydalanuvchi'}</p>
+                        <span className="text-[10px] font-semibold text-stone-400">
+                          {review.targetType === 'service' ? 'Xizmat' : 'Mahsulot'} fikri
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-stone-500">“{review.comment}”</p>
+                      <div className="mt-2 flex gap-0.5 text-amber-400">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span key={star} className={star <= review.stars ? 'text-xs' : 'text-xs text-stone-200'}>★</span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>

@@ -7,29 +7,32 @@ import {
   Banknote,
   Check,
   CheckCircle2,
-  CreditCard,
+  Clock,
   Crown,
   Landmark,
   Loader2,
   Lock,
   ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Target,
   Truck,
   Wallet,
   X,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { PLANS, REGIONS, validatePromo } from '../lib/constants'
-import { formatNumber, formatSom } from '../lib/format'
+import { PLANS, REGIONS } from '../lib/constants'
+import { formatNumber, formatSom, maskCard } from '../lib/format'
 import EmptyState from '../components/EmptyState'
 
 const TOPUP_AMOUNTS = [50000, 100000, 250000, 500000, 1000000]
 
 const PAYMENT_LABELS = {
-  card: 'Bank kartasi',
+  manual: "Bank o'tkazmasi",
   wallet: 'AgroServ hamyoni',
   cash: 'Naqd (yetkazib berishda)',
+  payme: 'Payme',
+  click: 'Click',
 }
 
 export default function Checkout() {
@@ -41,16 +44,19 @@ export default function Checkout() {
     products,
     services,
     settings,
+    cards,
+    providers,
     checkout,
     purchasePlan,
     topUp,
     promoteProduct,
+    validatePromoCode,
   } = useStore()
 
   const config = location.state || {}
   const type = config.type || 'cart'
 
-  const [method, setMethod] = useState('card')
+  const [method, setMethod] = useState('manual')
   const [info, setInfo] = useState({
     name: currentUser?.name || '',
     phone: currentUser?.phone || '',
@@ -59,9 +65,9 @@ export default function Checkout() {
     note: '',
   })
   const [promoInput, setPromoInput] = useState('')
-  const [appliedPromo, setAppliedPromo] = useState('')
+  const [promoInfo, setPromoInfo] = useState(null)
   const [promoError, setPromoError] = useState('')
-  const [card, setCard] = useState({ number: '', expiry: '', holder: '' })
+  const [promoLoading, setPromoLoading] = useState(false)
   const [topupAmount, setTopupAmount] = useState(Number(config.amount) || 100000)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(null)
@@ -142,12 +148,8 @@ export default function Checkout() {
     : 0
   const featurePrice = settings.featuredPrice
   const promoScope = type === 'plan' ? 'plan' : type === 'feature' ? 'feature' : 'order'
-  const promoBase =
-    type === 'plan' ? planPrice : type === 'feature' ? featurePrice : subtotal
-  const promoCheck = appliedPromo
-    ? validatePromo(appliedPromo, promoScope, promoBase)
-    : { ok: false, discount: 0 }
-  const discount = promoCheck.ok ? promoCheck.discount : 0
+  const promoBase = type === 'plan' ? planPrice : type === 'feature' ? featurePrice : subtotal
+  const discount = promoInfo?.discount || 0
 
   const total =
     type === 'plan'
@@ -161,66 +163,45 @@ export default function Checkout() {
   const walletBalance = currentUser?.wallet || 0
   const insufficientWallet = method === 'wallet' && walletBalance < total
   const isOrder = ['cart', 'direct', 'service'].includes(type)
-  function handlePromo(event) {
+  const activeCards = cards.filter((card) => card.active)
+
+  async function handlePromo(event) {
     event.preventDefault()
     if (!promoInput.trim()) {
       setPromoError('Promo kodni kiriting')
       return
     }
-    const result = validatePromo(promoInput, promoScope, promoBase)
+    setPromoLoading(true)
+    const result = await validatePromoCode(promoInput.trim().toUpperCase(), promoScope, promoBase)
+    setPromoLoading(false)
     if (result.ok) {
-      setAppliedPromo(result.promo.code)
+      setPromoInfo({ code: result.code, discount: result.discount, description: result.description })
+      setPromoInput(result.code)
       setPromoError('')
       toast.success(`Promo kod qo'llandi: ${formatSom(result.discount)} chegirma`)
     } else {
-      setAppliedPromo('')
+      setPromoInfo(null)
       setPromoError(result.error)
       toast.error(result.error)
     }
   }
 
   function removePromo() {
-    setAppliedPromo('')
+    setPromoInfo(null)
     setPromoInput('')
     setPromoError('')
   }
 
-  function fillDemoCard() {
-    setCard({ number: '8600 1234 5678 9012', expiry: '12/29', holder: currentUser?.name || 'AGROSERV DEMO' })
-    toast.success('Demo karta ma\'lumotlari to\'ldirildi')
+  function manualRows(reference) {
+    const rows = [
+      ['To\'lov usuli', "Bank o'tkazmasi"],
+      ['To\'lov summasi', formatSom(total)],
+    ]
+    if (reference) rows.push(['To\'lov izohi', reference])
+    return rows
   }
 
-  function formatCardNumber(value) {
-    const digits = value.replace(/\D/g, '').slice(0, 16)
-    return digits.replace(/(\d{4})(?=\d)/g, '$1 ')
-  }
-
-  function formatExpiry(value) {
-    const digits = value.replace(/\D/g, '').slice(0, 4)
-    if (digits.length <= 2) return digits
-    return `${digits.slice(0, 2)}/${digits.slice(2)}`
-  }
-
-  function validCard() {
-    if (method !== 'card') return true
-    const digits = card.number.replace(/\D/g, '')
-    const [month, year] = card.expiry.split('/')
-    if (digits.length < 16) {
-      toast.error('Karta raqamini to\'liq kiriting (16 raqam)')
-      return false
-    }
-    if (!month || !year || Number(month) < 1 || Number(month) > 12 || year.length < 2) {
-      toast.error('Amal qilish muddatini MM/YY formatida kiriting')
-      return false
-    }
-    if (card.holder.trim().length < 3) {
-      toast.error('Karta egasi ismini kiriting')
-      return false
-    }
-    return true
-  }
-
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
     if (isOrder) {
@@ -234,91 +215,135 @@ export default function Checkout() {
       }
     }
     if (type === 'topup' && topupAmount < 10000) {
-      toast.error('Minimal to\'ldirish 10 000 so\'m')
+      toast.error("Minimal to'ldirish 10 000 so'm")
       return
     }
     if (insufficientWallet) {
-      toast.error('Hamyonda mablag\' yetarli emas')
+      toast.error("Hamyonda mablag' yetarli emas")
       return
     }
-    if (!validCard()) return
 
     setSubmitting(true)
-    window.setTimeout(() => {
-      let result
+    let result
+    try {
       if (isOrder) {
-        result = checkout({
+        result = await checkout({
           items: orderLines.map((line) => ({ type: line.type, refId: line.refId, qty: line.qty })),
           info,
           method,
-          promoCode: promoCheck.ok ? appliedPromo : '',
+          promoCode: promoInfo?.code || '',
           clearCartAfter: type === 'cart',
         })
-        if (result.ok) {
-          setSuccess({
-            kind: 'order',
-            title: 'Buyurtma qabul qilindi!',
-            message:
-              method === 'cash'
-                ? 'Buyurtma yaratildi. To\'lov yetkazib berishda naqd amalga oshiriladi.'
-                : 'To\'lov muvaffaqiyatli amalga oshirildi. Sotuvchi tez orada bog\'lanadi.',
-            rows: [
-              ['Buyurtma raqami', result.order.number],
-              ['Mahsulotlar', `${orderLines.length} xil tur`],
-              ['Jami summa', formatSom(result.order.total)],
-              ['To\'lov usuli', PAYMENT_LABELS[method]],
-            ],
-          })
-        }
       } else if (type === 'plan') {
-        result = purchasePlan(config.planId, billing, method, promoCheck.ok ? appliedPromo : '')
-        if (result.ok) {
-          setSuccess({
-            kind: 'plan',
-            title: 'Tarif faollashtirildi!',
-            message: `${selectedPlan.name} tarifi hisobingizga qo'shildi. Yangi imkoniyatlar darhol ishlaydi.`,
-            rows: [
-              ['Tarif', `${selectedPlan.name} (${billing === 'yearly' ? 'yillik' : 'oylik'})`],
-              ['To\'langan summa', formatSom(result.amount)],
-              ['Komissiya', `${selectedPlan.commission}%`],
-              ['To\'lov usuli', PAYMENT_LABELS[method]],
-            ],
-          })
-        }
+        result = await purchasePlan(config.planId, billing, method, promoInfo?.code || '')
       } else if (type === 'topup') {
-        result = topUp(topupAmount, 'card')
-        if (result.ok) {
-          setSuccess({
-            kind: 'topup',
-            title: 'Hamyon to\'ldirildi!',
-            message: 'Mablag\' hamyoningizga qo\'shildi. Endi xarid yoki obuna uchun ishlatishingiz mumkin.',
-            rows: [
-              ['To\'ldirilgan summa', formatSom(topupAmount)],
-              ['Yangi balans', formatSom(walletBalance + topupAmount)],
-              ['To\'lov usuli', 'Bank kartasi'],
-            ],
-          })
-        }
+        result = await topUp(topupAmount, method)
       } else if (type === 'feature') {
-        result = promoteProduct(config.productId, method, promoCheck.ok ? appliedPromo : '')
-        if (result.ok) {
-          setSuccess({
-            kind: 'feature',
-            title: 'Top ro\'yxatga qo\'shildi!',
-            message: `«${featureProduct?.title}» mahsuloti 30 kun davomida bozor boshida ko'rsatiladi.`,
-            rows: [
-              ['Mahsulot', featureProduct?.title || '—'],
-              ['Muddat', '30 kun'],
-              ['To\'langan summa', formatSom(result.amount)],
-              ['To\'lov usuli', PAYMENT_LABELS[method]],
-            ],
-          })
-        }
+        result = await promoteProduct(config.productId, method, promoInfo?.code || '')
       }
-
+    } finally {
       setSubmitting(false)
-      if (result && !result.ok) toast.error(result.error)
-    }, 850)
+    }
+
+    if (!result?.ok) {
+      toast.error(result?.error || 'To‘lovni amalga oshirib bo‘lmadi')
+      return
+    }
+
+    const payment = result.payment
+    if (payment?.redirectUrl) {
+      window.location.assign(payment.redirectUrl)
+      return
+    }
+
+    if (type === 'topup') {
+      if (method === 'manual') {
+        setSuccess({
+          kind: 'topup',
+          pending: true,
+          title: "To'lov kutilmoqda",
+          message:
+            "Hamyon to'ldirish so'rovi yaratildi. Quyidagi kartaga to'lov qiling — admin tasdiqlagach mablag' hamyoningizga tushadi.",
+          rows: [
+            ...manualRows(payment?.id ? `Hamyon to'ldirish: ${payment.id.slice(0, 8)}` : ''),
+            ['Holat', 'Admin tasdig‘i kutilmoqda'],
+          ],
+        })
+      } else {
+        setSuccess({
+          kind: 'topup',
+          title: "To'lov sahifasiga o'tildi",
+          message: `${PAYMENT_LABELS[method]} orqali to'lovni yakunlang. To'lov tasdiqlangach hamyon avtomatik to'ldiriladi.`,
+          rows: [
+            ['Summa', formatSom(topupAmount)],
+            ['Usul', PAYMENT_LABELS[method]],
+            ['Holat', 'To‘lov kutilmoqda'],
+          ],
+        })
+      }
+      return
+    }
+
+    if (type === 'plan') {
+      const pending = payment?.status === 'pending'
+      setSuccess({
+        kind: 'plan',
+        pending,
+        title: pending ? "To'lov kutilmoqda" : 'Tarif faollashtirildi!',
+        message: pending
+          ? `To'lov admin tomonidan tasdiqlangach ${selectedPlan.name} tarifi faollashadi.`
+          : `${selectedPlan.name} tarifi hisobingizga qo'shildi. Yangi imkoniyatlar darhol ishlaydi.`,
+        rows: [
+          ['Tarif', `${selectedPlan.name} (${billing === 'yearly' ? 'yillik' : 'oylik'})`],
+          ['Summa', formatSom(result.amount)],
+          ['Usul', PAYMENT_LABELS[method]],
+          ['Holat', pending ? 'Admin tasdig‘i kutilmoqda' : "To'langan"],
+        ],
+      })
+      return
+    }
+
+    if (type === 'feature') {
+      const pending = payment?.status === 'pending'
+      setSuccess({
+        kind: 'feature',
+        pending,
+        title: pending ? "To'lov kutilmoqda" : "Top ro'yxatga qo'shildi!",
+        message: pending
+          ? "To'lov admin tomonidan tasdiqlangach mahsulot 30 kun davomida top ro'yxatda ko'rsatiladi."
+          : `«${featureProduct?.title}» mahsuloti 30 kun davomida bozor boshida ko'rsatiladi.`,
+        rows: [
+          ['Mahsulot', featureProduct?.title || '—'],
+          ['Muddat', '30 kun'],
+          ['Summa', formatSom(result.amount)],
+          ['Usul', PAYMENT_LABELS[method]],
+        ],
+      })
+      return
+    }
+
+    const order = result.order
+    const pending = order?.paymentStatus === 'pending'
+    setSuccess({
+      kind: 'order',
+      pending,
+      title: pending ? 'Buyurtma qabul qilindi' : 'Buyurtma rasmiylashtirildi!',
+      message:
+        method === 'cash'
+          ? "Buyurtma yaratildi. To'lov yetkazib berishda naqd amalga oshiriladi."
+          : method === 'manual'
+            ? "Buyurtma yaratildi. Quyidagi kartaga to'lov qiling — admin tasdiqlagach buyurtma faollashadi."
+            : "To'lov muvaffaqiyatli amalga oshirildi. Sotuvchi tez orada bog'lanadi.",
+      rows: [
+        ['Buyurtma raqami', order.number],
+        ['Mahsulotlar', `${orderLines.length} xil tur`],
+        ['Jami summa', formatSom(order.total)],
+        ['To\'lov usuli', PAYMENT_LABELS[method]],
+        ...(pending && method === 'manual'
+          ? [['To\'lov izohi', `Buyurtma: ${order.number}`], ['Holat', 'Admin tasdig‘i kutilmoqda']]
+          : []),
+      ],
+    })
   }
 
   if (success) {
@@ -351,8 +376,12 @@ export default function Checkout() {
               <div className="relative overflow-hidden bg-emerald-950 px-6 py-8 text-center text-white">
                 <div className="pattern-grid absolute inset-0 opacity-30" />
                 <div className="relative flex justify-center">
-                  <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-lime-400 text-emerald-950 shadow-lg">
-                    <CheckCircle2 size={32} />
+                  <span
+                    className={`flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg ${
+                      success.pending ? 'bg-amber-300 text-amber-950' : 'bg-lime-400 text-emerald-950'
+                    }`}
+                  >
+                    {success.pending ? <Clock size={32} /> : <CheckCircle2 size={32} />}
                   </span>
                 </div>
                 <h1 className="relative mt-3 text-2xl font-black">{success.title}</h1>
@@ -371,6 +400,35 @@ export default function Checkout() {
                   ))}
                 </div>
 
+                {success.pending && (
+                  <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="flex items-center gap-1.5 text-[11px] font-black text-amber-900">
+                      <Landmark size={13} /> To'lov yo'riqnomasi
+                    </p>
+                    <p className="mt-1.5 text-[10px] leading-relaxed text-amber-800">
+                      {settings.manualPaymentNote}
+                    </p>
+                    {activeCards.length > 0 ? (
+                      <div className="mt-2 space-y-1.5">
+                        {activeCards.map((card) => (
+                          <div key={card.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-2.5 py-1.5">
+                            <span className="text-[10px] font-bold text-amber-900">
+                              {card.cardType} · {card.holder}
+                            </span>
+                            <span className="font-mono text-[11px] font-black tracking-wider text-amber-950">
+                              {maskCard(card.number)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[10px] font-semibold text-amber-800">
+                        Karta ma'lumotlari uchun administrator bilan bog'laning: {settings.supportPhone}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="mt-4 flex gap-2">
                   {actions.map(([label, to], index) => (
                     <Link
@@ -383,7 +441,10 @@ export default function Checkout() {
                   ))}
                 </div>
                 <p className="mt-3 flex items-center justify-center gap-1 text-[9px] text-stone-400">
-                  <ShieldCheck size={11} /> Demo to'lov muvaffaqiyatli simulyatsiya qilindi
+                  <ShieldCheck size={11} />
+                  {success.pending
+                    ? "Admin tasdiqlagach holat avtomatik yangilanadi"
+                    : "To'lov serverda qayd etildi va saqlandi"}
                 </p>
               </div>
             </div>
@@ -426,24 +487,28 @@ export default function Checkout() {
     type === 'plan'
       ? `${selectedPlan.name} tarifini sotib olish`
       : type === 'topup'
-        ? 'Hamyonni to\'ldirish'
+        ? "Hamyonni to'ldirish"
         : type === 'feature'
-          ? 'Mahsulotni top ro\'yxatga chiqarish'
+          ? "Mahsulotni top ro'yxatga chiqarish"
           : 'Buyurtmani rasmiylashtirish'
 
   const subtitle =
     type === 'plan'
       ? `${billing === 'yearly' ? 'Yillik' : 'Oylik'} obuna · komissiya ${selectedPlan.commission}%`
       : type === 'topup'
-        ? 'Bank kartasi orqali hamyon balansini to\'ldiring'
+        ? "Bank o'tkazmasi yoki onlayn to'lov orqali hamyon balansini to'ldiring"
         : type === 'feature'
-          ? '30 kun davomida bozor boshida ko\'rsatish'
-          : 'Yetkazib berish ma\'lumotlarini kiriting va to\'lov usulini tanlang'
+          ? "30 kun davomida bozor boshida ko'rsatish"
+          : "Yetkazib berish ma'lumotlarini kiriting va to'lov usulini tanlang"
 
   const paymentOptions = [
-    { id: 'card', label: 'Bank kartasi', hint: 'UzCard, Humo, Visa', icon: CreditCard },
-    ...(type === 'topup' ? [] : [{ id: 'wallet', label: 'AgroServ hamyoni', hint: `${formatSom(walletBalance)} mavjud`, icon: Wallet }]),
+    { id: 'manual', label: "Bank o'tkazmasi", hint: 'Admin tasdiqlaydi', icon: Landmark },
+    ...(type === 'topup'
+      ? []
+      : [{ id: 'wallet', label: 'AgroServ hamyoni', hint: `${formatSom(walletBalance)} mavjud`, icon: Wallet }]),
     ...(isOrder ? [{ id: 'cash', label: 'Naqd', hint: 'Yetkazib berishda', icon: Banknote }] : []),
+    ...(providers.payme ? [{ id: 'payme', label: 'Payme', hint: "Onlayn to'lov", icon: Smartphone }] : []),
+    ...(providers.click ? [{ id: 'click', label: 'Click', hint: "Onlayn to'lov", icon: Smartphone }] : []),
   ]
 
   return (
@@ -593,53 +658,28 @@ export default function Checkout() {
                 })}
               </div>
 
-              {method === 'card' && (
-                <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50/60 p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="flex items-center gap-1.5 text-[11px] font-black text-emerald-950">
-                      <Lock size={12} className="text-emerald-600" /> Karta ma'lumotlari
-                    </p>
-                    <button type="button" onClick={fillDemoCard} className="text-[10px] font-bold text-emerald-700 hover:underline">
-                      Demo kartani to'ldirish
-                    </button>
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="label">Karta raqami</label>
-                      <div className="relative">
-                        <CreditCard size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                        <input
-                          value={card.number}
-                          onChange={(event) => setCard({ ...card, number: formatCardNumber(event.target.value) })}
-                          className="input pl-10 tracking-wider"
-                          placeholder="8600 0000 0000 0000"
-                          inputMode="numeric"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="label">Amal qilish muddati</label>
-                      <input
-                        value={card.expiry}
-                        onChange={(event) => setCard({ ...card, expiry: formatExpiry(event.target.value) })}
-                        className="input"
-                        placeholder="MM/YY"
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Karta egasi</label>
-                      <input
-                        value={card.holder}
-                        onChange={(event) => setCard({ ...card, holder: event.target.value.toUpperCase() })}
-                        className="input uppercase"
-                        placeholder="AZIZ KARIMOV"
-                      />
-                    </div>
-                  </div>
-                  <p className="mt-2 flex items-center gap-1 text-[9px] text-stone-400">
-                    <ShieldCheck size={11} /> Demo rejim: karta ma'lumotlari saqlanmaydi va real to'lov amalga oshirilmaydi.
+              {method === 'manual' && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="flex items-center gap-1.5 text-[11px] font-black text-amber-900">
+                    <Landmark size={12} /> Bank o'tkazmasi
                   </p>
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-amber-800">
+                    {settings.manualPaymentNote}
+                  </p>
+                  {activeCards.length > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      {activeCards.map((card) => (
+                        <div key={card.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-2.5 py-1.5">
+                          <span className="text-[10px] font-bold text-amber-900">
+                            {card.cardType} · {card.holder}
+                          </span>
+                          <span className="font-mono text-[11px] font-black tracking-wider text-amber-950">
+                            {maskCard(card.number)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -677,7 +717,15 @@ export default function Checkout() {
               {method === 'cash' && (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[11px] leading-relaxed text-amber-800">
                   Naqd to'lovda buyurtma «To'lov kutilmoqda» holatida yaratiladi. Mahsulotni
-                  qabul qilganda kuryerga to'lov qilasiz.
+                  qabul qilganda kuryerga to'lov qilasiz. Buyurtma yakunlanganda sotuvchidan
+                  platforma komissiyasi yechiladi.
+                </div>
+              )}
+
+              {(method === 'payme' || method === 'click') && (
+                <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-[11px] leading-relaxed text-sky-800">
+                  {PAYMENT_LABELS[method]} to'lov sahifasiga o'tasiz. To'lov muvaffaqiyatli
+                  yakunlangach buyurtma avtomatik faollashadi.
                 </div>
               )}
             </div>
@@ -746,10 +794,10 @@ export default function Checkout() {
 
               {type !== 'topup' && (
                 <div className="mt-4 border-t border-stone-100 pt-3">
-                  {promoCheck.ok ? (
+                  {promoInfo ? (
                     <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
                       <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
-                        <BadgePercent size={14} /> {appliedPromo}
+                        <BadgePercent size={14} /> {promoInfo.code}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-emerald-600">−{formatNumber(discount)}</span>
@@ -775,9 +823,10 @@ export default function Checkout() {
                       <button
                         type="button"
                         onClick={handlePromo}
+                        disabled={promoLoading}
                         className="btn btn-secondary btn-sm shrink-0"
                       >
-                        Qo'llash
+                        {promoLoading ? <Loader2 size={13} className="animate-spin" /> : "Qo'llash"}
                       </button>
                     </div>
                   )}
@@ -795,7 +844,7 @@ export default function Checkout() {
                     <div className="flex justify-between text-stone-500">
                       <span>Yetkazib berish</span>
                       <span className={`font-semibold ${delivery === 0 ? 'text-emerald-600' : 'text-emerald-950'}`}>
-                        {hasProducts ? (delivery === 0 ? 'Bepul' : formatSom(delivery)) : 'Yo\'q'}
+                        {hasProducts ? (delivery === 0 ? 'Bepul' : formatSom(delivery)) : "Yo'q"}
                       </span>
                     </div>
                   </>
@@ -837,17 +886,23 @@ export default function Checkout() {
               </button>
 
               <p className="mt-2 flex items-center justify-center gap-1 text-[9px] text-stone-400">
-                <ShieldCheck size={11} /> Demo to'lov — real pul yechilmaydi
+                <ShieldCheck size={11} /> To'lov ma'lumotlari serverda xavfsiz saqlanadi
               </p>
             </div>
 
             <div className="mt-3 rounded-2xl border border-emerald-900/10 bg-white p-4">
-              <p className="text-[11px] font-black text-emerald-950">Promo kodlar</p>
-              <div className="mt-1.5 space-y-1 text-[10px] text-stone-500">
-                <p><span className="font-bold text-emerald-700">AGRO10</span> — buyurtmaga 10% chegirma</p>
-                <p><span className="font-bold text-emerald-700">YANGI2026</span> — 50 000 so'm chegirma</p>
-                <p><span className="font-bold text-emerald-700">PLUS20</span> — obunaga 20% chegirma</p>
-                <p><span className="font-bold text-emerald-700">TOP25</span> — top mahsulotga 5 000 so'm</p>
+              <p className="text-[11px] font-black text-emerald-950">To'lov haqida</p>
+              <div className="mt-1.5 space-y-1 text-[10px] leading-relaxed text-stone-500">
+                <p>
+                  <span className="font-bold text-emerald-700">Bank o'tkazmasi</span> — admin to'lovni
+                  tasdiqlagach buyurtma faollashadi.
+                </p>
+                <p>
+                  <span className="font-bold text-emerald-700">Hamyon</span> — balansdan darhol yechiladi.
+                </p>
+                <p>
+                  <span className="font-bold text-emerald-700">Naqd</span> — buyurtma yakunlanganda to'lanadi.
+                </p>
               </div>
             </div>
           </div>

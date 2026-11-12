@@ -27,9 +27,9 @@ export default function Footer() {
   const { subscribeNewsletter } = useStore()
   const [email, setEmail] = useState('')
 
-  function handleSubscribe(event) {
+  async function handleSubscribe(event) {
     event.preventDefault()
-    const result = subscribeNewsletter(email)
+    const result = await subscribeNewsletter(email)
     if (result.ok) {
       toast.success('Yangiliklarga muvaffaqiyatli obuna bo\'ldingiz!')
       setEmail('')
@@ -162,7 +162,7 @@ export default function Footer() {
               Foydalanish shartlari
             </Link>
             <span className="flex items-center gap-1 text-lime-300/80">
-              <span className="h-1.5 w-1.5 rounded-full bg-lime-400" /> Demo rejim
+              <span className="h-1.5 w-1.5 rounded-full bg-lime-400" /> Server onlayn
             </span>
           </div>
         </div>

@@ -19,7 +19,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { PLANS, validatePromo } from '../lib/constants'
+import { PLANS } from '../lib/constants'
 import { formatNumber, formatSom } from '../lib/format'
 import PageHero from '../components/PageHero'
 import PlanCard from '../components/PlanCard'
@@ -67,7 +67,7 @@ const REVENUE = [
 const FAQ = [
   {
     q: 'Tarifni istalgan vaqtda o\'zgartirsam bo\'ladimi?',
-    a: "Ha. Tarifni oshirsangiz, yangi imkoniyatlar darhol faollashadi. Demo rejimda to'lov karta yoki hamyon orqali simulyatsiya qilinadi.",
+    a: "Ha. Tarifni oshirsangiz, yangi imkoniyatlar darhol faollashadi. To'lov hamyon, bank o'tkazmasi yoki yoqilgan onlayn to'lov tizimi orqali amalga oshiriladi.",
   },
   {
     q: 'Yillik to\'lovda qancha tejayman?',
@@ -85,10 +85,11 @@ const FAQ = [
 
 export default function Pricing() {
   const navigate = useNavigate()
-  const { currentUser, plan } = useStore()
+  const { currentUser, plan, validatePromoCode } = useStore()
   const [billing, setBilling] = useState('monthly')
   const [promo, setPromo] = useState('')
   const [promoResult, setPromoResult] = useState(null)
+  const [promoLoading, setPromoLoading] = useState(false)
 
   function handleSelect(target) {
     if (target.id === 'free') {
@@ -107,12 +108,15 @@ export default function Pricing() {
     })
   }
 
-  function checkPromo(event) {
+  async function checkPromo(event) {
     event.preventDefault()
     const base = PLANS.plus[billing === 'yearly' ? 'yearly' : 'monthly']
-    const result = validatePromo(promo, 'plan', base)
+    setPromoLoading(true)
+    const result = await validatePromoCode(promo.trim().toUpperCase(), 'plan', base)
+    setPromoLoading(false)
     if (result.ok) {
       setPromoResult(result)
+      setPromo(result.code)
       toast.success(`Promo kod ishlaydi: ${formatSom(result.discount)} chegirma`)
     } else {
       setPromoResult({ ok: false, error: result.error })
@@ -193,8 +197,8 @@ export default function Pricing() {
               placeholder="PLUS20"
               className="input w-full uppercase sm:w-36"
             />
-            <button type="submit" className="btn btn-secondary shrink-0">
-              Tekshirish
+            <button type="submit" disabled={promoLoading} className="btn btn-secondary shrink-0 disabled:opacity-60">
+              {promoLoading ? 'Tekshirilmoqda...' : 'Tekshirish'}
             </button>
           </form>
         </div>
@@ -206,7 +210,7 @@ export default function Pricing() {
           >
             {promoResult.ok ? <Check size={14} /> : <X size={14} />}
             {promoResult.ok
-              ? `${promoResult.promo.code} ishlaydi — ${formatSom(promoResult.discount)} chegirma`
+              ? `${promoResult.code} ishlaydi — ${formatSom(promoResult.discount)} chegirma`
               : promoResult.error}
           </div>
         )}

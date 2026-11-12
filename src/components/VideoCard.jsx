@@ -1,9 +1,16 @@
+import toast from 'react-hot-toast'
 import { Play, Trash2 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 
 export default function VideoCard({ video, onPlay, showDelete = false }) {
   const { currentUser, isAdmin, deleteVideo } = useStore()
   const canDelete = showDelete && (isAdmin || video.userId === currentUser?.id)
+
+  async function handleDelete() {
+    const result = await deleteVideo(video.id)
+    if (result.ok) toast.success("Video o'chirildi")
+    else toast.error(result.error)
+  }
 
   return (
     <article className="card hover-lift group overflow-hidden">
@@ -34,7 +41,7 @@ export default function VideoCard({ video, onPlay, showDelete = false }) {
           {canDelete && (
             <button
               type="button"
-              onClick={() => deleteVideo(video.id)}
+              onClick={handleDelete}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-stone-400 transition hover:bg-rose-50 hover:text-rose-500"
               aria-label="O'chirish"
             >

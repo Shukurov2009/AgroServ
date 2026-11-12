@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   ArrowRight,
@@ -12,11 +12,9 @@ import {
   Mail,
   MapPin,
   Phone,
-  RefreshCw,
   Save,
   ShieldCheck,
   Sparkles,
-  Trash2,
   User,
   Wallet,
 } from 'lucide-react'
@@ -45,13 +43,11 @@ export default function Profile() {
     updateProfile,
     changePassword,
     setSelfRole,
-    resetDemo,
     walletTx,
     transactions,
     usedToday,
     aiRemaining,
   } = useStore()
-  const navigate = useNavigate()
 
   const [profile, setProfile] = useState({
     name: currentUser.name,
@@ -67,20 +63,20 @@ export default function Profile() {
   const myWalletTx = walletTx.filter((entry) => entry.userId === currentUser.id)
   const myTransactions = transactions.filter((entry) => entry.userId === currentUser.id)
 
-  function saveProfile(event) {
+  async function saveProfile(event) {
     event.preventDefault()
-    const result = updateProfile(profile)
+    const result = await updateProfile(profile)
     if (result.ok) toast.success("Profil ma'lumotlari saqlandi")
     else toast.error(result.error)
   }
 
-  function savePassword(event) {
+  async function savePassword(event) {
     event.preventDefault()
     if (passwordForm.next !== passwordForm.confirm) {
       toast.error('Yangi parollar mos kelmadi')
       return
     }
-    const result = changePassword(passwordForm.current, passwordForm.next)
+    const result = await changePassword(passwordForm.current, passwordForm.next)
     if (result.ok) {
       toast.success("Parol muvaffaqiyatli o'zgartirildi")
       setPasswordForm({ current: '', next: '', confirm: '' })
@@ -89,17 +85,10 @@ export default function Profile() {
     }
   }
 
-  function saveRole() {
-    const result = setSelfRole(role)
+  async function saveRole() {
+    const result = await setSelfRole(role)
     if (result.ok) toast.success(`Rol «${ROLES[role].label}» ga o'zgartirildi`)
     else toast.error(result.error)
-  }
-
-  function handleReset() {
-    if (!window.confirm("Barcha demo ma'lumotlar o'chiriladi va boshlang'ich holatga qaytadi. Davom etasizmi?")) return
-    resetDemo()
-    toast.success('Demo ma\'lumotlar tiklandi')
-    navigate('/')
   }
 
   const isAdmin = currentUser.role === 'admin'
@@ -401,7 +390,7 @@ export default function Profile() {
                     <KeyRound size={16} className="text-emerald-600" /> Parolni o'zgartirish
                   </h2>
                   <p className="mt-1 text-[11px] text-stone-500">
-                    Xavfsizlik uchun kamida 6 belgidan iborat yangi parol o'rnating.
+                    Xavfsizlik uchun kamida 8 belgidan iborat yangi parol o'rnating.
                   </p>
                   <div className="mt-4 space-y-3">
                     <div>
@@ -423,8 +412,8 @@ export default function Profile() {
                           value={passwordForm.next}
                           onChange={(event) => setPasswordForm({ ...passwordForm, next: event.target.value })}
                           className="input"
-                          placeholder="Kamida 6 belgi"
-                          minLength={6}
+                          placeholder="Kamida 8 belgi"
+                          minLength={8}
                           required
                         />
                       </div>
@@ -436,7 +425,7 @@ export default function Profile() {
                           onChange={(event) => setPasswordForm({ ...passwordForm, confirm: event.target.value })}
                           className="input"
                           placeholder="Qayta kiriting"
-                          minLength={6}
+                          minLength={8}
                           required
                         />
                       </div>
@@ -529,20 +518,20 @@ export default function Profile() {
 
                 <div className="card p-5 sm:p-6">
                   <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
-                    <ShieldCheck size={16} className="text-emerald-600" /> Demo ma'lumotlar
+                    <ShieldCheck size={16} className="text-emerald-600" /> Ma'lumotlar xavfsizligi
                   </h2>
                   <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
-                    Barcha ma'lumotlar brauzeringizning localStorage'ida saqlanadi. Demo
-                    ma'lumotlarni boshlang'ich holatga qaytarishingiz mumkin. Bu amal
-                    hisobingizni ham o'chiradi.
+                    Profilingiz, buyurtmalaringiz va hamyon harakatlaringiz serverda himoyalangan
+                    holda saqlanadi. Parolni unutgan bo'lsangiz, kirish sahifasidagi
+                    «Parolni unutdingizmi?» orqali administratorga so'rov yuboring.
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button type="button" onClick={handleReset} className="btn btn-danger">
-                      <RefreshCw size={15} /> Demo ma'lumotlarni tiklash
-                    </button>
+                    <Link to="/login" className="btn btn-secondary">
+                      <KeyRound size={15} /> Parolni tiklash so'rovi
+                    </Link>
                   </div>
                   <p className="mt-2 flex items-center gap-1 text-[9px] text-stone-400">
-                    <Trash2 size={10} /> Barcha qo'shilgan mahsulot, buyurtma va xabarlar o'chadi
+                    <ShieldCheck size={10} /> Sessiya 30 kun amal qiladi va serverda tekshiriladi
                   </p>
                 </div>
 

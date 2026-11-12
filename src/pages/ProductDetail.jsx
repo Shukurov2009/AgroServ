@@ -71,8 +71,8 @@ export default function ProductDetail() {
     .slice(0, 4)
   const soldOut = product.stock <= 0
 
-  function handleAdd() {
-    const result = addToCart(product.id, qty)
+  async function handleAdd() {
+    const result = await addToCart(product.id, qty)
     if (result.ok) toast.success(`${qty} ${product.unit} savatga qo'shildi`)
     else toast.error(result.error)
   }
@@ -88,15 +88,15 @@ export default function ProductDetail() {
     })
   }
 
-  function handleFavorite() {
-    const result = toggleFavorite(product.id)
+  async function handleFavorite() {
+    const result = await toggleFavorite(product.id)
     if (result.ok) toast.success(result.added ? 'Sevimlilarga qo\'shildi' : 'Sevimlilardan olib tashlandi')
     else toast.error(result.error)
   }
 
-  function handleReview(event) {
+  async function handleReview(event) {
     event.preventDefault()
-    const result = addReview({
+    const result = await addReview({
       targetType: 'product',
       targetId: product.id,
       stars: reviewStars,

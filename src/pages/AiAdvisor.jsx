@@ -29,7 +29,7 @@ const INITIAL_MESSAGES = [
     text:
       "Assalomu alaykum! Men AgroServ AI agronom maslahatchisiman. 🌱\n\n" +
       "Menga ekinlar, kasalliklar, o'g'itlash, sug'orish yoki platforma xizmatlari haqida savol bering. " +
-      "Barg yoki o'simlik rasmini ham yuklashingiz mumkin — demo rejimda tahlil qilaman.",
+      "Barg yoki o'simlik rasmini ham yuklashingiz mumkin — umumiy tahlil beraman.",
     at: new Date().toISOString(),
   },
 ]
@@ -73,17 +73,20 @@ export default function AiAdvisor() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  function send(text) {
+  async function send(text) {
     const content = String(text || '').trim()
     if (!content && !image) return
     if (typing) return
 
-    const limit = consumeAiMessage()
+    setTyping(true)
+    const limit = await consumeAiMessage()
     if (!limit.ok) {
+      setTyping(false)
       setLimitHit(true)
-      toast.error('Kunlik AI limit tugadi. Tarifni oshiring.')
+      toast.error(limit.error || 'Kunlik AI limit tugadi. Tarifni oshiring.')
       return
     }
+    setLimitHit(false)
 
     const userMessage = {
       id: `u${Date.now()}`,
@@ -97,7 +100,6 @@ export default function AiAdvisor() {
     setInput('')
     const imageName = image?.name || ''
     clearImage()
-    setTyping(true)
 
     const reply = getAiReply(content, imageName)
     window.setTimeout(() => {
@@ -137,8 +139,8 @@ export default function AiAdvisor() {
     <div>
       <PageHero
         eyebrow="AI maslahatchi"
-        title="Agronom maslahati — 24/7, offline demo"
-        description="Ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha savollaringizga lokal bilim bazasi asosida javob beradi. Internet shart emas."
+        title="Agronom maslahati — 24/7"
+        description="Ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha savollaringizga AgroServ bilim bazasi asosida javob beradi."
         breadcrumbs={[{ label: 'AI maslahatchi' }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -166,7 +168,7 @@ export default function AiAdvisor() {
                   <p className="text-sm font-black text-emerald-950">AgroServ AI</p>
                   <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
                     <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-emerald-500" />
-                    Onlayn · lokal bilim bazasi
+                    Onlayn · AgroServ bilim bazasi
                   </p>
                 </div>
               </div>
@@ -287,7 +289,7 @@ export default function AiAdvisor() {
                 </button>
               </form>
               <p className="mt-1.5 text-center text-[9px] text-stone-400">
-                AI demo rejimida lokal bilim bazasidan javob beradi. Muhim qarorlar uchun agronomga murojaat qiling.
+                AI AgroServ bilim bazasidan javob beradi. Muhim qarorlar uchun agronomga murojaat qiling.
               </p>
             </div>
           </div>
@@ -385,7 +387,7 @@ export default function AiAdvisor() {
                 <ImageIcon size={14} /> Rasm yuborish
               </p>
               <p className="mt-1 text-[10px] leading-relaxed text-amber-800/80">
-                Kasal barg yoki meva rasmini yuklang. Demo AI rasm nomi va belgilar asosida
+                Kasallik belgilari bo'lgan barg yoki meva rasmini yuklang. AI rasm nomi va belgilar asosida
                 umumiy tahlil beradi. Aniq tashxis uchun agronomga murojaat qiling.
               </p>
             </div>

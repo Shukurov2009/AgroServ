@@ -199,7 +199,7 @@ const KNOWLEDGE = [
       "• Ekish, ko'chat va tuproq\n" +
       "• Chorvachilik va bozor narxlari\n" +
       "• AgroServ xizmatlari va tariflar\n\n" +
-      "Rasm yuborsangiz, o'simlik holatini tahlil qilishga harakat qilaman (demo rejim).",
+      "Rasm yuborsangiz, o'simlik holatini tahlil qilishga harakat qilaman.",
   },
 ]
 
@@ -239,7 +239,7 @@ function imageAnalysis(imageName = '') {
   else if (name.includes('bug') || name.includes('wheat')) subject = "bug'doy"
 
   return (
-    `🖼 Rasm tahlili (demo rejim)\n\n` +
+    `🖼 Rasm tahlili\n\n` +
     `Rasmda ${subject} aks etgan deb taxmin qildim. Rasm sifati va yorug'likka qarab aniq tashxis qiyin bo'lishi mumkin.\n\n` +
     `Tekshirishni tavsiya qilaman:\n` +
     `1. Barglarda sariq, jigarrang yoki kulrang dog'lar bormi?\n` +
@@ -247,7 +247,7 @@ function imageAnalysis(imageName = '') {
     `3. O'simlikning pastki yoki yuqori qismi ko'proq zararlanganmi?\n` +
     `4. Namlik va harorat qanday?\n\n` +
     `Agar dog'lar namlik bilan bog'liq bo'lsa, sug'orishni kamaytiring, havo aylanishini yaxshilang va kasal barglarni olib tashlang. Zamburug'li kasallik ehtimoli yuqori bo'lsa, ruxsat etilgan fungitsid bilan profilaktik ishlov bering.\n\n` +
-    `⚠️ Aniq tashxis uchun yashash joyingizdagi agronomga murojaat qiling. Bu javob demo AI tomonidan lokal bilim bazasi asosida berildi.`
+    `⚠️ Aniq tashxis uchun yashash joyingizdagi agronomga murojaat qiling. Bu javob AgroServ bilim bazasi asosida tayyorlandi.`
   )
 }
 
@@ -264,6 +264,6 @@ export function getAiReply(message = '', imageName = '') {
     "• Qaysi viloyatda, qanday tuproqda ekilgan?\n" +
     "• Sug'orish va o'g'itlash qanday amalga oshiriladi?\n\n" +
     "Masalan: «Pomidorda barglari sariq bo'lib qoldi, issiqxonada ekilgan» yoki «Bug'doyga qancha karbamid berish kerak?».\n\n" +
-    "💡 AgroServ AI demo rejimida ishlaydi va lokal bilim bazasidan javob beradi."
+    "💡 AgroServ AI bilim bazasidan tayyorlangan javob beradi. Aniq tashxis va yakuniy qaror uchun agronomga murojaat qiling."
   )
 }

@@ -1,36 +1,39 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react'
+import { GoogleLogin } from '@react-oauth/google'
+import { ArrowRight, Check, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
+import { ROLES, SELF_ROLES } from '../lib/constants'
 import AuthVisual from '../components/AuthVisual'
 import Modal from '../components/Modal'
 
-const DEMO_ACCOUNTS = [
-  { label: 'Administrator', email: 'admin@agroserv.uz', password: 'admin123', icon: '🛡️', note: 'To\'liq boshqaruv' },
-  { label: 'Sotuvchi', email: 'sotuvchi@agroserv.uz', password: 'demo123', icon: '🚜', note: 'Agro texnika' },
-  { label: 'Fermer', email: 'fermer@agroserv.uz', password: 'demo123', icon: '🌾', note: 'Xaridor' },
-  { label: 'Texnika ustasi', email: 'ishchi@agroserv.uz', password: 'demo123', icon: '🔧', note: 'Xizmat ko\'rsatuvchi' },
-  { label: 'Agronom', email: 'agronom@agroserv.uz', password: 'demo123', icon: '🌿', note: 'Maslahatchi' },
-]
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
 export default function Login() {
-  const { currentUser, signIn, loginDemo, loginWithGoogle, resetPassword } = useStore()
+  const { currentUser, signIn, loginWithGoogle, resetPassword } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/kabinet'
 
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
-  const [forgotForm, setForgotForm] = useState({ email: '', password: '' })
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [pendingGoogle, setPendingGoogle] = useState(null)
+  const [selectedRole, setSelectedRole] = useState('')
 
   if (currentUser) return <Navigate to={from} replace />
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    const result = signIn(form.email, form.password)
+    setSubmitting(true)
+    const result = await signIn(form.email, form.password)
+    setSubmitting(false)
     if (result.ok) {
       toast.success(`Xush kelibsiz, ${result.user.name}!`)
       navigate(from, { replace: true })
@@ -39,39 +42,65 @@ export default function Login() {
     }
   }
 
-  function handleDemo(account) {
-    const result = loginDemo(account.email)
-    if (result.ok) {
-      toast.success(`${account.label} sifatida kirdingiz`)
-      navigate('/kabinet', { replace: true })
-    } else {
-      toast.error(result.error)
-    }
-  }
-
-  function handleGoogle() {
+  async function handleGoogleCredential(credential) {
+    if (!credential) return
     setGoogleLoading(true)
-    window.setTimeout(() => {
-      const result = loginWithGoogle()
-      setGoogleLoading(false)
-      if (result.ok) {
-        toast.success('Google hisobi orqali kirdingiz')
-        navigate('/kabinet', { replace: true })
-      }
-    }, 900)
+    const result = await loginWithGoogle(credential)
+    setGoogleLoading(false)
+    if (result.ok) {
+      toast.success('Google hisobi orqali kirdingiz')
+      navigate(from, { replace: true })
+      return
+    }
+    if (result.code === 'NO_ACCOUNT' && result.needsRole) {
+      setSelectedRole('')
+      setPendingGoogle({ credential, profile: result.profile || {} })
+      return
+    }
+    toast.error(result.error)
   }
 
-  function handleReset(event) {
+  async function handleGoogleRegister(event) {
     event.preventDefault()
-    const result = resetPassword(forgotForm.email, forgotForm.password)
+    if (!pendingGoogle) return
+    if (!SELF_ROLES.includes(selectedRole)) {
+      toast.error('Rolni tanlang')
+      return
+    }
+    setGoogleLoading(true)
+    const result = await loginWithGoogle(pendingGoogle.credential, selectedRole)
+    setGoogleLoading(false)
     if (result.ok) {
-      toast.success('Parol yangilandi. Endi yangi parol bilan kiring.')
-      setForgotOpen(false)
-      setForm({ email: forgotForm.email, password: '' })
-      setForgotForm({ email: '', password: '' })
+      setPendingGoogle(null)
+      toast.success(`Hisob yaratildi. Xush kelibsiz, ${result.user.name}!`)
+      const target =
+        selectedRole === 'seller'
+          ? '/dokon'
+          : ['worker', 'agronomist'].includes(selectedRole)
+            ? '/xizmatlarim'
+            : '/kabinet'
+      navigate(target, { replace: true })
     } else {
       toast.error(result.error)
     }
+  }
+
+  async function handleForgot(event) {
+    event.preventDefault()
+    setForgotLoading(true)
+    const result = await resetPassword(forgotEmail)
+    setForgotLoading(false)
+    if (result.ok) {
+      setForgotSent(true)
+    } else {
+      toast.error(result.error)
+    }
+  }
+
+  function closeForgot() {
+    setForgotOpen(false)
+    setForgotSent(false)
+    setForgotEmail('')
   }
 
   return (
@@ -91,24 +120,33 @@ export default function Login() {
               Davom etish uchun email va parolingizni kiriting.
             </p>
 
-            <button
-              type="button"
-              onClick={handleGoogle}
-              disabled={googleLoading}
-              className="btn btn-secondary mt-6 w-full"
-            >
-              {googleLoading ? (
-                <Loader2 size={18} className="animate-spin" />
+            <div className="mt-6">
+              {GOOGLE_CLIENT_ID ? (
+                <div className="flex justify-center overflow-hidden rounded-xl">
+                  <GoogleLogin
+                    onSuccess={(response) => handleGoogleCredential(response.credential)}
+                    onError={() => toast.error('Google orqali kirish bekor qilindi')}
+                    theme="outline"
+                    shape="rectangular"
+                    size="large"
+                    text="continue_with"
+                    width="360"
+                  />
+                </div>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-                  <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                  <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
-                  <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-                  <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
-                </svg>
+                <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-3 text-center">
+                  <p className="text-xs font-bold text-stone-500">Google orqali kirish</p>
+                  <p className="mt-1 text-[10px] text-stone-400">
+                    Google OAuth hali sozlanmagan. Email va parol bilan davom eting.
+                  </p>
+                </div>
               )}
-              {googleLoading ? 'Google tekshirilmoqda...' : 'Google orqali kirish'}
-            </button>
+              {googleLoading && (
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-700">
+                  <Loader2 size={13} className="animate-spin" /> Google tekshirilmoqda...
+                </p>
+              )}
+            </div>
 
             <div className="my-5 flex items-center gap-3">
               <span className="h-px flex-1 bg-stone-200" />
@@ -126,8 +164,9 @@ export default function Login() {
                     type="email"
                     value={form.email}
                     onChange={(event) => setForm({ ...form, email: event.target.value })}
-                    placeholder="fermer@agroserv.uz"
+                    placeholder="siz@agroserv.uz"
                     className="input pl-10"
+                    autoComplete="email"
                     required
                   />
                 </div>
@@ -152,6 +191,7 @@ export default function Login() {
                     onChange={(event) => setForm({ ...form, password: event.target.value })}
                     placeholder="••••••••"
                     className="input pl-10 pr-11"
+                    autoComplete="current-password"
                     required
                   />
                   <button
@@ -165,12 +205,8 @@ export default function Login() {
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 text-[11px] font-medium text-stone-500">
-                <input type="checkbox" defaultChecked className="h-3.5 w-3.5 rounded border-stone-300 text-emerald-600 focus:ring-emerald-500" />
-                Meni eslab qol
-              </label>
-
-              <button type="submit" className="btn btn-primary w-full">
+              <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
                 Kirish <ArrowRight size={16} />
               </button>
             </form>
@@ -183,34 +219,11 @@ export default function Login() {
             </p>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-emerald-900/10 bg-white/80 p-4 backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-stone-400">
-                Demo hisoblar — bir bosishda kirish
-              </p>
-              <span className="rounded-full bg-lime-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-lime-700">
-                Offline demo
-              </span>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-1.5">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => handleDemo(account)}
-                  className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-2.5 py-2 text-left transition hover:border-emerald-300 hover:bg-emerald-50/60"
-                >
-                  <span className="text-lg">{account.icon}</span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[10px] font-bold text-emerald-950">{account.label}</span>
-                    <span className="block truncate text-[8px] text-stone-400">{account.note}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <p className="mt-2.5 flex items-center gap-1 text-[9px] text-stone-400">
-              <ShieldCheck size={11} className="text-emerald-500" />
-              Demo parollar: admin123 / demo123. Ma'lumotlar faqat brauzeringizda saqlanadi.
+          <div className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-900/10 bg-white/80 p-4 backdrop-blur">
+            <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+            <p className="text-[10px] leading-relaxed text-stone-500">
+              Ma'lumotlaringiz serverda himoyalangan holda saqlanadi. Demo hisoblar va parolsiz kirish
+              o'chirilgan — har bir foydalanuvchi o'z hisobini o'zi yaratadi.
             </p>
           </div>
         </div>
@@ -218,39 +231,102 @@ export default function Login() {
 
       <Modal
         open={forgotOpen}
-        onClose={() => setForgotOpen(false)}
+        onClose={closeForgot}
         title="Parolni tiklash"
-        subtitle="Demo rejimda yangi parolni shu yerda belgilashingiz mumkin."
+        subtitle="Email manzilingizni yuboring. Administrator so'rovni ko'rib chiqib, yangi parolni siz bilan bog'langan aloqa kanali orqali beradi."
         size="sm"
       >
-        <form onSubmit={handleReset} className="space-y-3.5">
-          <div>
-            <label className="label" htmlFor="forgot-email">Email manzil</label>
-            <input
-              id="forgot-email"
-              type="email"
-              value={forgotForm.email}
-              onChange={(event) => setForgotForm({ ...forgotForm, email: event.target.value })}
-              className="input"
-              placeholder="fermer@agroserv.uz"
-              required
-            />
+        {forgotSent ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <p className="font-bold">So'rov qabul qilindi</p>
+              <p className="mt-1 text-xs leading-relaxed">
+                Agar <span className="font-semibold">{forgotEmail}</span> ro'yxatdan o'tgan bo'lsa,
+                administrator parolni tiklash so'rovini ko'radi va siz bilan bog'lanadi.
+              </p>
+            </div>
+            <button type="button" onClick={closeForgot} className="btn btn-primary w-full">
+              Tushundim
+            </button>
           </div>
-          <div>
-            <label className="label" htmlFor="forgot-password">Yangi parol</label>
-            <input
-              id="forgot-password"
-              type="password"
-              value={forgotForm.password}
-              onChange={(event) => setForgotForm({ ...forgotForm, password: event.target.value })}
-              className="input"
-              placeholder="Kamida 6 ta belgi"
-              required
-              minLength={6}
-            />
+        ) : (
+          <form onSubmit={handleForgot} className="space-y-3.5">
+            <div>
+              <label className="label" htmlFor="forgot-email">Email manzil</label>
+              <input
+                id="forgot-email"
+                type="email"
+                value={forgotEmail}
+                onChange={(event) => setForgotEmail(event.target.value)}
+                className="input"
+                placeholder="siz@agroserv.uz"
+                required
+              />
+            </div>
+            <p className="rounded-lg bg-stone-50 px-3 py-2 text-[10px] leading-relaxed text-stone-500">
+              Xavfsizlik uchun parolni faqat administrator yangilaydi. So'rov yuborilgach, u bilan
+              bog'lanish uchun telefon raqamingiz yangilangan bo'lishi kerak.
+            </p>
+            <button type="submit" className="btn btn-primary w-full" disabled={forgotLoading}>
+              {forgotLoading ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
+              So'rov yuborish
+            </button>
+          </form>
+        )}
+      </Modal>
+
+      <Modal
+        open={Boolean(pendingGoogle)}
+        onClose={() => setPendingGoogle(null)}
+        title="Rolingizni tanlang"
+        subtitle="Google hisobi topildi, lekin AgroServ'da hisob yo'q. O'zingizga mos rolni tanlab, hisobni yarating."
+        size="sm"
+      >
+        <form onSubmit={handleGoogleRegister} className="space-y-4">
+          {pendingGoogle?.profile?.email && (
+            <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
+              <p className="font-bold text-emerald-950">{pendingGoogle.profile.name || 'Google foydalanuvchisi'}</p>
+              <p className="text-stone-500">{pendingGoogle.profile.email}</p>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {SELF_ROLES.map((role) => {
+              const info = ROLES[role]
+              const active = selectedRole === role
+              return (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setSelectedRole(role)}
+                  className={`relative rounded-xl border p-2.5 text-left transition ${
+                    active
+                      ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100'
+                      : 'border-stone-200 bg-white hover:border-emerald-300'
+                  }`}
+                >
+                  <span className="text-lg">{info.icon}</span>
+                  <p className={`mt-1 text-[10px] font-black ${active ? 'text-emerald-800' : 'text-stone-700'}`}>
+                    {info.label}
+                  </p>
+                  {active && (
+                    <span className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-white">
+                      <Check size={9} strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
-          <button type="submit" className="btn btn-primary w-full">
-            <KeyRound size={16} /> Parolni yangilash
+          <p className="text-[10px] leading-relaxed text-stone-400">
+            {selectedRole ? ROLES[selectedRole].description : "Hisob yaratish uchun rolni tanlang."}
+          </p>
+          <button
+            type="submit"
+            className="btn btn-primary w-full"
+            disabled={googleLoading || !selectedRole}
+          >
+            {googleLoading ? <Loader2 size={16} className="animate-spin" /> : null}
+            Hisob yaratish va kirish
           </button>
         </form>
       </Modal>

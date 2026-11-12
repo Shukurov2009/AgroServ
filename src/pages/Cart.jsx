@@ -53,8 +53,8 @@ export default function Cart() {
     navigate('/tolov', { state: { type: 'cart' } })
   }
 
-  function handleClear() {
-    clearCart()
+  async function handleClear() {
+    await clearCart()
     toast.success('Savat tozalandi')
   }
 

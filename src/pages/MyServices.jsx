@@ -177,9 +177,9 @@ export default function MyServices() {
     }))
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    const result = editId ? updateService(editId, form) : addService(form)
+    const result = editId ? await updateService(editId, form) : await addService(form)
     if (result.ok) {
       toast.success(editId ? 'Xizmat yangilandi' : "Xizmat e'lon qilindi")
       setModalOpen(false)
@@ -190,9 +190,9 @@ export default function MyServices() {
     }
   }
 
-  function toggleStatus(service) {
+  async function toggleStatus(service) {
     const next = service.status === 'active' ? 'paused' : 'active'
-    const result = updateService(service.id, { status: next })
+    const result = await updateService(service.id, { status: next })
     if (result.ok) {
       toast.success(next === 'active' ? 'Xizmat faollashtirildi' : "Xizmat to'xtatildi")
     } else {
@@ -200,11 +200,11 @@ export default function MyServices() {
     }
   }
 
-  function handleDelete(service) {
+  async function handleDelete(service) {
     if (!window.confirm(`«${service.specialization || service.serviceType}» xizmatini o'chirmoqchimisiz?`)) {
       return
     }
-    const result = deleteService(service.id)
+    const result = await deleteService(service.id)
     if (result.ok) toast.success("Xizmat o'chirildi")
     else toast.error(result.error)
   }

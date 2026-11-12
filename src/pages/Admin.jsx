@@ -1,18 +1,20 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   BarChart3,
   Check,
   CheckCircle2,
+  Copy,
   CreditCard,
   Crown,
+  KeyRound,
   LayoutDashboard,
   Mail,
   MessageSquare,
   Package,
   Plus,
-  RefreshCw,
+  Receipt,
   Search,
   Settings as SettingsIcon,
   ShieldCheck,
@@ -51,17 +53,39 @@ const TABS = [
   { id: 'users', label: 'Foydalanuvchilar', icon: Users },
   { id: 'products', label: 'Mahsulotlar', icon: Package },
   { id: 'orders', label: 'Buyurtmalar', icon: ShoppingBag },
+  { id: 'payments', label: "To'lovlar", icon: Receipt },
   { id: 'messages', label: 'Xabarlar', icon: MessageSquare },
   { id: 'cards', label: 'Kartalar', icon: CreditCard },
+  { id: 'resets', label: 'Parol so‘rovlari', icon: KeyRound },
   { id: 'settings', label: 'Sozlamalar', icon: SettingsIcon },
 ]
 
-const PAYMENT_LABELS = { card: 'Karta', wallet: 'Hamyon', cash: 'Naqd' }
+const PAYMENT_LABELS = {
+  card: 'Karta',
+  wallet: 'Hamyon',
+  cash: 'Naqd',
+  manual: "Bank o'tkazmasi",
+  payme: 'Payme',
+  click: 'Click',
+}
+
+const PURPOSE_LABELS = {
+  order: 'Buyurtma',
+  plan: 'Tarif',
+  wallet_topup: "Hamyon to'ldirish",
+  feature: 'Top mahsulot',
+}
+
+const PAYMENT_STATUS = {
+  pending: { label: 'Kutilmoqda', className: 'bg-amber-50 text-amber-700' },
+  paid: { label: "To'langan", className: 'bg-emerald-50 text-emerald-700' },
+  cancelled: { label: 'Bekor qilingan', className: 'bg-rose-50 text-rose-600' },
+  failed: { label: 'Xato', className: 'bg-rose-50 text-rose-600' },
+}
 
 const ROLE_OPTIONS = ['user', 'seller', 'worker', 'agronomist', 'admin']
 
 export default function Admin() {
-  const navigate = useNavigate()
   const {
     currentUser,
     users,
@@ -72,9 +96,16 @@ export default function Admin() {
     cards,
     transactions,
     settings,
+    payments,
+    promoCodes,
+    passwordResets,
     adminSetRole,
     adminToggleUser,
     adminAdjustWallet,
+    adminConfirmPayment,
+    adminCancelPayment,
+    adminResolvePasswordReset,
+    adminRejectPasswordReset,
     updateOrderStatus,
     markMessageRead,
     deleteMessage,
@@ -84,7 +115,6 @@ export default function Admin() {
     updateSettings,
     updateProduct,
     deleteProduct,
-    resetDemo,
   } = useStore()
 
   const [tab, setTab] = useState('overview')
@@ -97,8 +127,11 @@ export default function Admin() {
   const [cardOpen, setCardOpen] = useState(false)
   const [cardForm, setCardForm] = useState({ cardType: 'UzCard', number: '', holder: 'AgroServ MChJ' })
   const [settingsForm, setSettingsForm] = useState({ ...settings })
+  const [resetResult, setResetResult] = useState(null)
 
   const unread = messages.filter((message) => !message.read).length
+  const pendingPayments = payments.filter((payment) => payment.status === 'pending')
+  const pendingResets = passwordResets.filter((reset) => reset.status === 'pending')
 
   const stats = useMemo(() => {
     const grossSales = orders
@@ -188,18 +221,18 @@ export default function Admin() {
     [orders, orderFilter],
   )
 
-  function handleRoleChange(user, role) {
-    const result = adminSetRole(user.id, role)
+  async function handleRoleChange(user, role) {
+    const result = await adminSetRole(user.id, role)
     if (result.ok) toast.success(`«${user.name}» roli «${ROLES[role].label}» ga o'zgartirildi`)
     else toast.error(result.error)
   }
 
-  function handleToggleUser(user) {
+  async function handleToggleUser(user) {
     if (user.id === currentUser.id) {
       toast.error("O'zingizni bloklay olmaysiz")
       return
     }
-    const result = adminToggleUser(user.id)
+    const result = await adminToggleUser(user.id)
     if (result.ok) {
       toast.success(user.status === 'blocked' ? 'Foydalanuvchi faollashtirildi' : 'Foydalanuvchi bloklandi')
     } else {
@@ -212,9 +245,9 @@ export default function Admin() {
     setWalletAmount('50000')
   }
 
-  function submitWallet(event) {
+  async function submitWallet(event) {
     event.preventDefault()
-    const result = adminAdjustWallet(walletUser.id, Number(walletAmount))
+    const result = await adminAdjustWallet(walletUser.id, Number(walletAmount))
     if (result.ok) {
       toast.success(`Hamyon balansi o'zgartirildi`)
       setWalletUser(null)
@@ -223,21 +256,21 @@ export default function Admin() {
     }
   }
 
-  function handleOrderStatus(order, status) {
-    const result = updateOrderStatus(order.id, status)
+  async function handleOrderStatus(order, status) {
+    const result = await updateOrderStatus(order.id, status)
     if (result.ok) toast.success(`${order.number} holati yangilandi`)
     else toast.error(result.error)
   }
 
-  function handleDeleteProduct(product) {
+  async function handleDeleteProduct(product) {
     if (!window.confirm(`«${product.title}» mahsulotini o'chirmoqchimisiz?`)) return
-    const result = deleteProduct(product.id)
+    const result = await deleteProduct(product.id)
     if (result.ok) toast.success("Mahsulot o'chirildi")
     else toast.error(result.error)
   }
 
-  function toggleProductStatus(product) {
-    const result = updateProduct(product.id, {
+  async function toggleProductStatus(product) {
+    const result = await updateProduct(product.id, {
       status: product.status === 'active' ? 'paused' : 'active',
     })
     if (result.ok) toast.success('Mahsulot holati yangilandi')
@@ -249,9 +282,9 @@ export default function Admin() {
     return digits.replace(/(\d{4})(?=\d)/g, '$1 ')
   }
 
-  function submitCard(event) {
+  async function submitCard(event) {
     event.preventDefault()
-    const result = addCard(cardForm)
+    const result = await addCard(cardForm)
     if (result.ok) {
       toast.success("Karta qo'shildi")
       setCardOpen(false)
@@ -261,7 +294,7 @@ export default function Admin() {
     }
   }
 
-  function saveSettings(event) {
+  async function saveSettings(event) {
     event.preventDefault()
     const payload = {
       ...settingsForm,
@@ -270,16 +303,52 @@ export default function Admin() {
       deliveryFee: Number(settingsForm.deliveryFee) || 0,
       freeDeliveryFrom: Number(settingsForm.freeDeliveryFrom) || 0,
     }
-    const result = updateSettings(payload)
+    const result = await updateSettings(payload)
     if (result.ok) toast.success('Platforma sozlamalari saqlandi')
     else toast.error(result.error)
   }
 
-  function handleReset() {
-    if (!window.confirm("Barcha demo ma'lumotlar o'chiriladi va boshlang'ich holatga qaytadi. Davom etasizmi?")) return
-    resetDemo()
-    toast.success('Demo ma\'lumotlar tiklandi')
-    navigate('/login')
+  async function confirmPayment(payment) {
+    if (!window.confirm(`${payment.userName || 'Foydalanuvchi'} to'lovini tasdiqlaysizmi?`)) return
+    const result = await adminConfirmPayment(payment.id)
+    if (result.ok) toast.success("To'lov tasdiqlandi va buyurtma faollashtirildi")
+    else toast.error(result.error)
+  }
+
+  async function cancelPayment(payment) {
+    const note = window.prompt("Bekor qilish sababi (ixtiyoriy):", '')
+    if (note === null) return
+    const result = await adminCancelPayment(payment.id, note)
+    if (result.ok) toast.success("To'lov bekor qilindi")
+    else toast.error(result.error)
+  }
+
+  async function resolveReset(reset) {
+    if (!window.confirm(`${reset.email} uchun yangi parol yaratilsinmi?`)) return
+    const result = await adminResolvePasswordReset(reset.id)
+    if (result.ok) {
+      setResetResult({ email: result.email || reset.email, password: result.password })
+      toast.success('Yangi parol yaratildi')
+    } else {
+      toast.error(result.error)
+    }
+  }
+
+  async function rejectReset(reset) {
+    if (!window.confirm(`${reset.email} so'rovini rad etasizmi?`)) return
+    const result = await adminRejectPasswordReset(reset.id)
+    if (result.ok) toast.success("So'rov rad etildi")
+    else toast.error(result.error)
+  }
+
+  async function copyResetPassword() {
+    if (!resetResult?.password) return
+    try {
+      await navigator.clipboard.writeText(resetResult.password)
+      toast.success('Parol nusxalandi')
+    } catch {
+      toast.error("Nusxalab bo'lmadi. Parolni qo'lda ko'chiring.")
+    }
   }
 
   const revenueRows = [
@@ -834,6 +903,228 @@ export default function Admin() {
           </div>
         )}
 
+        {tab === 'payments' && (
+          <div className="mt-4 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <StatCard
+                icon={<Receipt size={18} />}
+                label="Jami to'lovlar"
+                value={`${formatNumber(payments.length)} ta`}
+                hint={`${pendingPayments.length} ta tasdiq kutmoqda`}
+                tone="emerald"
+              />
+              <StatCard
+                icon={<CheckCircle2 size={18} />}
+                label="Tasdiqlangan summa"
+                value={formatSom(
+                  payments
+                    .filter((payment) => payment.status === 'paid')
+                    .reduce((sum, payment) => sum + payment.amount, 0),
+                )}
+                hint="Muvaffaqiyatli yakunlangan"
+                tone="sky"
+              />
+              <StatCard
+                icon={<Wallet size={18} />}
+                label="Kutilayotgan summa"
+                value={formatSom(pendingPayments.reduce((sum, payment) => sum + payment.amount, 0))}
+                hint="Admin tasdig'ini kutmoqda"
+                tone="amber"
+              />
+            </div>
+
+            <div className="card overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-black text-emerald-950">To'lovlar tarixi</h2>
+                  <p className="text-[10px] text-stone-500">
+                    Bank o'tkazmasi va onlayn to'lovlarni tasdiqlang yoki bekor qiling.
+                  </p>
+                </div>
+                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
+                  {payments.length} ta yozuv
+                </span>
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Sana</th>
+                      <th>Foydalanuvchi</th>
+                      <th>Maqsad</th>
+                      <th>Summa</th>
+                      <th>Usul</th>
+                      <th>Holat</th>
+                      <th>Amallar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...payments]
+                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                      .map((payment) => {
+                        const status = PAYMENT_STATUS[payment.status] || PAYMENT_STATUS.pending
+                        return (
+                          <tr key={payment.id}>
+                            <td className="whitespace-nowrap text-[10px] text-stone-500">
+                              {formatDateTime(payment.createdAt)}
+                            </td>
+                            <td>
+                              <p className="text-[11px] font-bold text-emerald-950">
+                                {payment.userName || 'Foydalanuvchi'}
+                              </p>
+                              <p className="text-[9px] text-stone-400">{payment.reference || payment.id.slice(0, 8)}</p>
+                            </td>
+                            <td className="text-[10px] font-semibold text-stone-600">
+                              {PURPOSE_LABELS[payment.purpose] || payment.purpose}
+                            </td>
+                            <td className="whitespace-nowrap font-bold text-emerald-800">
+                              {formatSom(payment.amount)}
+                            </td>
+                            <td className="text-[10px] font-semibold text-stone-500">
+                              {PAYMENT_LABELS[payment.provider] || payment.provider}
+                            </td>
+                            <td>
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
+                                {status.label}
+                              </span>
+                            </td>
+                            <td>
+                              {payment.status === 'pending' ? (
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => confirmPayment(payment)}
+                                    className="rounded-lg bg-emerald-600 px-2 py-1 text-[9px] font-bold text-white hover:bg-emerald-700"
+                                  >
+                                    Tasdiqlash
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => cancelPayment(payment)}
+                                    className="rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-600 hover:bg-rose-100"
+                                  >
+                                    Bekor qilish
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[9px] text-stone-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              {payments.length === 0 && (
+                <div className="p-4">
+                  <EmptyState
+                    icon="🧾"
+                    title="To'lovlar yo'q"
+                    description="Foydalanuvchilar to'lov qilganda ular shu yerda ko'rinadi."
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="card p-5">
+              <h2 className="text-sm font-black text-emerald-950">Promo kodlar</h2>
+              <p className="mt-1 text-[10px] text-stone-500">
+                Promo kodlar serverda tekshiriladi va ishlatilganda hisoblanadi.
+              </p>
+              {promoCodes.length === 0 ? (
+                <p className="mt-3 rounded-xl bg-stone-50 p-4 text-xs text-stone-500">
+                  Hozircha promo kod yo'q.
+                </p>
+              ) : (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {promoCodes.map((promo) => (
+                    <div key={promo.code} className="rounded-xl border border-stone-100 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-black tracking-wider text-emerald-800">{promo.code}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[8px] font-bold ${
+                          promo.active ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'
+                        }`}>
+                          {promo.active ? 'Faol' : "O'chirilgan"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[10px] text-stone-500">{promo.description}</p>
+                      <p className="mt-1 text-[9px] text-stone-400">
+                        {promo.type === 'percent' ? `${promo.value}%` : formatSom(promo.value)} ·{' '}
+                        {promo.uses}/{promo.maxUses ?? '∞'} ishlatilgan
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'resets' && (
+          <div className="mt-4 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-black text-emerald-950">Parolni tiklash so'rovlari</h2>
+                <p className="text-[11px] text-stone-500">
+                  {passwordResets.length} ta so'rov · {pendingResets.length} ta kutilmoqda
+                </p>
+              </div>
+            </div>
+
+            {passwordResets.length === 0 ? (
+              <EmptyState
+                icon="🔑"
+                title="So'rovlar yo'q"
+                description="Foydalanuvchilar parolni unutganda yuborgan so'rovlar shu yerda ko'rinadi."
+              />
+            ) : (
+              <div className="space-y-2">
+                {passwordResets.map((reset) => (
+                  <div key={reset.id} className="card flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div>
+                      <p className="text-sm font-black text-emerald-950">{reset.email}</p>
+                      <p className="mt-0.5 text-[10px] text-stone-400">
+                        {formatDateTime(reset.createdAt)}
+                        {reset.resolvedAt ? ` · ${formatDateTime(reset.resolvedAt)}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                        reset.status === 'pending'
+                          ? 'bg-amber-50 text-amber-700'
+                          : reset.status === 'resolved'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-rose-50 text-rose-600'
+                      }`}>
+                        {reset.status === 'pending' ? 'Kutilmoqda' : reset.status === 'resolved' ? 'Hal qilingan' : 'Rad etilgan'}
+                      </span>
+                      {reset.status === 'pending' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => resolveReset(reset)}
+                            className="btn btn-primary btn-sm"
+                          >
+                            <KeyRound size={12} /> Yangi parol
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => rejectReset(reset)}
+                            className="btn btn-danger btn-sm"
+                          >
+                            <X size={12} /> Rad etish
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === 'messages' && (
           <div className="mt-4 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -846,8 +1137,10 @@ export default function Admin() {
               {unread > 0 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    messages.filter((message) => !message.read).forEach((message) => markMessageRead(message.id))
+                  onClick={async () => {
+                    await Promise.all(
+                      messages.filter((message) => !message.read).map((message) => markMessageRead(message.id)),
+                    )
                     toast.success("Barcha xabarlar o'qilgan deb belgilandi")
                   }}
                   className="btn btn-secondary btn-sm"
@@ -887,8 +1180,8 @@ export default function Admin() {
                       {!message.read && (
                         <button
                           type="button"
-                          onClick={() => {
-                            markMessageRead(message.id)
+                          onClick={async () => {
+                            await markMessageRead(message.id)
                             toast.success("O'qilgan deb belgilandi")
                           }}
                           className="btn btn-secondary btn-sm"
@@ -904,9 +1197,10 @@ export default function Admin() {
                       </a>
                       <button
                         type="button"
-                        onClick={() => {
-                          deleteMessage(message.id)
-                          toast.success("Xabar o'chirildi")
+                        onClick={async () => {
+                          const result = await deleteMessage(message.id)
+                          if (result.ok) toast.success("Xabar o'chirildi")
+                          else toast.error(result.error)
                         }}
                         className="btn btn-danger btn-sm"
                       >
@@ -929,7 +1223,7 @@ export default function Admin() {
               <div>
                 <h2 className="text-lg font-black text-emerald-950">To'lov kartalari</h2>
                 <p className="text-[11px] text-stone-500">
-                  Platforma hisobiga ulangan kartalar. Demo rejimda faqat ko'rinish uchun.
+                  Platforma hisobiga ulangan kartalar. Faol kartalar manual to'lovlarni qabul qilish uchun ishlatiladi.
                 </p>
               </div>
               <button type="button" onClick={() => setCardOpen(true)} className="btn btn-primary btn-sm">
@@ -966,9 +1260,10 @@ export default function Admin() {
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => {
-                            toggleCard(card.id)
-                            toast.success('Karta holati yangilandi')
+                          onClick={async () => {
+                            const result = await toggleCard(card.id)
+                            if (result.ok) toast.success('Karta holati yangilandi')
+                            else toast.error(result.error)
                           }}
                           className={`rounded-lg px-2 py-1 text-[9px] font-bold ${
                             card.active ? 'bg-white/15 hover:bg-white/25' : 'bg-white hover:bg-stone-50'
@@ -978,9 +1273,10 @@ export default function Admin() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            deleteCard(card.id)
-                            toast.success("Karta o'chirildi")
+                          onClick={async () => {
+                            const result = await deleteCard(card.id)
+                            if (result.ok) toast.success("Karta o'chirildi")
+                            else toast.error(result.error)
                           }}
                           className="rounded-lg bg-rose-500/20 px-2 py-1 text-[9px] font-bold text-rose-100 hover:bg-rose-500/30"
                         >
@@ -998,7 +1294,7 @@ export default function Admin() {
               </div>
             )}
             <p className="mt-3 flex items-center gap-1 rounded-xl bg-amber-50 px-3 py-2 text-[10px] text-amber-800">
-              <ShieldCheck size={12} /> Demo rejim: kartalar real to'lov tizimiga ulanmagan, ma'lumotlar faqat brauzerda saqlanadi.
+              <ShieldCheck size={12} /> Karta raqamlari faqat admin panelda ko'rinadi. Manual to'lovlar admin tasdig'idan keyin faollashadi.
             </p>
           </div>
         )}
@@ -1124,25 +1420,13 @@ export default function Admin() {
                 </div>
               </div>
 
-              <div className="card border-rose-100 p-5">
-                <h2 className="flex items-center gap-1.5 text-sm font-black text-rose-700">
-                  <RefreshCw size={15} /> Demo ma'lumotlar
-                </h2>
-                <p className="mt-1 text-[10px] leading-relaxed text-stone-500">
-                  Barcha foydalanuvchilar, mahsulotlar, buyurtmalar va sozlamalar boshlang'ich holatga qaytadi.
-                  Bu amal qaytarilmaydi.
-                </p>
-                <button type="button" onClick={handleReset} className="btn btn-danger btn-sm mt-3 w-full">
-                  <RefreshCw size={13} /> Demo ma'lumotlarni tiklash
-                </button>
-              </div>
-
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
                 <p className="flex items-center gap-1.5 text-[11px] font-black text-emerald-900">
                   <ShieldCheck size={14} /> Xavfsizlik
                 </p>
                 <p className="mt-1 text-[10px] leading-relaxed text-emerald-800/80">
-                  Administrator roli faqat shu panel orqali beriladi. Barcha to'lovlar demo rejimda simulyatsiya qilinadi.
+                  Administrator roli faqat shu panel orqali beriladi. Barcha to'lovlar real DB'da
+                  saqlanadi va faqat admin tasdig'idan keyin faollashadi.
                 </p>
               </div>
             </div>
@@ -1196,7 +1480,7 @@ export default function Admin() {
         open={cardOpen}
         onClose={() => setCardOpen(false)}
         title="Yangi karta qo'shish"
-        subtitle="Demo rejim: karta ma'lumotlari faqat brauzerda saqlanadi."
+        subtitle="Karta ma'lumotlari serverda saqlanadi va faqat admin panelda ko'rinadi."
         size="sm"
       >
         <form onSubmit={submitCard} className="space-y-3">
@@ -1240,6 +1524,37 @@ export default function Admin() {
             <Plus size={15} /> Kartani qo'shish
           </button>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(resetResult)}
+        onClose={() => setResetResult(null)}
+        title="Yangi parol yaratildi"
+        subtitle="Ushbu parolni foydalanuvchiga xavfsiz kanal orqali yetkazing. Parol boshqa ko'rsatilmaydi."
+        size="sm"
+      >
+        {resetResult && (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-stone-400">Foydalanuvchi</p>
+              <p className="mt-0.5 text-sm font-bold text-emerald-950">{resetResult.email}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Yangi parol</p>
+              <p className="mt-1 font-mono text-lg font-black tracking-wider text-emerald-900">
+                {resetResult.password}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={copyResetPassword} className="btn btn-secondary flex-1">
+                <Copy size={15} /> Nusxalash
+              </button>
+              <button type="button" onClick={() => setResetResult(null)} className="btn btn-primary flex-1">
+                Yopish
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )

@@ -120,43 +120,45 @@ export function Privacy() {
     {
       title: "Qanday ma'lumotlar saqlanadi",
       paragraphs: [
-        "AgroServ offline demo rejimida ishlaydi. Ism, email, telefon, hudud, e'lonlar, buyurtmalar va hamyon harakatlari faqat sizning brauzeringizdagi localStorage xotirasida saqlanadi.",
-        "Hech qanday ma'lumot serverga yuborilmaydi va uchinchi tomon xizmatlariga uzatilmaydi.",
+        "AgroServ serverda ishlaydi. Ism, email, telefon, hudud, e'lonlar, buyurtmalar, xabarlar va hamyon harakatlari Neon Postgres bazasida saqlanadi. Parollar hech qachon ochiq holda saqlanmaydi — ular bcrypt orqali hash qilinadi.",
+        "Google orqali kirganda Google hisobingizdagi ism, email va profil rasmi olinadi. Bu ma'lumotlar faqat hisobingizni yaratish va kirishni tasdiqlash uchun ishlatiladi.",
       ],
       bullets: [
-        "Hisob ma'lumotlari: ism, email, telefon va hudud.",
-        "Faoliyat: mahsulot va xizmat e'lonlari, buyurtmalar, sevimlilar, xabarlar.",
-        "To'lovlar: demo kartalar va hamyon balansi (real bank ma'lumoti emas).",
+        "Hisob ma'lumotlari: ism, email, telefon, hudud va rol.",
+        "Faoliyat: mahsulot va xizmat e'lonlari, buyurtmalar, sevimlilar, savat, xabarlar va fikrlar.",
+        "To'lovlar: hamyon balansi, bank o'tkazmasi so'rovlari, to'lov tarixi va Payme/Click tranzaksiya identifikatorlari.",
+        "Texnik ma'lumotlar: sessiya cookie fayli, xavfsizlik uchun IP manzil va so'rov vaqti.",
       ],
     },
     {
-      title: 'Ma\'lumotlardan foydalanish maqsadi',
+      title: "Ma'lumotlardan foydalanish maqsadi",
       paragraphs: [
-        "Ma'lumotlar platforma funksiyalarini ko'rsatish uchun ishlatiladi: kabinet, bozor, buyurtmalar, xizmatlar, admin panel va monetizatsiya simulyatsiyasi.",
-        "Demo hisoblar orqali barcha rollarni sinab ko'rishingiz mumkin. Ma'lumotlar brauzer xotirasidan tashqariga chiqmaydi.",
+        "Ma'lumotlar xizmatni ko'rsatish, buyurtmalarni bajarish, to'lovlarni tasdiqlash, sotuvchi va xaridor o'rtasidagi aloqani ta'minlash, xavfsizlikni himoya qilish va qo'llab-quvvatlash uchun ishlatiladi.",
+        "Marketing xabarlari faqat siz ro'yxatdan o'tgan yoki aniq rozilik bildirgan taqdirda yuboriladi. Istalgan vaqtda obunani bekor qilishingiz mumkin.",
       ],
     },
     {
       title: 'Uchinchi tomonlar va cookie',
       paragraphs: [
-        "Ilova tashqi API, analitika yoki reklama tarmoqlarini ishlatmaydi. Cookie fayllari faqat brauzer xotirasini saqlash uchun emas, localStorage ishlatiladi.",
-        "Tashqi havolalar (masalan, Telegram yoki YouTube) faqat siz bosganingizda ochiladi.",
+        "Platforma ishlashi uchun quyidagi xizmatlardan foydalanadi: Vercel (sayt va serverless API hosting), Neon (Postgres baza), Google (OAuth kirish), shuningdek yoqilganda Payme yoki Click (onlayn to'lov). Har bir xizmat o'z maxfiylik siyosatiga ega.",
+        "Kirish uchun `agroserv_session` nomli HttpOnly cookie ishlatiladi. U 30 kun amal qiladi va faqat hisobingizni xavfsiz saqlash uchun kerak. Reklama tarmoqlari va kuzatuvchi cookie fayllar ishlatilmaydi.",
       ],
     },
     {
       title: "Ma'lumotlar xavfsizligi",
       paragraphs: [
-        "Barcha ma'lumotlar sizning qurilmangizda saqlanadi. Brauzer xotirasini tozalash yoki Admin panelidagi «Demo ma'lumotlarni tiklash» tugmasi orqali ularni o'chirishingiz mumkin.",
-        "Umumiy qurilmada foydalansangiz, brauzerni yopishdan oldin hisobdan chiqing.",
+        "Sayt HTTPS orqali ishlaydi. Sessiya cookie HttpOnly va SameSite himoyasi bilan beriladi, parollar bcrypt bilan hash qilinadi, barcha muhim amallar serverda tekshiriladi.",
+        "Parolni unutgan bo'lsangiz, kirish sahifasidagi «Parolni unutdingizmi?» orqali so'rov yuboring. Administrator yangi parol yaratadi va uni siz bilan bog'lanish kanali orqali beradi.",
       ],
     },
     {
       title: 'Sizning huquqlaringiz',
       bullets: [
         "Profilingizni tahrirlash va ma'lumotlarni yangilash.",
-        "Sevimlilar, savat va buyurtmalarni o'chirish.",
-        "Brauzer sozlamalaridan localStorage ma'lumotlarini to'liq tozalash.",
-        "Admin paneli orqali demo ma'lumotlarni boshlang'ich holatga qaytarish.",
+        "Parolni o'zgartirish yoki tiklash so'rovini yuborish.",
+        "Sevimlilar, savat va buyurtmalarni boshqarish.",
+        "Hisobingizni va tegishli ma'lumotlarni o'chirishni qo'llab-quvvatlash orqali so'rash.",
+        "O'zingiz haqingizdagi ma'lumotlarning nusxasini so'rash.",
       ],
     },
     {
@@ -172,10 +174,10 @@ export function Privacy() {
       eyebrow="Huquqiy ma'lumot"
       title="Maxfiylik siyosati"
       description="AgroServ sizning ma'lumotlaringizni qanday saqlashi, ishlatishi va himoya qilishi haqida tushunarli tushuntirish."
-      updated="10 noyabr 2026"
+      updated="12 noyabr 2026"
       icon={ShieldCheck}
       sections={sections}
-      footerNote="Bu hujjat offline demo uchun tayyorlangan. Real tijoriy foydalanishdan oldin yuridik ekspertiza talab etiladi."
+      footerNote="Ushbu hujjat platforma faoliyatini tavsiflaydi. Rasmiy yuridik hujjat sifatida foydalanishdan oldin yuridik ekspertizadan o'tkazish tavsiya etiladi."
     />
   )
 }
@@ -185,47 +187,55 @@ export function Terms() {
     {
       title: 'Platformadan foydalanish',
       paragraphs: [
-        "AgroServ — O'zbekiston fermerlari, sotuvchilar va mutaxassislari uchun agro ekotizim demo platformasi. Saytdan foydalanish orqali siz ushbu shartlarga rozilik bildirasiz.",
-        "Platforma o'quv va namoyish maqsadida yaratilgan. Barcha to'lovlar va buyurtmalar simulyatsiya qilinadi.",
+        "AgroServ — O'zbekiston fermerlari, sotuvchilar va mutaxassislari uchun agro ekotizim platformasi. Saytdan foydalanish orqali siz ushbu shartlarga rozilik bildirasiz.",
+        "Platforma «bor holaticha» taqdim etiladi. Xizmat vaqti-vaqti bilan yangilanadi, texnik ishlar yoki uzilishlar bo'lishi mumkin.",
       ],
     },
     {
       title: 'Hisob va rollar',
       bullets: [
-        "Fermer mahsulot xarid qiladi, xizmat buyurtma qiladi va sevimlilarni saqlaydi.",
-        "Sotuvchi mahsulot e'lon qiladi va buyurtmalarni boshqaradi.",
-        "Usta va agronom xizmat ko'rsatadi, daromad va buyurtmalarni kuzatadi.",
-        "Administrator platforma sozlamalari va foydalanuvchilarni boshqaradi.",
+        "Ro'yxatdan o'tishda Fermer, Sotuvchi, Texnika ustasi yoki Agronom rolini o'zingiz tanlaysiz.",
+        "Har bir foydalanuvchi bitta shaxsiy hisob ochishi va haqiqiy ma'lumot kiritishi kerak.",
+        "Parol maxfiy saqlanadi. Hisobingiz orqali qilingan amallar uchun siz javobgarsiz.",
+        "Administrator rolini faqat mavjud administrator panel orqali beradi.",
       ],
       paragraphs: [
-        "Hisob ma'lumotlarini himoya qilish sizning zimmangizda. Demo hisoblardan foydalanganda maxfiy ma'lumot kiritmang.",
+        "Hisob ma'lumotlarini himoya qilish sizning zimmangizda. Shubhali kirishni sezsangiz, darhol parolni o'zgartiring va qo'llab-quvvatlashga murojaat qiling.",
       ],
     },
     {
       title: "E'lonlar va kontent",
       paragraphs: [
-        "E'lon joylashtirishda haqiqiy, aniq va qonuniy ma'lumot bering. Noto'g'ri narx, yolg'on tavsif yoki boshqa foydalanuvchilarni chalg'ituvchi kontent taqiqlanadi.",
-        "Platforma demo bo'lgani uchun barcha e'lonlar brauzer xotirasida saqlanadi va faqat sizga ko'rinadi.",
+        "E'lon joylashtirishda haqiqiy, aniq va qonuniy ma'lumot bering. Noto'g'ri narx, yolg'on tavsif, qalbaki mahsulot yoki boshqa foydalanuvchilarni chalg'ituvchi kontent taqiqlanadi.",
+        "Platforma e'lonlarni moderatsiya qilish, to'xtatish yoki o'chirish huquqini saqlaydi. E'lon mazmuni uchun uni joylashtirgan foydalanuvchi javobgar.",
       ],
     },
     {
       title: "To'lovlar va monetizatsiya",
       paragraphs: [
-        "Free, Plus va Pro tariflari, hamyon to'ldirish, top mahsulot va promo kodlar demo rejimda simulyatsiya qilinadi. Real pul yechib olinmaydi.",
-        "Komissiya stavkalari tarifga qarab 1–5% oralig'ida ko'rsatiladi va faqat hisob-kitob namoyishi uchun ishlatiladi.",
+        "Tariflar: Bepul (5% komissiya), Plus (3%) va Pro (1%). Obuna to'lovi hamyon, bank o'tkazmasi yoki yoqilgan onlayn to'lov orqali amalga oshiriladi.",
+        "Bank o'tkazmasi administrator tasdig'idan keyin faollashadi. Hamyon to'lovi darhol yechiladi. Naqd buyurtmada to'lov yetkazib berishda amalga oshiriladi va buyurtma yakunlanganda sotuvchidan platforma komissiyasi yechiladi.",
+        "Payme va Click faqat tegishli merchant sozlamalari ulanganda ishlaydi. Promo kodlar serverda tekshiriladi va bir martalik yoki cheklangan miqdorda qo'llanilishi mumkin.",
       ],
     },
     {
-      title: "Javobgarlik chegarasi",
+      title: 'Buyurtma va yetkazib berish',
       paragraphs: [
-        "Demo platforma «bor holaticha» taqdim etiladi. Ma'lumotlarning yo'qolishi, brauzer xotirasining tozalanishi yoki demo xarakteridagi xatolar uchun javobgarlik cheklangan.",
-        "Real savdo yoki xizmat ko'rsatishdan oldin tomonlar o'zaro shartnoma tuzishlari tavsiya etiladi.",
+        "AgroServ xaridor va sotuvchi o'rtasidagi vositachi platforma. Mahsulot sifati, yetkazib berish muddati va xizmat natijasi uchun mas'uliyat tegishli sotuvchi yoki mutaxassis zimmasida.",
+        "Nizo yuzaga kelsa, buyurtma raqami bilan qo'llab-quvvatlash xizmatiga murojaat qiling. Platforma tomonlarga ma'lumot almashishda yordam beradi.",
+      ],
+    },
+    {
+      title: 'Javobgarlik chegarasi',
+      paragraphs: [
+        "Platforma foydalanuvchilar tomonidan joylashtirilgan kontentning to'g'riligi yoki uchinchi tomon xizmatlarining uzluksiz ishlashi uchun to'liq kafolat bermaydi.",
+        "Qonun bilan ruxsat etilgan chegarada platforma bilvosita, tasodifiy yoki natijaviy zararlar uchun javobgarlikni o'z zimmasiga olmaydi.",
       ],
     },
     {
       title: "Shartlarni o'zgartirish",
       paragraphs: [
-        "Platforma yangilanganda ushbu shartlar o'zgarishi mumkin. Yangilangan sana sahifa boshida ko'rsatiladi. Savollar uchun salom@agroserv.uz manziliga murojaat qiling.",
+        "Platforma yangilanganda ushbu shartlar o'zgarishi mumkin. Yangilangan sana sahifa boshida ko'rsatiladi. O'zgarishlardan keyin platformadan foydalanishda davom etsangiz, yangi shartlarga rozilik bildirgan hisoblanasiz. Savollar uchun salom@agroserv.uz manziliga murojaat qiling.",
       ],
     },
   ]
@@ -234,11 +244,11 @@ export function Terms() {
     <LegalLayout
       eyebrow="Huquqiy ma'lumot"
       title="Foydalanish shartlari"
-      description="Platformadan foydalanish qoidalari, rollar, e'lonlar, demo to'lovlar va javobgarlik chegaralari."
-      updated="10 noyabr 2026"
+      description="Platformadan foydalanish qoidalari, rollar, e'lonlar, to'lovlar va javobgarlik chegaralari."
+      updated="12 noyabr 2026"
       icon={FileText}
       sections={sections}
-      footerNote="Ushbu hujjat faqat demo loyiha uchun namunaviy matn hisoblanadi va yuridik maslahat o'rnini bosmaydi."
+      footerNote="Ushbu hujjat namunaviy matn hisoblanadi va yuridik maslahat o'rnini bosmaydi. Tijoriy foydalanishdan oldin yuridik ekspertizadan o'tkazish tavsiya etiladi."
     />
   )
 }
