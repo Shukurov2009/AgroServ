@@ -105,6 +105,12 @@ function providersConfig() {
   }
 }
 
+function integrationsConfig() {
+  return {
+    google: Boolean(process.env.GOOGLE_CLIENT_ID),
+  }
+}
+
 function providerRedirect(provider, payment) {
   const appUrl = process.env.APP_URL || ''
   if (provider === 'payme') {
@@ -348,6 +354,7 @@ async function bootstrap(ctx) {
       commission: Number(publicStatsResult.rows[0].commission),
     },
     providers: providersConfig(),
+    integrations: integrationsConfig(),
   }
 }
 

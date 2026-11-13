@@ -84,6 +84,7 @@ const PAYMENT_STATUS = {
 }
 
 const ROLE_OPTIONS = ['user', 'seller', 'worker', 'agronomist', 'admin']
+const GOOGLE_CLIENT_READY = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
 
 export default function Admin() {
   const {
@@ -99,6 +100,8 @@ export default function Admin() {
     payments,
     promoCodes,
     passwordResets,
+    providers,
+    integrations,
     adminSetRole,
     adminToggleUser,
     adminAdjustWallet,
@@ -1420,6 +1423,38 @@ export default function Admin() {
                 </div>
               </div>
 
+              <div className="card p-5">
+                <h2 className="text-sm font-black text-emerald-950">Tashqi integratsiyalar</h2>
+                <p className="mt-1 text-[10px] leading-relaxed text-stone-500">
+                  Kalitlar Vercel Environment Variables'ga qo'shiladi va sayt qayta deploy qilinadi.
+                </p>
+                <div className="mt-3 space-y-2 text-[11px]">
+                  <IntegrationRow
+                    label="Google login"
+                    ready={integrations.google && GOOGLE_CLIENT_READY}
+                    hint={
+                      integrations.google && GOOGLE_CLIENT_READY
+                        ? 'Ulangan'
+                        : 'GOOGLE_CLIENT_ID + VITE_GOOGLE_CLIENT_ID'
+                    }
+                  />
+                  <IntegrationRow
+                    label="Payme"
+                    ready={providers.payme}
+                    hint={providers.payme ? 'Ulangan' : 'PAYME_MERCHANT_ID + PAYME_KEY'}
+                  />
+                  <IntegrationRow
+                    label="Click"
+                    ready={providers.click}
+                    hint={providers.click ? 'Ulangan' : 'CLICK_SERVICE_ID + CLICK_SECRET_KEY'}
+                  />
+                </div>
+                <p className="mt-3 rounded-lg bg-stone-50 px-2.5 py-2 text-[9px] leading-relaxed text-stone-500">
+                  Parol tiklash hozir admin panel orqali ishlaydi: foydalanuvchi so'rov yuboradi, admin
+                  yangi parol yaratadi.
+                </p>
+              </div>
+
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
                 <p className="flex items-center gap-1.5 text-[11px] font-black text-emerald-900">
                   <ShieldCheck size={14} /> Xavfsizlik
@@ -1556,6 +1591,25 @@ export default function Admin() {
           </div>
         )}
       </Modal>
+    </div>
+  )
+}
+
+function IntegrationRow({ label, ready, hint }) {
+  return (
+    <div className="flex items-start justify-between gap-2 border-b border-stone-100 pb-1.5 last:border-0">
+      <div className="min-w-0">
+        <p className="font-semibold text-stone-600">{label}</p>
+        <p className="truncate text-[9px] text-stone-400">{hint}</p>
+      </div>
+      <span
+        className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black ${
+          ready ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+        }`}
+      >
+        {ready ? <CheckCircle2 size={10} /> : <X size={10} />}
+        {ready ? 'Faol' : 'Kalit kerak'}
+      </span>
     </div>
   )
 }

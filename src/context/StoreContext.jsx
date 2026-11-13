@@ -41,6 +41,7 @@ const EMPTY_STATE = {
   aiUsage: null,
   stats: { users: 0, orders: 0, grossSales: 0, commission: 0 },
   providers: { manual: true, wallet: true, cash: true, payme: false, click: false },
+  integrations: { google: false },
 }
 
 function todayKey() {
@@ -85,6 +86,7 @@ export function StoreProvider({ children }) {
         aiUsage: data.aiUsage || null,
         stats: data.stats || EMPTY_STATE.stats,
         providers: data.providers || EMPTY_STATE.providers,
+        integrations: data.integrations || EMPTY_STATE.integrations,
       })
       setCurrentUser(data.currentUser || null)
       setApiError('')
@@ -369,6 +371,7 @@ export function StoreProvider({ children }) {
     passwordResets: state.passwordResets,
     stats: state.stats,
     providers: state.providers,
+    integrations: state.integrations,
     currentUser,
     plan,
     isAdmin,
