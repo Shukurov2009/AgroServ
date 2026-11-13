@@ -275,6 +275,12 @@ CREATE TABLE IF NOT EXISTS password_resets (
   resolved_at timestamptz
 );
 
+ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS token_hash text;
+ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS used_at timestamptz;
+CREATE INDEX IF NOT EXISTS password_resets_token_idx
+  ON password_resets (token_hash) WHERE token_hash IS NOT NULL;
+
 CREATE SEQUENCE IF NOT EXISTS order_number_seq START WITH 1001;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar text NOT NULL DEFAULT '🌱';

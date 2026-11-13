@@ -11,7 +11,7 @@ import Modal from '../components/Modal'
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
 export default function Login() {
-  const { currentUser, signIn, loginWithGoogle, resetPassword } = useStore()
+  const { currentUser, signIn, loginWithGoogle, resetPassword, integrations } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/kabinet'
@@ -23,6 +23,7 @@ export default function Login() {
   const [forgotOpen, setForgotOpen] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent] = useState(false)
+  const [forgotDelivery, setForgotDelivery] = useState('admin')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [pendingGoogle, setPendingGoogle] = useState(null)
   const [selectedRole, setSelectedRole] = useState('')
@@ -91,6 +92,7 @@ export default function Login() {
     const result = await resetPassword(forgotEmail)
     setForgotLoading(false)
     if (result.ok) {
+      setForgotDelivery(result.delivery || (integrations.email ? 'email' : 'admin'))
       setForgotSent(true)
     } else {
       toast.error(result.error)
@@ -100,6 +102,7 @@ export default function Login() {
   function closeForgot() {
     setForgotOpen(false)
     setForgotSent(false)
+    setForgotDelivery('admin')
     setForgotEmail('')
   }
 
@@ -228,16 +231,32 @@ export default function Login() {
         open={forgotOpen}
         onClose={closeForgot}
         title="Parolni tiklash"
-        subtitle="Email manzilingizni yuboring. Administrator so'rovni ko'rib chiqib, yangi parolni siz bilan bog'langan aloqa kanali orqali beradi."
+        subtitle={
+          integrations.email
+            ? "Email manzilingizni yuboring. Hisob mavjud bo'lsa, 30 daqiqa amal qiladigan tiklash havolasi yuboriladi."
+            : "Email manzilingizni yuboring. Administrator so'rovni ko'rib chiqib, yangi parolni siz bilan bog'langan aloqa kanali orqali beradi."
+        }
         size="sm"
       >
         {forgotSent ? (
           <div className="space-y-4">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-              <p className="font-bold">So'rov qabul qilindi</p>
+              <p className="font-bold">
+                {forgotDelivery === 'email' ? 'Havola yuborildi' : "So'rov qabul qilindi"}
+              </p>
               <p className="mt-1 text-xs leading-relaxed">
-                Agar <span className="font-semibold">{forgotEmail}</span> ro'yxatdan o'tgan bo'lsa,
-                administrator parolni tiklash so'rovini ko'radi va siz bilan bog'lanadi.
+                {forgotDelivery === 'email' ? (
+                  <>
+                    Agar <span className="font-semibold">{forgotEmail}</span> ro'yxatdan o'tgan
+                    bo'lsa, parolni tiklash havolasi yuborildi. Pochta qutingizni va spam papkasini
+                    tekshiring.
+                  </>
+                ) : (
+                  <>
+                    Agar <span className="font-semibold">{forgotEmail}</span> ro'yxatdan o'tgan
+                    bo'lsa, administrator parolni tiklash so'rovini ko'radi va siz bilan bog'lanadi.
+                  </>
+                )}
               </p>
             </div>
             <button type="button" onClick={closeForgot} className="btn btn-primary w-full">
@@ -259,12 +278,13 @@ export default function Login() {
               />
             </div>
             <p className="rounded-lg bg-stone-50 px-3 py-2 text-[10px] leading-relaxed text-stone-500">
-              Xavfsizlik uchun parolni faqat administrator yangilaydi. So'rov yuborilgach, u bilan
-              bog'lanish uchun telefon raqamingiz yangilangan bo'lishi kerak.
+              {integrations.email
+                ? "Havola 30 daqiqa amal qiladi va faqat bir marta ishlatiladi. Xat kelmasa, spam papkasini tekshiring."
+                : "Xavfsizlik uchun parolni faqat administrator yangilaydi. So'rov yuborilgach, u bilan bog'lanish uchun telefon raqamingiz yangilangan bo'lishi kerak."}
             </p>
             <button type="submit" className="btn btn-primary w-full" disabled={forgotLoading}>
               {forgotLoading ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
-              So'rov yuborish
+              {integrations.email ? 'Havola yuborish' : "So'rov yuborish"}
             </button>
           </form>
         )}

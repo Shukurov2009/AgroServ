@@ -41,7 +41,7 @@ const EMPTY_STATE = {
   aiUsage: null,
   stats: { users: 0, orders: 0, grossSales: 0, commission: 0 },
   providers: { manual: true, wallet: true, cash: true, payme: false, click: false },
-  integrations: { google: false },
+  integrations: { google: false, email: false },
 }
 
 function todayKey() {

@@ -1439,6 +1439,11 @@ export default function Admin() {
                     }
                   />
                   <IntegrationRow
+                    label="Email (parol tiklash)"
+                    ready={integrations.email}
+                    hint={integrations.email ? 'Ulangan' : 'GMAIL_WEBHOOK_URL + SECRET'}
+                  />
+                  <IntegrationRow
                     label="Payme"
                     ready={providers.payme}
                     hint={providers.payme ? 'Ulangan' : 'PAYME_MERCHANT_ID + PAYME_KEY'}
@@ -1450,8 +1455,9 @@ export default function Admin() {
                   />
                 </div>
                 <p className="mt-3 rounded-lg bg-stone-50 px-2.5 py-2 text-[9px] leading-relaxed text-stone-500">
-                  Parol tiklash hozir admin panel orqali ishlaydi: foydalanuvchi so'rov yuboradi, admin
-                  yangi parol yaratadi.
+                  {integrations.email
+                    ? "Parol tiklash havolasi foydalanuvchi emailiga avtomatik yuboriladi. Admin panel orqali ham parol yaratish mumkin."
+                    : "Parol tiklash hozir admin panel orqali ishlaydi: foydalanuvchi so'rov yuboradi, admin yangi parol yaratadi."}
                 </p>
               </div>
 

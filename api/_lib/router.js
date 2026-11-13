@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { PLANS, SELF_ROLES } from '../../src/lib/constants.js'
 import { query, withTransaction } from './db.js'
 import {
@@ -49,6 +49,7 @@ import {
   sellerFee,
   applyPaidPayment,
 } from './payments.js'
+import { emailConfigured, sendEmail, passwordResetEmail } from './email.js'
 
 const DEFAULT_SETTINGS = {
   siteName: 'AgroServ',
@@ -108,6 +109,7 @@ function providersConfig() {
 function integrationsConfig() {
   return {
     google: Boolean(process.env.GOOGLE_CLIENT_ID),
+    email: emailConfigured(),
   }
 }
 
@@ -452,22 +454,114 @@ async function forgotPassword(ctx) {
   rateLimit(`forgot:${getIp(ctx.req)}`, 5, 60 * 60 * 1000)
   if (!isEmail(email)) throw new HttpError(400, "Email manzil noto'g'ri", 'BAD_EMAIL')
 
-  const { rows } = await query('SELECT id FROM users WHERE email = $1', [email])
+  const emailEnabled = emailConfigured()
+  const { rows } = await query('SELECT id, name FROM users WHERE email = $1', [email])
+
   if (rows[0]) {
-    const recent = await query(
-      `SELECT id FROM password_resets
-       WHERE email = $1 AND status = 'pending' AND created_at > now() - interval '10 minutes'`,
-      [email],
-    )
-    if (recent.rowCount === 0) {
-      await query('INSERT INTO password_resets (user_id, email) VALUES ($1,$2)', [rows[0].id, email])
+    const user = rows[0]
+
+    if (emailEnabled) {
+      const recent = await query(
+        `SELECT id FROM password_resets
+         WHERE user_id = $1 AND status = 'pending' AND token_hash IS NOT NULL
+           AND created_at > now() - interval '2 minutes'`,
+        [user.id],
+      )
+
+      if (recent.rowCount === 0) {
+        const token = randomBytes(32).toString('base64url')
+        const tokenHash = createHash('sha256').update(token).digest('hex')
+        const appUrl = (process.env.APP_URL || 'https://agroserv-lake.vercel.app').replace(/\/+$/, '')
+        const resetUrl = `${appUrl}/parolni-tiklash?token=${encodeURIComponent(token)}`
+
+        await query(
+          `UPDATE password_resets SET status = 'rejected', resolved_at = now()
+           WHERE user_id = $1 AND status = 'pending'`,
+          [user.id],
+        )
+        await query(
+          `INSERT INTO password_resets (user_id, email, status, token_hash, expires_at, note)
+           VALUES ($1, $2, 'pending', $3, now() + interval '30 minutes', 'email')`,
+          [user.id, email, tokenHash],
+        )
+
+        const mail = passwordResetEmail({ name: user.name, url: resetUrl })
+        const result = await sendEmail({
+          to: email,
+          subject: "AgroServ: parolni tiklash havolasi",
+          text: mail.text,
+          html: mail.html,
+        })
+
+        if (!result.sent) {
+          console.error('Parol tiklash emaili yuborilmadi:', result.reason)
+          await query(
+            `UPDATE password_resets SET note = 'email-failed'
+             WHERE token_hash = $1 AND status = 'pending'`,
+            [tokenHash],
+          )
+        }
+      }
+    } else {
+      const recent = await query(
+        `SELECT id FROM password_resets
+         WHERE email = $1 AND status = 'pending' AND created_at > now() - interval '10 minutes'`,
+        [email],
+      )
+      if (recent.rowCount === 0) {
+        await query('INSERT INTO password_resets (user_id, email) VALUES ($1,$2)', [user.id, email])
+      }
     }
   }
 
   return {
-    message:
-      "Agar bu email ro'yxatdan o'tgan bo'lsa, administrator parolni tiklash so'rovini ko'radi va siz bilan bog'lanadi.",
+    delivery: emailEnabled ? 'email' : 'admin',
+    message: emailEnabled
+      ? "Agar bu email ro'yxatdan o'tgan bo'lsa, parolni tiklash havolasi yuborildi. Havola 30 daqiqa amal qiladi."
+      : "Agar bu email ro'yxatdan o'tgan bo'lsa, administrator parolni tiklash so'rovini ko'radi va siz bilan bog'lanadi.",
   }
+}
+
+async function confirmPasswordReset(ctx) {
+  const body = await readBody(ctx.req)
+  const token = String(body.token || '').trim()
+  const password = String(body.password || '')
+  rateLimit(`reset-confirm:${getIp(ctx.req)}`, 20, 60 * 60 * 1000)
+
+  if (!token || token.length < 20) {
+    throw new HttpError(400, "Havola yaroqsiz yoki muddati o'tgan", 'BAD_TOKEN')
+  }
+  if (password.length < 8) {
+    throw new HttpError(400, "Yangi parol kamida 8 ta belgidan iborat bo'lsin", 'BAD_PASSWORD')
+  }
+
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const { rows } = await query(
+    `SELECT * FROM password_resets
+     WHERE token_hash = $1 AND status = 'pending' AND expires_at > now()
+     ORDER BY created_at DESC LIMIT 1`,
+    [tokenHash],
+  )
+  const reset = rows[0]
+  if (!reset) throw new HttpError(400, "Havola yaroqsiz yoki muddati o'tgan", 'BAD_TOKEN')
+
+  const hash = await hashPassword(password)
+  await withTransaction(async (client) => {
+    const updated = await client.query(
+      `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2 RETURNING id`,
+      [hash, reset.user_id],
+    )
+    if (updated.rowCount === 0) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
+    await client.query(
+      `UPDATE password_resets
+       SET status = 'resolved', resolved_at = now(), used_at = now()
+       WHERE id = $1`,
+      [reset.id],
+    )
+    await client.query('DELETE FROM sessions WHERE user_id = $1', [reset.user_id])
+  })
+
+  return { message: "Parol yangilandi. Endi yangi parol bilan kirishingiz mumkin." }
 }
 
 async function changePassword(ctx) {
@@ -2099,6 +2193,7 @@ route('GET', '/auth/me', async (ctx) => ({ user: ctx.user ? toUser(ctx.user, { s
   public: true,
 })
 route('POST', '/auth/forgot', forgotPassword, { public: true })
+route('POST', '/auth/password-reset/confirm', confirmPasswordReset, { public: true })
 route('POST', '/auth/change-password', changePassword)
 route('PATCH', '/profile', updateProfile)
 route('POST', '/profile/role', setSelfRole)

@@ -27,8 +27,10 @@ Loyiha demo emas: foydalanuvchilar, mahsulotlar, buyurtmalar, to'lovlar va stati
 | `VITE_GOOGLE_CLIENT_ID` | Yo'q | Google OAuth client ID (frontend) |
 | `PAYME_MERCHANT_ID`, `PAYME_KEY` | Yo'q | Payme merchant sozlamalari |
 | `CLICK_SERVICE_ID`, `CLICK_MERCHANT_ID`, `CLICK_SECRET_KEY` | Yo'q | Click merchant sozlamalari |
+| `GMAIL_WEBHOOK_URL` | Yo'q | Apps Script Gmail webhook URL (parol tiklash emaili) |
+| `GMAIL_WEBHOOK_SECRET` | Yo'q | Gmail webhook uchun maxfiy kalit |
 
-Google yoki Payme/Click sozlanmagan bo'lsa, tegishli tugma foydalanuvchiga ko'rsatilmaydi; qolgan oqimlar ishlayveradi.
+Google yoki Payme/Click sozlanmagan bo'lsa, tegishli tugma foydalanuvchiga ko'rsatilmaydi; qolgan oqimlar ishlayveradi. `GMAIL_WEBHOOK_URL` va `GMAIL_WEBHOOK_SECRET` bo'lsa, parol tiklash havolasi emailga avtomatik yuboriladi; aks holda so'rov admin panelga tushadi.
 
 ## Ishga tushirish
 
@@ -58,7 +60,7 @@ Testlar vaqtinchalik foydalanuvchilar yaratadi va oxirida ularni bazadan tozalay
 
 ## Asosiy imkoniyatlar
 
-- **Auth:** email/parol, 30 kunlik HttpOnly session cookie, Google OAuth, rol tanlash, admin vositachiligida parol tiklash.
+- **Auth:** email/parol, 30 kunlik HttpOnly session cookie, Google OAuth, rol tanlash, email havolasi yoki admin vositachiligida parol tiklash.
 - **Bozor:** qidiruv, kategoriya, filtr, mahsulot sahifasi, savat, sevimlilar, sharhlar.
 - **Xizmatlar:** usta va agronomlar, buyurtma, sharh, xizmat holati.
 - **Ish o'rinlari:** e'lon joylash, ariza yuborish va arizalarni ko'rish.

@@ -9,6 +9,7 @@ import About from './pages/About'
 import Pricing from './pages/Pricing'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ResetPassword from './pages/ResetPassword'
 import Market from './pages/Market'
 import ProductDetail from './pages/ProductDetail'
 import Services from './pages/Services'
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/shartlar" element={<Terms />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/parolni-tiklash" element={<ResetPassword />} />
             <Route path="/bozor" element={<Market />} />
             <Route path="/mahsulot/:id" element={<ProductDetail />} />
             <Route path="/xizmatlar" element={<Services />} />

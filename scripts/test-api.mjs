@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { handle } from '../api/_lib/router.js'
 import { query } from '../api/_lib/db.js'
 
@@ -434,6 +434,39 @@ try {
       body: { email: buyerEmail, password: 'YangiParol#2026' },
     })
     assert(relogin.status === 200, 'yangi parol bilan kirish ishlaydi', relogin)
+
+    const badToken = await call('POST', '/api/auth/password-reset/confirm', {
+      body: { token: 'not-a-real-reset-token-1234567890', password: 'YangiParol#2026' },
+    })
+    assert(badToken.status === 400, "noto'g'ri tiklash havolasi rad etiladi", badToken)
+
+    const shortReset = await call('POST', '/api/auth/password-reset/confirm', {
+      body: { token: 'not-a-real-reset-token-1234567890', password: '123' },
+    })
+    assert(shortReset.status === 400, 'qisqa yangi parol rad etiladi', shortReset)
+
+    const resetToken = `test-${randomUUID()}`
+    const resetTokenHash = createHash('sha256').update(resetToken).digest('hex')
+    const buyerRow = await query('SELECT id FROM users WHERE email = $1', [buyerEmail])
+    await query(
+      `INSERT INTO password_resets (user_id, email, status, token_hash, expires_at, note)
+       VALUES ($1, $2, 'pending', $3, now() + interval '30 minutes', 'test')`,
+      [buyerRow.rows[0].id, buyerEmail, resetTokenHash],
+    )
+    const confirmed = await call('POST', '/api/auth/password-reset/confirm', {
+      body: { token: resetToken, password: 'HavolaParol#2026' },
+    })
+    assert(confirmed.status === 200, 'email havolasi orqali parol yangilanadi', confirmed)
+
+    const reloginHavola = await call('POST', '/api/auth/login', {
+      body: { email: buyerEmail, password: 'HavolaParol#2026' },
+    })
+    assert(reloginHavola.status === 200, 'havola orqali yangilangan parol ishlaydi', reloginHavola)
+
+    const reused = await call('POST', '/api/auth/password-reset/confirm', {
+      body: { token: resetToken, password: 'BoshqaParol#2026' },
+    })
+    assert(reused.status === 400, 'ishlatilgan havola qayta ishlamaydi', reused)
   } else {
     console.log('- TEST_ADMIN_PASSWORD berilmagan, admin oqimi o‘tkazib yuborildi')
   }
