@@ -276,12 +276,12 @@ img {
   color: #059669;
 }
 
+/* Yozish uchun bosilganda (yoki maydon to'lgan bo'lsa) icon butunlay yo'qoladi */
 .float-field.is-filled > .float-label > svg,
 .float-field > input:focus ~ .float-label > svg,
 .float-field > input:not(:placeholder-shown) ~ .float-label > svg,
 .float-field > select:focus ~ .float-label > svg {
-  width: 0.68rem;
-  height: 0.68rem;
+  display: none;
 }
 
 .float-field > input:not(:placeholder-shown):not(:focus) ~ .float-label {
