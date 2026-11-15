@@ -1,21 +1,26 @@
-import { AGRO_REFUSAL, getLocalReply, isOffTopic } from '../../src/lib/ai.js'
+import { AGRO_REFUSAL, isOffTopic } from '../../src/lib/ai.js'
 
 const MAX_HISTORY = 8
 const MAX_MESSAGE = 2000
 
-const SYSTEM_PROMPT = `Sen "AgroServ AI" agronom maslahatchisisan. Sening yagona vazifang — qishloq xo'jaligi, dehqonchilik, bog'dorchilik, chorvachilik, asalarichilik, agro texnika, o'g'it, urug', ko'chat, sug'orish, o'simlik kasalliklari va zararkunandalar, tuproq, hosilni saqlash, agro bozor narxlari va fermer xo'jaligi iqtisodiyoti bo'yicha maslahat berish.
+export const AI_NOT_CONFIGURED =
+  "⚠️ AI xizmati hozircha sozlanmagan. Administrator Admin → Sozlamalar bo'limida Gemini API kalitini qo'shishi kerak."
+
+const SYSTEM_PROMPT = `Sen "AgroServ AI" agronom maslahatchisisan. Sening yagona vazifang — qishloq xo'jaligi, dehqonchilik, bog'dorchilik, chorvachilik, asalarichilik, agro texnika, o'g'it, urug', ko'chat, sug'orish, o'simlik kasalliklari va zararkunandalar, tuproq, hosilni saqlash, agro bozor narxlari va fermer xo'jaligi iqtisodiyoti bo'yicha maslahat berish. Boshqa hech qanday mavzuda javob bermaysan.
 
 Qoidalar:
-1. Faqat shu mavzulardagi savollarga javob ber. Boshqa mavzuda (dasturlash, siyosat, sport, o'yin, inson tibbiyoti, shaxsiy munosabatlar, moliya, kripto, umumiy ta'lim va h.k.) so'ralgan bo'lsa, faqat "OFF_TOPIC" so'zini qaytar, boshqa hech narsa yozma.
-2. Savol noaniq bo'lsa, aniqroq ma'lumot so'ra: ekin nomi, viloyat, tuproq, belgilar, qaysi bosqich.
-3. Javobni o'zbek tilida (lotin yozuvida) yoz. Qisqa, amaliy va bosqichma-bosqich bo'lsin. Kerak bo'lsa ro'yxat ishlat.
-4. Agar savolda bir nechta usul so'ralsa, barcha asosiy usullarni sanab o't va qaysi holatda qaysi usul mosligini ayt.
-5. Dozalar, preparatlar va kimyoviy ishlovlar haqida gapirganda ehtiyotkor bo'l: aniq doza uchun tuproq tahlili va mahalliy agronom tavsiyasi kerakligini ayt. Taqiqlangan yoki xavfli moddalarni tavsiya qilma.
-6. O'zingni inson deb ko'rsatma; "men agronomman" deb aytma, "AgroServ AI maslahatchisi" deb tanishtir.
-7. Javobda ortiqcha umumiy gaplar yozma; foydalanuvchi savoliga bevosita javob ber.
-8. Agar savol agro sohaga oid bo'lsa-yu, aniq ma'lumot yetishmasa, taxmin qilib yozma — qisqa savol ber.
-9. O'simlik kasalligi yoki zararkunanda haqida gapirganda belgilarni sanab o't va birinchi yordam choralarini ayt; aniq tashxis uchun agronom yoki laboratoriya kerakligini eslat.
-10. Hech qachon boshqa tildagi yoki mavzudagi javobni aralashtirma.`
+1. Savol agro sohaga oidmi — bunga ishonching komil bo'lmasa ham, faqat "OFF_TOPIC" so'zini qaytar. Dasturlash, IT, siyosat, sport, o'yin, inson tibbiyoti, moliya, kripto, umumiy ta'lim, huquq, sayohat, moda, shaxsiy munosabatlar va boshqa mavzular taqiqlangan.
+2. Agar savol agroga oid bo'lmasa yoki agro va boshqa mavzu aralash bo'lsa, javob o'rniga faqat "OFF_TOPIC" yoz; boshqa hech narsa yozma.
+3. Agro savolga to'liq, erkin va amaliy javob ber. Tayyor shablon yoki oldindan yozilgan javobdan foydalanma — savolni tahlil qil va aynan shu savolga javob ber.
+4. Savolda bir nechta usul yoki variant so'ralsa, barchasini sanab o't va qaysi holatda qaysi biri mosligini tushuntir.
+5. Javobni o'zbek tilida (lotin yozuvida), aniq va bosqichma-bosqich yoz. Kerak bo'lsa ro'yxat ishlat.
+6. Ma'lumot yetishmasa, taxmin qilib yozma — ekin nomi, viloyat, tuproq, belgilar yoki qaysi bosqich ekanini so'ra.
+7. Dozalar, preparatlar va kimyoviy ishlovlar haqida ehtiyotkor bo'l: aniq doza uchun tuproq tahlili va mahalliy agronom tavsiyasi kerakligini ayt. Taqiqlangan yoki xavfli moddalarni tavsiya qilma.
+8. O'simlik kasalligi yoki zararkunandasi haqida gapirganda belgilarni sanab o't va birinchi yordam choralarini ayt; aniq tashxis uchun agronom yoki laboratoriya kerakligini eslat.
+9. Agar rasm yuborilsa, barg, meva, poya yoki zararkunanda belgilarini tahlil qil. Rasmda ko'rinmayotgan narsani taxmin qilma.
+10. Salomlashishga qisqa javob ber va qaysi agro mavzularda yordam bera olishingni ayt.
+11. O'zingni inson yoki oddiy agronom deb ko'rsatma; "AgroServ AI maslahatchisi" deb tanishtir.
+12. Javobda boshqa til yoki mavzuni aralashtirma. Faqat agro soha.`
 
 function providerConfig(dbKey = '') {
   const geminiKey = dbKey || process.env.GEMINI_API_KEY
@@ -82,7 +87,7 @@ function sanitizeHistory(history) {
     }))
 }
 
-async function callProvider(provider, { message, history }) {
+async function callProvider(provider, { message, history, imageDataUrl }) {
   const headers = {
     'content-type': 'application/json',
     authorization: `Bearer ${provider.key}`,
@@ -92,6 +97,13 @@ async function callProvider(provider, { message, history }) {
     headers['X-Title'] = 'AgroServ AI'
   }
 
+  const userContent = imageDataUrl
+    ? [
+        { type: 'text', text: message },
+        { type: 'image_url', image_url: { url: imageDataUrl } },
+      ]
+    : message
+
   const response = await fetch(provider.url, {
     method: 'POST',
     headers,
@@ -100,12 +112,12 @@ async function callProvider(provider, { message, history }) {
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         ...sanitizeHistory(history),
-        { role: 'user', content: message.slice(0, MAX_MESSAGE) },
+        { role: 'user', content: userContent },
       ],
       temperature: 0.5,
       max_tokens: 1600,
     }),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(45000),
   })
 
   const raw = await response.text()
@@ -128,35 +140,31 @@ async function callProvider(provider, { message, history }) {
   return content.trim()
 }
 
-export async function generateAiReply({ message, history, imageName, apiKey }) {
+export async function generateAiReply({ message, history, imageDataUrl, apiKey }) {
   const cleanMessage = String(message || '').trim()
-  if (!cleanMessage) {
+  if (!cleanMessage && !imageDataUrl) {
     return { reply: 'Savolingizni yozing.', offTopic: false, source: 'guard' }
   }
 
-  // Hozircha rasm tahlili fayl nomi va belgilar asosida (vision keyin qo'shiladi)
-  if (imageName) {
-    return { ...getLocalReply(cleanMessage, imageName), source: 'local-image' }
-  }
-
   // Aniq agro bo'lmagan savollarni LLM chaqiruvidan oldin to'sish
-  if (isOffTopic(cleanMessage)) {
+  if (!imageDataUrl && isOffTopic(cleanMessage)) {
     return { reply: AGRO_REFUSAL, offTopic: true, source: 'guard' }
   }
 
   const provider = providerConfig(apiKey)
   if (!provider) {
-    return { ...getLocalReply(cleanMessage), source: 'local' }
+    return { reply: AI_NOT_CONFIGURED, offTopic: false, source: 'not-configured' }
   }
 
-  try {
-    const content = await callProvider(provider, { message: cleanMessage, history })
-    if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
-      return { reply: AGRO_REFUSAL, offTopic: true, source: provider.provider }
-    }
-    return { reply: content, offTopic: false, source: provider.provider }
-  } catch (error) {
-    console.error('[ai] provider error:', error.message)
-    return { ...getLocalReply(cleanMessage), source: 'local-fallback' }
+  const content = await callProvider(provider, {
+    message: cleanMessage || 'Yuklangan rasmni tahlil qil.',
+    history,
+    imageDataUrl,
+  })
+
+  if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
+    return { reply: AGRO_REFUSAL, offTopic: true, source: provider.provider }
   }
+
+  return { reply: content, offTopic: false, source: provider.provider }
 }

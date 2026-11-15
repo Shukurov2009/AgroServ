@@ -29,6 +29,38 @@ const INITIAL_MESSAGES = [
   },
 ]
 
+const ENGINE_NAMES = {
+  gemini: 'Gemini',
+  groq: 'Groq',
+  openrouter: 'OpenRouter',
+  openai: 'OpenAI',
+}
+
+async function prepareImage(file) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('read'))
+    reader.readAsDataURL(file)
+  })
+
+  const img = await new Promise((resolve, reject) => {
+    const element = new Image()
+    element.onload = () => resolve(element)
+    element.onerror = () => reject(new Error('decode'))
+    element.src = dataUrl
+  })
+
+  const maxSide = 1400
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(img.width * scale))
+  canvas.height = Math.max(1, Math.round(img.height * scale))
+  const context = canvas.getContext('2d')
+  context.drawImage(img, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/jpeg', 0.85)
+}
+
 const TOPICS = [
   { icon: '🍅', label: 'Pomidor', text: "Pomidorda barglari sariq bo'lib qoldi, nima qilay?" },
   { icon: '🌾', label: "Bug'doy", text: "Bug'doyni qanday o'g'itlash kerak?" },
@@ -60,6 +92,10 @@ export default function AiAdvisor() {
       toast.error('Faqat rasm faylini yuklang')
       return
     }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Rasm hajmi 8 MB dan kichik bo'lsin")
+      return
+    }
     setImage({ file, url: URL.createObjectURL(file), name: file.name })
   }
 
@@ -74,19 +110,29 @@ export default function AiAdvisor() {
     if (typing) return
 
     setTyping(true)
+
+    let imageDataUrl = ''
+    if (image?.file) {
+      try {
+        imageDataUrl = await prepareImage(image.file)
+      } catch {
+        setTyping(false)
+        toast.error("Rasmni o'qib bo'lmadi. JPG yoki PNG formatda yuboring.")
+        return
+      }
+    }
+
     const history = messages
       .filter((message) => message.id !== 'welcome')
       .slice(-8)
       .map((message) => ({ role: message.role, content: message.text }))
 
     const imageUrl = image?.url || null
-    const imageName = image?.name || ''
     const userMessage = {
       id: `u${Date.now()}`,
       role: 'user',
       text: content || 'Yuklangan rasmni tahlil qiling',
       image: imageUrl,
-      imageName,
       at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, userMessage])
@@ -96,7 +142,7 @@ export default function AiAdvisor() {
     const result = await sendAiMessage({
       message: content || 'Yuklangan rasmni tahlil qiling',
       history,
-      imageName,
+      imageDataUrl,
     })
 
     if (!result.ok) {
@@ -106,13 +152,15 @@ export default function AiAdvisor() {
         toast.error(result.error || "Kunlik bepul AI limiti tugadi. Ertaga qayta urinib ko'ring.")
         return
       }
-      toast.error(result.error || "AI xizmatiga ulanib bo'lmadi")
+      const errorText =
+        result.error || "AI xizmatiga vaqtincha ulanib bo'lmadi. Birozdan keyin qayta urinib ko'ring."
+      toast.error(errorText)
       setMessages((prev) => [
         ...prev,
         {
           id: `a${Date.now()}`,
           role: 'assistant',
-          text: "⚠️ AI xizmatiga vaqtincha ulanib bo'lmadi. Birozdan keyin qayta urinib ko'ring.",
+          text: `⚠️ ${errorText}`,
           at: new Date().toISOString(),
         },
       ])
@@ -120,13 +168,7 @@ export default function AiAdvisor() {
     }
 
     setLimitHit(false)
-    setEngine(
-      result.provider === 'local'
-        ? 'Lokal bilim bazasi'
-        : result.provider === 'gemini'
-          ? 'Gemini'
-          : result.provider || 'AI',
-    )
+    setEngine(ENGINE_NAMES[result.provider] || 'AI')
     setMessages((prev) => [
       ...prev,
       {

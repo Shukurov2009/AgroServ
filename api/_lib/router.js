@@ -1290,7 +1290,17 @@ async function aiChat(ctx) {
 
   const body = await readBody(ctx.req)
   const message = clean(body.message, 2000)
-  if (!message) throw new HttpError(400, 'Savolingizni yozing', 'EMPTY_MESSAGE')
+  const imageDataUrl = typeof body.imageDataUrl === 'string' ? body.imageDataUrl.trim() : ''
+  if (!message && !imageDataUrl) throw new HttpError(400, 'Savolingizni yozing', 'EMPTY_MESSAGE')
+
+  if (imageDataUrl) {
+    if (!/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(imageDataUrl)) {
+      throw new HttpError(400, "Rasm formati noto'g'ri. PNG, JPG yoki WEBP yuboring.", 'BAD_IMAGE')
+    }
+    if (imageDataUrl.length > 3_000_000) {
+      throw new HttpError(413, 'Rasm hajmi juda katta. 2 MB gacha rasm yuboring.', 'IMAGE_TOO_LARGE')
+    }
+  }
 
   const { rows } = await query('SELECT * FROM users WHERE id = $1', [ctx.user.id])
   const user = rows[0]
@@ -1300,24 +1310,38 @@ async function aiChat(ctx) {
   const apiKey = settings.aiApiKey || ''
 
   const quota = await consumeAiQuota(user)
+  let result
   try {
-    const result = await generateAiReply({
+    result = await generateAiReply({
       message,
       history: body.history,
-      imageName: clean(body.imageName, 200),
+      imageDataUrl,
       apiKey,
     })
-    return {
-      reply: result.reply,
-      offTopic: Boolean(result.offTopic),
-      source: result.source,
-      provider: String(result.source || '').startsWith('local') ? 'local' : aiProviderName(apiKey),
-      remaining: quota.remaining,
-      used: quota.used,
-    }
   } catch (error) {
     await refundAiQuota(user)
-    throw error
+    console.error('[ai] provider error:', error.message)
+    throw new HttpError(
+      502,
+      "AI xizmatida xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.",
+      'AI_PROVIDER_ERROR',
+    )
+  }
+
+  if (result.source === 'not-configured') {
+    await refundAiQuota(user)
+    throw new HttpError(503, result.reply, 'AI_NOT_CONFIGURED')
+  }
+
+  return {
+    reply: result.reply,
+    offTopic: Boolean(result.offTopic),
+    source: result.source,
+    provider: ['gemini', 'groq', 'openrouter', 'openai'].includes(result.source)
+      ? result.source
+      : aiProviderName(apiKey),
+    remaining: quota.remaining,
+    used: quota.used,
   }
 }
 

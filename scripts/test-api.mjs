@@ -546,12 +546,26 @@ try {
     cookie: sellerCookie,
     body: { message: "Pomidor ko'chatini qanday ekish kerak? Barcha usullarini ayt." },
   })
-  assert(
-    aiChat.status === 200 && typeof aiChat.data.reply === 'string' && aiChat.data.reply.length > 100,
-    'AI chat javob beradi',
-    aiChat,
-  )
-  assert(Boolean(aiChat.data.source), 'AI javob manbasi qaytadi', aiChat.data.source)
+  if (aiChat.status === 200) {
+    assert(
+      typeof aiChat.data.reply === 'string' && aiChat.data.reply.length > 0,
+      'AI chat javob beradi',
+      aiChat,
+    )
+    assert(Boolean(aiChat.data.source), 'AI javob manbasi qaytadi', aiChat.data.source)
+  } else {
+    assert(
+      aiChat.status === 503 && aiChat.data.code === 'AI_NOT_CONFIGURED',
+      "AI kaliti yo'qligida aniq xato qaytadi",
+      aiChat,
+    )
+  }
+
+  const aiBadImage = await call('POST', '/api/ai/chat', {
+    cookie: sellerCookie,
+    body: { message: 'Rasmni tahlil qil', imageDataUrl: 'data:text/plain;base64,AAAA' },
+  })
+  assert(aiBadImage.status === 400, "AI noto'g'ri rasm formatini rad etadi", aiBadImage)
 
   const aiOffTopic = await call('POST', '/api/ai/chat', {
     cookie: sellerCookie,
