@@ -225,19 +225,17 @@ img {
 /* Floating label: yozuv input ichida turadi, focus yoki qiymat bo'lganda tepaga chiqadi */
 .float-field {
   position: relative;
-  --float-label-left: 0.9rem;
-}
-
-.float-field.has-icon {
-  --float-label-left: 2.5rem;
 }
 
 .float-field > .float-label {
   position: absolute;
-  left: var(--float-label-left);
+  left: 0.9rem;
   top: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   transform: translateY(-50%);
-  max-width: calc(100% - var(--float-label-left) - 1rem);
+  max-width: calc(100% - 1.9rem);
   overflow: hidden;
   padding: 0 0.28rem;
   border-radius: 0.35rem;
@@ -255,6 +253,15 @@ img {
     color 0.16s ease;
 }
 
+.float-field > .float-label > svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  transition:
+    width 0.16s ease,
+    height 0.16s ease;
+}
+
 .float-field > input:focus ~ .float-label,
 .float-field > input:not(:placeholder-shown) ~ .float-label {
   top: -0.42rem;
@@ -265,6 +272,12 @@ img {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #059669;
+}
+
+.float-field > input:focus ~ .float-label > svg,
+.float-field > input:not(:placeholder-shown) ~ .float-label > svg {
+  width: 0.62rem;
+  height: 0.62rem;
 }
 
 .float-field > input:not(:placeholder-shown):not(:focus) ~ .float-label {

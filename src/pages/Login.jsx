@@ -162,19 +162,20 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className={`space-y-3.5 ${GOOGLE_CLIENT_ID ? '' : 'mt-6'}`}>
               <div>
-                <div className="float-field has-icon">
-                  <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                <div className="float-field">
                   <input
                     id="login-email"
                     type="email"
                     value={form.email}
                     onChange={(event) => setForm({ ...form, email: event.target.value })}
                     placeholder=" "
-                    className="input pl-10"
+                    className="input"
                     autoComplete="email"
                     required
                   />
-                  <label className="float-label" htmlFor="login-email">Email manzil</label>
+                  <label className="float-label" htmlFor="login-email">
+                    <Mail size={16} /> Email manzil
+                  </label>
                 </div>
               </div>
               <div>
@@ -187,19 +188,20 @@ export default function Login() {
                     Parolni unutdingizmi?
                   </button>
                 </div>
-                <div className="float-field has-icon">
-                  <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                <div className="float-field">
                   <input
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
                     onChange={(event) => setForm({ ...form, password: event.target.value })}
                     placeholder=" "
-                    className="input pl-10 pr-11"
+                    className="input pr-11"
                     autoComplete="current-password"
                     required
                   />
-                  <label className="float-label" htmlFor="login-password">Parol</label>
+                  <label className="float-label" htmlFor="login-password">
+                    <Lock size={16} /> Parol
+                  </label>
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
@@ -283,7 +285,9 @@ export default function Login() {
                 placeholder=" "
                 required
               />
-              <label className="float-label" htmlFor="forgot-email">Email manzil</label>
+              <label className="float-label" htmlFor="forgot-email">
+                <Mail size={16} /> Email manzil
+              </label>
             </div>
             <p className="rounded-lg bg-stone-50 px-3 py-2 text-[10px] leading-relaxed text-stone-500">
               {integrations.email
