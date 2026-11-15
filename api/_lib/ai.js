@@ -4,7 +4,7 @@ const MAX_HISTORY = 8
 const MAX_MESSAGE = 2000
 
 export const AI_NOT_CONFIGURED =
-  "⚠️ AI xizmati hozircha sozlanmagan. Administrator Admin → Sozlamalar bo'limida Gemini API kalitini qo'shishi kerak."
+  "AI xizmati hozircha sozlanmagan. Administrator Admin → Sozlamalar bo'limida Gemini API kalitini qo'shishi kerak."
 
 const SYSTEM_PROMPT = `Sen "AgroServ AI" agronom maslahatchisisan. Sening yagona vazifang — qishloq xo'jaligi, dehqonchilik, bog'dorchilik, chorvachilik, asalarichilik, agro texnika, o'g'it, urug', ko'chat, sug'orish, o'simlik kasalliklari va zararkunandalar, tuproq, hosilni saqlash, agro bozor narxlari va fermer xo'jaligi iqtisodiyoti bo'yicha maslahat berish. Boshqa hech qanday mavzuda javob bermaysan.
 

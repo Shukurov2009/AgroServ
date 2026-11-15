@@ -10,6 +10,7 @@ import {
   Crown,
   KeyRound,
   LayoutDashboard,
+  Loader2,
   Mail,
   MessageSquare,
   Package,
@@ -19,6 +20,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Store,
   Trash2,
   TrendingUp,
@@ -122,6 +124,7 @@ export default function Admin() {
     deleteCard,
     toggleCard,
     updateSettings,
+    sendAiMessage,
     updateProduct,
     deleteProduct,
   } = useStore()
@@ -137,6 +140,7 @@ export default function Admin() {
   const [cardForm, setCardForm] = useState({ cardType: 'UzCard', number: '', holder: 'AgroServ MChJ' })
   const [settingsForm, setSettingsForm] = useState({ ...settings, aiApiKey: '' })
   const [resetResult, setResetResult] = useState(null)
+  const [aiTesting, setAiTesting] = useState(false)
 
   const unread = messages.filter((message) => !message.read).length
   const pendingPayments = payments.filter((payment) => payment.status === 'pending')
@@ -331,10 +335,37 @@ export default function Admin() {
   }
 
   async function removeAiKey() {
-    if (!window.confirm('Gemini API kaliti o‘chirilsinmi? AI lokal bilim bazasiga qaytadi.')) return
+    if (!window.confirm('Gemini API kaliti o‘chirilsinmi? AI javob bera olmaydi.')) return
     const result = await updateSettings({ aiApiKey: '' })
     if (result.ok) toast.success('AI kaliti o‘chirildi')
     else toast.error(result.error)
+  }
+
+  async function testAi() {
+    setAiTesting(true)
+    try {
+      const keyTyped = String(settingsForm.aiApiKey || '').trim()
+      if (keyTyped) {
+        const saved = await updateSettings({ aiApiKey: keyTyped })
+        if (!saved.ok) {
+          toast.error(saved.error)
+          return
+        }
+        setSettingsForm((prev) => ({ ...prev, aiApiKey: '' }))
+      }
+      const result = await sendAiMessage({
+        message: "Bir gap bilan ayt: pomidor ko'chatini ekishning asosiy qoidasi nima?",
+        history: [],
+      })
+      if (result.ok) {
+        const short = String(result.reply || '').replace(/\s+/g, ' ').slice(0, 90)
+        toast.success(`AI ulandi (${result.provider}): ${short}`, { duration: 6000 })
+      } else {
+        toast.error(result.error || 'AI ulanmadi')
+      }
+    } finally {
+      setAiTesting(false)
+    }
   }
 
   async function confirmPayment(payment) {
@@ -1482,15 +1513,30 @@ export default function Admin() {
                       </a>
                     )}
                   </p>
-                  {settings.aiKeyConfigured && (
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
-                      onClick={removeAiKey}
-                      className="mt-2 text-[10px] font-bold text-rose-600 hover:underline"
+                      onClick={testAi}
+                      disabled={aiTesting}
+                      className="btn btn-secondary text-[11px]"
                     >
-                      Kalitni o'chirish
+                      {aiTesting ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={13} />
+                      )}
+                      AI ulanishini tekshirish
                     </button>
-                  )}
+                    {settings.aiKeyConfigured && (
+                      <button
+                        type="button"
+                        onClick={removeAiKey}
+                        className="text-[10px] font-bold text-rose-600 hover:underline"
+                      >
+                        Kalitni o'chirish
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
