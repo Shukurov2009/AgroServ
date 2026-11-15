@@ -1217,7 +1217,7 @@ async function promoteProduct(ctx) {
 async function validatePromoRoute(ctx) {
   const body = await readBody(ctx.req)
   const scope = String(body.scope || 'order')
-  if (!['order', 'plan', 'feature'].includes(scope)) throw new HttpError(400, 'Scope noto\'g\'ri', 'BAD_SCOPE')
+  if (!['order', 'feature'].includes(scope)) throw new HttpError(400, 'Scope noto\'g\'ri', 'BAD_SCOPE')
   const amount = Math.max(0, Math.round(Number(body.amount) || 0))
   const result = await validatePromo(body.code, scope, amount)
   if (!result.ok) throw new HttpError(400, result.error, 'BAD_PROMO')
