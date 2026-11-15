@@ -34,6 +34,32 @@ const ENGINE_NAMES = {
   groq: 'Groq',
   openrouter: 'OpenRouter',
   openai: 'OpenAI',
+  llm7: 'LLM7',
+  pollinations: 'Pollinations',
+}
+
+function MessageText({ text, contactAdmin }) {
+  if (!contactAdmin) return <p className="whitespace-pre-line">{text}</p>
+  const parts = String(text).split('adminga')
+  return (
+    <p className="whitespace-pre-line">
+      {parts.map((part, index) => (
+        <span key={index}>
+          {part}
+          {index < parts.length - 1 && (
+            <a
+              href="https://t.me/utkrvc09"
+              target="_blank"
+              rel="noreferrer"
+              className="font-bold text-emerald-700 underline decoration-emerald-400 underline-offset-2"
+            >
+              adminga
+            </a>
+          )}
+        </span>
+      ))}
+    </p>
+  )
 }
 
 async function prepareImage(file) {
@@ -161,6 +187,8 @@ export default function AiAdvisor() {
           id: `a${Date.now()}`,
           role: 'assistant',
           text: `⚠️ ${errorText}`,
+          contactAdmin:
+            result.code === 'AI_NOT_CONFIGURED' || result.code === 'AI_UNAVAILABLE',
           at: new Date().toISOString(),
         },
       ])
@@ -273,7 +301,7 @@ export default function AiAdvisor() {
                         <img src={message.image} alt="Yuklangan rasm" className="max-h-40 w-full object-cover" />
                       </div>
                     )}
-                    <p className="whitespace-pre-line">{message.text}</p>
+                    <MessageText text={message.text} contactAdmin={message.contactAdmin} />
                     <p
                       className={`mt-1.5 text-[9px] font-medium ${
                         message.role === 'user' ? 'text-emerald-100/60' : 'text-stone-400'

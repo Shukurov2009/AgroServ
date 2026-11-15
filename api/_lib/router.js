@@ -49,7 +49,7 @@ import {
   applyPaidPayment,
 } from './payments.js'
 import { emailConfigured, sendEmail, passwordResetEmail } from './email.js'
-import { generateAiReply, aiProviderName } from './ai.js'
+import { generateAiReply, AI_UNAVAILABLE } from './ai.js'
 
 const DEFAULT_SETTINGS = {
   siteName: 'AgroServ',
@@ -1321,25 +1321,23 @@ async function aiChat(ctx) {
   } catch (error) {
     await refundAiQuota(user)
     console.error('[ai] provider error:', error.message)
-    throw new HttpError(
-      502,
-      "AI xizmatida xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.",
-      'AI_PROVIDER_ERROR',
-    )
+    throw new HttpError(503, AI_UNAVAILABLE, 'AI_UNAVAILABLE')
   }
 
-  if (result.source === 'not-configured') {
+  if (result.source === 'not-configured' || result.source === 'no-vision') {
     await refundAiQuota(user)
-    throw new HttpError(503, result.reply, 'AI_NOT_CONFIGURED')
+    throw new HttpError(503, AI_UNAVAILABLE, 'AI_UNAVAILABLE')
   }
 
   return {
     reply: result.reply,
     offTopic: Boolean(result.offTopic),
     source: result.source,
-    provider: ['gemini', 'groq', 'openrouter', 'openai'].includes(result.source)
+    provider: ['gemini', 'groq', 'openrouter', 'openai', 'llm7', 'pollinations'].includes(
+      result.source,
+    )
       ? result.source
-      : aiProviderName(apiKey),
+      : 'guard',
     remaining: quota.remaining,
     used: quota.used,
   }

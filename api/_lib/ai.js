@@ -2,9 +2,12 @@ import { AGRO_REFUSAL, isOffTopic } from '../../src/lib/ai.js'
 
 const MAX_HISTORY = 8
 const MAX_MESSAGE = 2000
+const TOTAL_BUDGET_MS = 50_000
 
-export const AI_NOT_CONFIGURED =
-  "AI xizmati hozircha sozlanmagan. Administrator Admin → Sozlamalar bo'limida Gemini API kalitini qo'shishi kerak."
+export const AI_UNAVAILABLE =
+  "AI xizmati vaqtincha ishlamayapti. Iltimos, adminga murojaat qiling."
+
+export const AI_NOT_CONFIGURED = AI_UNAVAILABLE
 
 const SYSTEM_PROMPT = `Sen "AgroServ AI" agronom maslahatchisisan. Sening yagona vazifang — qishloq xo'jaligi, dehqonchilik, bog'dorchilik, chorvachilik, asalarichilik, agro texnika, o'g'it, urug', ko'chat, sug'orish, o'simlik kasalliklari va zararkunandalar, tuproq, hosilni saqlash, agro bozor narxlari va fermer xo'jaligi iqtisodiyoti bo'yicha maslahat berish. Boshqa hech qanday mavzuda javob bermaysan.
 
@@ -22,52 +25,100 @@ Qoidalar:
 11. O'zingni inson yoki oddiy agronom deb ko'rsatma; "AgroServ AI maslahatchisi" deb tanishtir.
 12. Javobda boshqa til yoki mavzuni aralashtirma. Faqat agro soha.`
 
-function providerConfig(dbKey = '') {
-  const geminiKey = dbKey || process.env.GEMINI_API_KEY
-  if (geminiKey) {
-    return {
-      provider: 'gemini',
-      key: geminiKey,
-      url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    }
+const PROVIDER_SETTINGS = {
+  gemini: {
+    url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    model: () => process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    vision: true,
+    timeout: 30_000,
+  },
+  groq: {
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    model: () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    vision: false,
+    timeout: 25_000,
+  },
+  openrouter: {
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    model: () => process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
+    vision: false,
+    timeout: 30_000,
+  },
+  openai: {
+    url: 'https://api.openai.com/v1/chat/completions',
+    model: () => process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    vision: true,
+    timeout: 30_000,
+  },
+  llm7: {
+    url: 'https://api.llm7.io/v1/chat/completions',
+    model: () => process.env.LLM7_MODEL || 'gpt-oss:20b',
+    vision: false,
+    timeout: 12_000,
+    keyless: true,
+  },
+  pollinations: {
+    url: 'https://text.pollinations.ai/openai',
+    model: () => process.env.POLLINATIONS_MODEL || 'openai',
+    vision: false,
+    timeout: 30_000,
+    keyless: true,
+  },
+}
+
+function detectProvider(key = '') {
+  const value = String(key || '').trim()
+  if (value.startsWith('AIza')) return 'gemini'
+  if (value.startsWith('gsk_')) return 'groq'
+  if (value.startsWith('sk-or-')) return 'openrouter'
+  if (value.startsWith('sk-proj-') || value.startsWith('sk-')) return 'openai'
+  // Eski admin panelda kalit Gemini uchun kiritilgan
+  return 'gemini'
+}
+
+function makeProvider(name, key = '') {
+  const settings = PROVIDER_SETTINGS[name]
+  if (!settings) return null
+  return {
+    provider: name,
+    key,
+    url: settings.url,
+    model: settings.model(),
+    vision: settings.vision,
+    timeout: settings.timeout,
+    keyless: Boolean(settings.keyless),
+  }
+}
+
+function providerCandidates(dbKey = '') {
+  const candidates = []
+  const seen = new Set()
+
+  function add(name, key = '') {
+    if (seen.has(name)) return
+    const provider = makeProvider(name, key)
+    if (!provider) return
+    seen.add(name)
+    candidates.push(provider)
   }
 
-  const groqKey = process.env.GROQ_API_KEY
-  if (groqKey) {
-    return {
-      provider: 'groq',
-      key: groqKey,
-      url: 'https://api.groq.com/openai/v1/chat/completions',
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-    }
-  }
+  const cleanKey = String(dbKey || '').trim()
+  if (cleanKey) add(detectProvider(cleanKey), cleanKey)
 
-  const openRouterKey = process.env.OPENROUTER_API_KEY
-  if (openRouterKey) {
-    return {
-      provider: 'openrouter',
-      key: openRouterKey,
-      url: 'https://openrouter.ai/api/v1/chat/completions',
-      model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
-    }
-  }
+  if (process.env.GEMINI_API_KEY) add('gemini', process.env.GEMINI_API_KEY)
+  if (process.env.GROQ_API_KEY) add('groq', process.env.GROQ_API_KEY)
+  if (process.env.OPENROUTER_API_KEY) add('openrouter', process.env.OPENROUTER_API_KEY)
+  if (process.env.OPENAI_API_KEY) add('openai', process.env.OPENAI_API_KEY)
 
-  const openAiKey = process.env.OPENAI_API_KEY
-  if (openAiKey) {
-    return {
-      provider: 'openai',
-      key: openAiKey,
-      url: 'https://api.openai.com/v1/chat/completions',
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-    }
-  }
+  // Kalitsiz zaxira: LLM7 (bepul, kunlik limit) va Pollinations (30 sekundda 1 ta)
+  add('llm7')
+  add('pollinations')
 
-  return null
+  return candidates
 }
 
 export function aiProviderName(dbKey = '') {
-  return providerConfig(dbKey)?.provider || 'local'
+  return providerCandidates(dbKey)[0]?.provider || 'local'
 }
 
 function sanitizeHistory(history) {
@@ -87,11 +138,9 @@ function sanitizeHistory(history) {
     }))
 }
 
-async function callProvider(provider, { message, history, imageDataUrl }) {
-  const headers = {
-    'content-type': 'application/json',
-    authorization: `Bearer ${provider.key}`,
-  }
+async function callProvider(provider, { message, history, imageDataUrl, timeoutMs }) {
+  const headers = { 'content-type': 'application/json' }
+  if (provider.key) headers.authorization = `Bearer ${provider.key}`
   if (provider.provider === 'openrouter') {
     headers['HTTP-Referer'] = process.env.APP_URL || 'https://agroserv-lake.vercel.app'
     headers['X-Title'] = 'AgroServ AI'
@@ -117,7 +166,7 @@ async function callProvider(provider, { message, history, imageDataUrl }) {
       temperature: 0.5,
       max_tokens: 1600,
     }),
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(Math.max(5_000, Math.min(provider.timeout, timeoutMs))),
   })
 
   const raw = await response.text()
@@ -151,20 +200,44 @@ export async function generateAiReply({ message, history, imageDataUrl, apiKey }
     return { reply: AGRO_REFUSAL, offTopic: true, source: 'guard' }
   }
 
-  const provider = providerConfig(apiKey)
-  if (!provider) {
-    return { reply: AI_NOT_CONFIGURED, offTopic: false, source: 'not-configured' }
+  const allCandidates = providerCandidates(apiKey)
+  if (!allCandidates.length) {
+    return { reply: AI_UNAVAILABLE, offTopic: false, source: 'not-configured' }
   }
 
-  const content = await callProvider(provider, {
-    message: cleanMessage || 'Yuklangan rasmni tahlil qil.',
-    history,
-    imageDataUrl,
-  })
+  const candidates = imageDataUrl
+    ? allCandidates.filter((provider) => provider.vision)
+    : allCandidates
 
-  if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
-    return { reply: AGRO_REFUSAL, offTopic: true, source: provider.provider }
+  if (!candidates.length) {
+    return { reply: AI_UNAVAILABLE, offTopic: false, source: 'no-vision' }
   }
 
-  return { reply: content, offTopic: false, source: provider.provider }
+  const deadline = Date.now() + TOTAL_BUDGET_MS
+  let lastError = null
+
+  for (const provider of candidates) {
+    const remaining = deadline - Date.now()
+    if (remaining < 5_000) break
+
+    try {
+      const content = await callProvider(provider, {
+        message: cleanMessage || 'Yuklangan rasmni tahlil qil.',
+        history,
+        imageDataUrl,
+        timeoutMs: remaining,
+      })
+
+      if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
+        return { reply: AGRO_REFUSAL, offTopic: true, source: provider.provider }
+      }
+
+      return { reply: content, offTopic: false, source: provider.provider }
+    } catch (error) {
+      lastError = error
+      console.error(`[ai] ${provider.provider} ishlamadi:`, error.message)
+    }
+  }
+
+  throw lastError || new Error('Barcha AI provayderlari ishlamadi')
 }

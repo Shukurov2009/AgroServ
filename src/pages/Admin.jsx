@@ -335,7 +335,7 @@ export default function Admin() {
   }
 
   async function removeAiKey() {
-    if (!window.confirm('Gemini API kaliti o‘chirilsinmi? AI javob bera olmaydi.')) return
+    if (!window.confirm('AI API kaliti o‘chirilsinmi? AI zaxira provayderda ishlaydi.')) return
     const result = await updateSettings({ aiApiKey: '' })
     if (result.ok) toast.success('AI kaliti o‘chirildi')
     else toast.error(result.error)
@@ -345,6 +345,15 @@ export default function Admin() {
     setAiTesting(true)
     try {
       const keyTyped = String(settingsForm.aiApiKey || '').trim()
+      const expected = keyTyped.startsWith('gsk_')
+        ? 'groq'
+        : keyTyped.startsWith('sk-or-')
+          ? 'openrouter'
+          : keyTyped.startsWith('sk-')
+            ? 'openai'
+            : keyTyped.startsWith('AIza')
+              ? 'gemini'
+              : ''
       if (keyTyped) {
         const saved = await updateSettings({ aiApiKey: keyTyped })
         if (!saved.ok) {
@@ -357,9 +366,18 @@ export default function Admin() {
         message: "Bir gap bilan ayt: pomidor ko'chatini ekishning asosiy qoidasi nima?",
         history: [],
       })
-      if (result.ok) {
+      if (result.ok && expected && result.provider !== expected) {
+        toast.error(
+          `Kiritilgan kalit ishlamadi — javob ${result.provider} zaxirasidan keldi. Kalitni tekshiring.`,
+          { duration: 7000 },
+        )
+      } else if (result.ok) {
         const short = String(result.reply || '').replace(/\s+/g, ' ').slice(0, 90)
         toast.success(`AI ulandi (${result.provider}): ${short}`, { duration: 6000 })
+      } else if (result.code === 'AI_NOT_CONFIGURED' || result.code === 'AI_UNAVAILABLE') {
+        toast.error(
+          "AI hozircha javob bera olmayapti. Gemini yoki Groq API kalitini kiriting va qayta tekshiring.",
+        )
       } else {
         toast.error(result.error || 'AI ulanmadi')
       }
@@ -1484,7 +1502,7 @@ export default function Admin() {
                   />
                 </div>
                 <div className="sm:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                  <label className="label">Gemini API kaliti — AI maslahatchi</label>
+                  <label className="label">AI API kaliti — Gemini yoki Groq</label>
                   <input
                     type="password"
                     value={settingsForm.aiApiKey || ''}
@@ -1492,7 +1510,7 @@ export default function Admin() {
                     placeholder={
                       settings.aiKeyConfigured
                         ? "Kalit o'rnatilgan. Yangilash uchun yangi kalit kiriting"
-                        : 'AIza...'
+                        : 'AIza... yoki gsk_...'
                     }
                     className="input"
                     autoComplete="off"
@@ -1500,17 +1518,28 @@ export default function Admin() {
                   />
                   <p className="mt-2 text-[10px] leading-relaxed text-emerald-800/80">
                     {settings.aiKeyConfigured
-                      ? "✅ Gemini ulangan. Kalit bazada saqlanadi va sayt foydalanuvchilariga ko'rinmaydi."
-                      : "Kalit kiritilmaguncha AI lokal bilim bazasida ishlaydi. Bepul kalit: "}
+                      ? "✅ AI kaliti ulangan. Kalit bazada saqlanadi va sayt foydalanuvchilariga ko'rinmaydi."
+                      : "Kalit kiritilmasa AI bepul zaxira provayderda ishlaydi (sekinroq). Bepul kalitlar: "}
                     {!settings.aiKeyConfigured && (
-                      <a
-                        href="https://aistudio.google.com/apikey"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-bold underline"
-                      >
-                        aistudio.google.com/apikey
-                      </a>
+                      <>
+                        <a
+                          href="https://console.groq.com/keys"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold underline"
+                        >
+                          Groq (gsk_...)
+                        </a>
+                        {' · '}
+                        <a
+                          href="https://aistudio.google.com/apikey"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold underline"
+                        >
+                          Gemini (AIza...)
+                        </a>
+                      </>
                     )}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -1600,7 +1629,7 @@ export default function Admin() {
                   <IntegrationRow
                     label="AI maslahatchi"
                     ready={Boolean(settings.aiKeyConfigured)}
-                    hint={settings.aiKeyConfigured ? 'Gemini ulangan' : 'Gemini API kaliti'}
+                    hint={settings.aiKeyConfigured ? 'AI kaliti ulangan' : 'Gemini yoki Groq kaliti'}
                   />
                 </div>
                 <p className="mt-3 rounded-lg bg-stone-50 px-2.5 py-2 text-[9px] leading-relaxed text-stone-500">

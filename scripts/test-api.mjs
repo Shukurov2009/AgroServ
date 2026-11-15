@@ -555,9 +555,19 @@ try {
     assert(Boolean(aiChat.data.source), 'AI javob manbasi qaytadi', aiChat.data.source)
   } else {
     assert(
-      aiChat.status === 503 && aiChat.data.code === 'AI_NOT_CONFIGURED',
-      "AI kaliti yo'qligida aniq xato qaytadi",
+      aiChat.status === 503 && aiChat.data.code === 'AI_UNAVAILABLE',
+      'AI ishlamaganda aniq xato qaytadi',
       aiChat,
+    )
+    assert(
+      String(aiChat.data.error || '').includes('adminga'),
+      "AI xatosida foydalanuvchi adminga yo'naltiriladi",
+      aiChat.data.error,
+    )
+    assert(
+      !String(aiChat.data.error || '').includes('Gemini API kalitini'),
+      "AI xatosida sozlash yo'riqnomasi ko'rsatilmaydi",
+      aiChat.data.error,
     )
   }
 
