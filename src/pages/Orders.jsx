@@ -393,7 +393,7 @@ export default function Orders() {
                   </div>
                   <div className="flex justify-between text-stone-400">
                     <span>Komissiya</span>
-                    <span>{formatSom(detail.platformFee)}</span>
+                    <span>{detail.platformFee > 0 ? formatSom(detail.platformFee) : "0 so'm (bepul)"}</span>
                   </div>
                   <div className="flex justify-between text-stone-400">
                     <span>To'lov usuli</span>

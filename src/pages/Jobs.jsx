@@ -384,7 +384,7 @@ export default function Jobs() {
                 value={jobForm.company}
                 onChange={(event) => setJobForm({ ...jobForm, company: event.target.value })}
                 className="input"
-                placeholder={currentUser?.name || 'AgroFerma Plus'}
+                placeholder={currentUser?.name || 'AgroFerma'}
               />
             </div>
           </div>
