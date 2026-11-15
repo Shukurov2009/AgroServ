@@ -40,9 +40,9 @@ const PROVIDER_SETTINGS = {
   },
   openrouter: {
     url: 'https://openrouter.ai/api/v1/chat/completions',
-    model: () => process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free',
-    vision: false,
-    timeout: 30_000,
+    model: () => process.env.OPENROUTER_MODEL || 'google/gemma-4-31b-it:free',
+    vision: true,
+    timeout: 35_000,
   },
   openai: {
     url: 'https://api.openai.com/v1/chat/completions',
