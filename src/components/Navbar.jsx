@@ -79,7 +79,7 @@ export default function Navbar() {
           </div>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-lime-300">
-              <Sparkles size={12} /> Barcha imkoniyatlar bepul — 0% komissiya
+              <Sparkles size={12} /> Obuna yo'q — 5% savdo komissiyasi
             </span>
             <Link to="/narxlar" className="font-semibold text-white/90 underline-offset-4 hover:underline">
               Bepul platforma

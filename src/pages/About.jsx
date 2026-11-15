@@ -76,7 +76,7 @@ const TIMELINE = [
   {
     year: '2026',
     title: 'Milliy miqyos',
-    text: "Platforma O'zbekistonning barcha viloyatlarida ishlaydi va to'liq bepul bo'ldi: obuna, komissiya va e'lon limiti yo'q.",
+    text: "Platforma O'zbekistonning barcha viloyatlarida ishlaydi. Obuna yo'q — faqat 5% savdo komissiyasi va cheksiz e'lonlar.",
   },
 ]
 
@@ -87,7 +87,7 @@ const FAQ = [
   },
   {
     q: "Ro'yxatdan o'tish pullikmi?",
-    a: "Yo'q. AgroServ to'liq bepul: cheksiz e'lon, 0% komissiya va kuniga 50 ta AI savol. Oylik yoki yillik obuna yo'q.",
+    a: "Yo'q. Ro'yxatdan o'tish va e'lon joylash bepul: cheksiz e'lon, 5% savdo komissiyasi va kuniga 50 ta AI savol. Oylik yoki yillik obuna yo'q.",
   },
   {
     q: "To'lovlar qanday amalga oshiriladi?",
@@ -99,7 +99,7 @@ const FAQ = [
   },
   {
     q: "Komissiya qanday hisoblanadi?",
-    a: "Komissiya olinmaydi — 0%. Savdo summasi to'liq sotuvchiga o'tadi. Faqat top mahsulot ixtiyoriy pullik xizmat bo'lib qoladi.",
+    a: "Har bir savdodan 5% platforma komissiyasi olinadi — summaning 95% sotuvchiga o'tadi. Faqat top mahsulot ixtiyoriy pullik xizmat bo'lib qoladi.",
   },
   {
     q: 'AI maslahatchi qanday ishlaydi?',
@@ -189,8 +189,8 @@ export default function About() {
             </p>
             <p className="mt-2.5 text-sm leading-relaxed text-stone-600">
               Platforma sotuvchi, xizmat ko'rsatuvchi va fermerni bir joyda bog'laydi; to'lovlar
-              va buyurtmalar shaffof ishlaydi. Platformadan foydalanish to'liq bepul — obuna
-              yoki komissiya yo'q.
+              va buyurtmalar shaffof ishlaydi. Platformadan foydalanish obunasiz — har bir
+              savdodan 5% komissiya olinadi.
             </p>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               {[
@@ -317,9 +317,9 @@ export default function About() {
             },
             {
               icon: Sparkles,
-              title: '0% komissiya',
-              value: '0%',
-              text: "Har bir savdo summasi to'liq sotuvchiga qoladi. Platforma ulush olmaydi.",
+              title: '5% komissiya',
+              value: '5%',
+              text: "Har bir savdodan 5% komissiya olinadi, summaning 95% sotuvchiga qoladi.",
               tone: 'bg-violet-50 text-violet-700',
             },
             {

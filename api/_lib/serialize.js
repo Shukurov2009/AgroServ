@@ -255,10 +255,6 @@ export function toReview(row) {
 
 export function settingsFromRows(rows) {
   const settings = {}
-  for (const row of rows) {
-    // Platforma endi to'liq bepul — eski komissiya sozlamasi e'tiborga olinmaydi.
-    if (row.key === 'commissionRate' || row.key === 'commission_rate') continue
-    settings[row.key] = row.value
-  }
+  for (const row of rows) settings[row.key] = row.value
   return settings
 }

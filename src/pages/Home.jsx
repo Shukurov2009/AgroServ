@@ -92,7 +92,7 @@ export default function Home() {
     [averageRating ? `${averageRating.toFixed(1)}/5` : '—', "O'rtacha reyting"],
     [settings.workingHours || '09:00–19:00', "Qo'llab-quvvatlash"],
     [formatNumber(completedOrders), 'Yakunlangan buyurtma'],
-    ['0%', 'Savdo komissiyasi'],
+    ['5%', 'Savdo komissiyasi'],
   ]
 
   function handleSearch(event) {
@@ -406,15 +406,15 @@ export default function Home() {
         <div className="container-page section-pad">
           <SectionHeader
             eyebrow="Bepul platforma"
-            title="AgroServ — to'liq bepul"
-            description="Oylik va yillik obunalar yo'q. E'lon joylash, savdo qilish va AI maslahat bepul."
+            title="AgroServ — obunasiz platforma"
+            description="Oylik va yillik obunalar yo'q. E'lon joylash bepul, har bir savdodan 5% komissiya."
             action="Batafsil"
             actionTo="/narxlar"
           />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { icon: Store, title: "Cheksiz e'lonlar", text: "Mahsulot va xizmatlarni cheklovsiz joylang." },
-              { icon: CircleDollarSign, title: '0% komissiya', text: "Savdo summasi to'liq sotuvchiga qoladi." },
+              { icon: CircleDollarSign, title: '5% komissiya', text: "Savdo summasining 95% sotuvchiga qoladi." },
               { icon: Bot, title: 'Bepul AI', text: 'Kuniga 50 ta agronomik savol.' },
               { icon: Sparkles, title: 'Bepul hamyon', text: "To'lovlar va buyurtmalar bitta joyda." },
             ].map((item) => {

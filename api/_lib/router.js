@@ -55,7 +55,7 @@ const DEFAULT_SETTINGS = {
   supportPhone: '+998 71 200 00 00',
   supportEmail: 'salom@agroserv.uz',
   telegram: '@agroserv_uz',
-  commissionRate: 0,
+  commissionRate: 5,
   featuredPrice: 25000,
   deliveryFee: 20000,
   freeDeliveryFrom: 1000000,
@@ -86,7 +86,7 @@ function planForRow() {
 async function loadSettings(client = null) {
   const runner = client ? client.query.bind(client) : query
   const { rows } = await runner('SELECT key, value FROM settings')
-  return { ...DEFAULT_SETTINGS, ...settingsFromRows(rows), commissionRate: 0 }
+  return { ...DEFAULT_SETTINGS, ...settingsFromRows(rows) }
 }
 
 function providersConfig() {
@@ -703,6 +703,7 @@ async function checkout(ctx) {
     const userRow = userResult.rows[0]
     if (!userRow) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
     const settings = await loadSettings(client)
+    const commissionRate = Math.max(0, Number(settings.commissionRate) || 0)
     const built = []
 
     for (const item of items) {
@@ -729,7 +730,7 @@ async function checkout(ctx) {
             'OUT_OF_STOCK',
           )
         }
-        const rate = 0
+        const rate = commissionRate
         built.push({
           type: 'product',
           refId: product.id,
@@ -758,7 +759,7 @@ async function checkout(ctx) {
           throw new HttpError(400, "O'z xizmatingizni band qila olmaysiz", 'OWN_SERVICE')
         }
         const qty = Math.max(1, Math.floor(Number(item.qty) || 1))
-        const rate = 0
+        const rate = commissionRate
         built.push({
           type: 'service',
           refId: service.id,
@@ -1647,13 +1648,14 @@ async function updateSettings(ctx) {
     'supportPhone',
     'supportEmail',
     'telegram',
+    'commissionRate',
     'featuredPrice',
     'deliveryFee',
     'freeDeliveryFrom',
     'workingHours',
     'manualPaymentNote',
   ]
-  const numeric = new Set(['featuredPrice', 'deliveryFee', 'freeDeliveryFrom'])
+  const numeric = new Set(['commissionRate', 'featuredPrice', 'deliveryFee', 'freeDeliveryFrom'])
   for (const key of allowed) {
     if (body[key] === undefined) continue
     const value = numeric.has(key) ? Math.max(0, Number(body[key]) || 0) : clean(body[key], 500)

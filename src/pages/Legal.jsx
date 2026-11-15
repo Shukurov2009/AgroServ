@@ -213,8 +213,8 @@ export function Terms() {
     {
       title: "To'lovlar va monetizatsiya",
       paragraphs: [
-        "Platformadan foydalanish to'liq bepul: ro'yxatdan o'tish, e'lon joylash va savdo qilish uchun obuna yoki komissiya olinmaydi. Savdo komissiyasi 0%.",
-        "Bank o'tkazmasi administrator tasdig'idan keyin faollashadi. Hamyon to'lovi darhol yechiladi. Naqd buyurtmada to'lov yetkazib berishda amalga oshiriladi va summa to'liq sotuvchiga o'tadi.",
+        "Platformadan foydalanish obunasiz: ro'yxatdan o'tish va e'lon joylash bepul. Har bir savdodan 5% platforma komissiyasi olinadi.",
+        "Bank o'tkazmasi administrator tasdig'idan keyin faollashadi. Hamyon to'lovi darhol yechiladi. Naqd buyurtmada to'lov yetkazib berishda amalga oshiriladi va summaning 95% sotuvchiga o'tadi.",
         "Payme va Click faqat tegishli merchant sozlamalari ulanganda ishlaydi. Promo kodlar serverda tekshiriladi va bir martalik yoki cheklangan miqdorda qo'llanilishi mumkin.",
       ],
     },

@@ -20,7 +20,7 @@ import SectionHeader from '../components/SectionHeader'
 
 const FREE_FEATURES = [
   'Cheksiz mahsulot va xizmat e\'lonlari',
-  '0% savdo komissiyasi — summa to\'liq sotuvchiga',
+  '5% savdo komissiyasi — 95% sotuvchiga',
   'Kuniga 50 ta bepul AI savol',
   'Bepul hamyon va buyurtma boshqaruvi',
   'Savat, sevimlilar va sharhlar',
@@ -32,11 +32,11 @@ const FREE_FEATURES = [
 const FAQ = [
   {
     q: "Ro'yxatdan o'tish yoki e'lon joylash pullikmi?",
-    a: "Yo'q. AgroServ'da ro'yxatdan o'tish, mahsulot yoki xizmat joylash va savdo qilish to'liq bepul. Oylik yoki yillik obuna yo'q.",
+    a: "Yo'q. Ro'yxatdan o'tish va e'lon joylash bepul. Savdodan 5% platforma komissiyasi olinadi — oylik yoki yillik obuna yo'q.",
   },
   {
     q: 'Savdodan komissiya olinadimi?',
-    a: "Yo'q, komissiya 0%. Xaridor to'lagan summa to'liq sotuvchiga o'tadi. Platforma savdo summasidan ulush olmaydi.",
+    a: "Ha, har bir savdodan 5% platforma komissiyasi olinadi. Xaridor to'lagan summaning 95% sotuvchiga o'tadi.",
   },
   {
     q: "E'lonlar soni cheklanganmi?",
@@ -65,8 +65,8 @@ const BENEFITS = [
   },
   {
     icon: CircleDollarSign,
-    title: '0% komissiya',
-    text: "Savdo summasi to'liq sotuvchiga qoladi. Platforma ulush olmaydi.",
+    title: '5% komissiya',
+    text: "Savdo summasining 95% sotuvchiga qoladi. Obuna to'lovi yo'q.",
     tone: 'bg-lime-50 text-lime-700',
   },
   {
@@ -92,8 +92,8 @@ export default function Pricing() {
     <div>
       <PageHero
         eyebrow="Bepul platforma"
-        title="AgroServ — hamma uchun bepul"
-        description="Uzum Market kabi: ro'yxatdan o'tish, e'lon joylash va savdo qilish bepul. Oylik va yillik obunalar yo'q."
+        title="AgroServ — obunasiz platforma"
+        description="Ro'yxatdan o'tish va e'lon joylash bepul — 5% savdo komissiyasi, oylik va yillik obunalar yo'q."
         breadcrumbs={[{ label: 'Bepul platforma' }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -111,7 +111,7 @@ export default function Pricing() {
         <SectionHeader
           center
           eyebrow="Bitta rejim"
-          title="Barchasi bepul — yashirin to'lov yo'q"
+          title="Obunasiz platforma — yashirin to'lov yo'q"
           description="Bitta hisob, bitta bepul platforma. Sotuvchilar, fermerlar va mutaxassislar uchun bir xil imkoniyatlar."
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -139,7 +139,7 @@ export default function Pricing() {
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Bepul platforma</p>
                 <h3 className="mt-0.5 text-xl font-black text-emerald-950">Hammasi bitta tarifda</h3>
                 <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                  Ro'yxatdan o'ting va bugun soting. Hech qanday oylik to'lov, komissiya yoki yashirin shart yo'q.
+                  Ro'yxatdan o'ting va bugun soting. Hech qanday oylik to'lov yoki yashirin shart yo'q — faqat 5% savdo komissiyasi.
                 </p>
               </div>
             </div>
@@ -172,7 +172,7 @@ export default function Pricing() {
               <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-lime-300">Ixtiyoriy xizmat</p>
               <h3 className="mt-0.5 text-lg font-black">Top mahsulot</h3>
               <p className="mt-1 text-[11px] leading-relaxed text-emerald-100/65">
-                Mahsulotingizni 30 kun bozor boshida ko'rsating. Bu majburiy emas — asosiy platforma bepul qoladi.
+                Mahsulotingizni 30 kun bozor boshida ko'rsating. Bu majburiy emas — asosiy platformadan foydalanish obunasiz qoladi.
               </p>
               <p className="mt-3 rounded-xl bg-white/10 p-3 text-sm font-black text-lime-300">
                 {formatSom(featuredPrice)} / 30 kun
@@ -186,9 +186,9 @@ export default function Pricing() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {[
-            { icon: BadgeCheck, title: "Yashirin to'lov yo'q", text: "Faqat ixtiyoriy top mahsulot xizmati." },
+            { icon: BadgeCheck, title: "Yashirin to'lov yo'q", text: "Faqat 5% savdo komissiyasi va ixtiyoriy top xizmati." },
             { icon: Rocket, title: 'Darhol boshlash', text: "Ro'yxatdan o'tib, bir daqiqada e'lon joylang." },
-            { icon: CircleDollarSign, title: "To'liq tushum", text: "Savdo summasi to'liq sotuvchiga o'tadi." },
+            { icon: CircleDollarSign, title: '95% tushum', text: "Savdo summasining 95% sotuvchiga o'tadi." },
           ].map((item) => {
             const Icon = item.icon
             return (

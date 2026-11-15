@@ -378,9 +378,9 @@ try {
 
     const sellerAfterCash = await call('GET', '/api/bootstrap', { cookie: sellerCookie })
     assert(
-      cashOrder.data.order.platformFee === 0 &&
-        sellerAfterCash.data.currentUser.wallet === walletBeforeCash,
-      'naqd savdoda komissiya 0% va hamyon o‘zgarmaydi',
+      cashOrder.data.order.platformFee === 2500 &&
+        sellerAfterCash.data.currentUser.wallet === walletBeforeCash - cashOrder.data.order.platformFee,
+      'naqd savdoda 5% komissiya yechildi',
       {
         walletBeforeCash,
         walletAfterCash: sellerAfterCash.data.currentUser.wallet,
@@ -406,9 +406,9 @@ try {
 
     const workerBootstrap = await call('GET', '/api/bootstrap', { cookie: workerCookie })
     assert(
-      serviceOrder.data.order.platformFee === 0 &&
-        workerBootstrap.data.currentUser.wallet === 200000,
-      'xizmat sotuvchisiga to‘liq tushum yozildi (0% komissiya)',
+      serviceOrder.data.order.platformFee === 10000 &&
+        workerBootstrap.data.currentUser.wallet === 200000 - serviceOrder.data.order.platformFee,
+      'xizmat sotuvchisiga tushum yozildi (5% komissiya)',
       workerBootstrap.data.currentUser,
     )
     const serviceAfterOrder = workerBootstrap.data.services.find((item) => item.id === serviceId)

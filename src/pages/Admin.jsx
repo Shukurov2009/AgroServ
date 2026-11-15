@@ -296,6 +296,7 @@ export default function Admin() {
     event.preventDefault()
     const payload = {
       ...settingsForm,
+      commissionRate: Math.max(0, Math.min(30, Number(settingsForm.commissionRate) || 5)),
       featuredPrice: Number(settingsForm.featuredPrice) || 0,
       deliveryFee: Number(settingsForm.deliveryFee) || 0,
       freeDeliveryFrom: Number(settingsForm.freeDeliveryFrom) || 0,
@@ -349,7 +350,7 @@ export default function Admin() {
   }
 
   const revenueRows = [
-    { label: 'Savdo komissiyasi', value: stats.commission, tone: 'from-emerald-400 to-lime-400', hint: '0% — platforma bepul' },
+    { label: 'Savdo komissiyasi', value: stats.commission, tone: 'from-emerald-400 to-lime-400', hint: 'Har bir savdodan 5%' },
     { label: 'Top mahsulot', value: stats.feature, tone: 'from-amber-400 to-orange-400', hint: '30 kunlik ixtiyoriy reklama' },
   ]
 
@@ -427,7 +428,7 @@ export default function Admin() {
                 icon={<Wallet size={18} />}
                 label="Platforma daromadi"
                 value={formatSom(stats.revenue)}
-                hint="Faqat ixtiyoriy top mahsulot xizmati"
+                hint="5% komissiya + top mahsulot"
                 tone="amber"
               />
               <StatCard
@@ -1345,11 +1346,15 @@ export default function Admin() {
                   />
                 </div>
                 <div>
-                  <label className="label">Savdo komissiyasi</label>
-                  <div className="input flex items-center justify-between bg-stone-50 text-stone-500">
-                    <span>0% — platforma bepul</span>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-700">Bepul</span>
-                  </div>
+                  <label className="label">Standart komissiya (%)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={30}
+                    value={settingsForm.commissionRate ?? 5}
+                    onChange={(event) => setSettingsForm({ ...settingsForm, commissionRate: event.target.value })}
+                    className="input"
+                  />
                 </div>
                 <div>
                   <label className="label">Top mahsulot narxi (so'm)</label>

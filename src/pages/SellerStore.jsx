@@ -212,7 +212,7 @@ export default function SellerStore() {
             </Link>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-lime-300/25 bg-lime-300/10 px-3 py-1 text-[11px] font-semibold text-lime-300">
-                0% komissiya
+                5% komissiya
               </span>
               <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-emerald-100/70">
                 {myProducts.length} ta e'lon
@@ -262,7 +262,7 @@ export default function SellerStore() {
                   <Sparkles size={15} className="text-emerald-600" /> Bepul e'lonlar
                 </h2>
                 <p className="mt-0.5 text-[11px] text-stone-500">
-                  Mahsulot joylash bepul va cheklanmagan. Savdodan komissiya olinmaydi.
+                  Mahsulot joylash bepul va cheklanmagan. Savdodan 5% komissiya olinadi.
                 </p>
               </div>
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">

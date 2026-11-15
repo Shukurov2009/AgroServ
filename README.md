@@ -56,7 +56,7 @@ $env:TEST_ADMIN_PASSWORD='<admin paroli>'
 node --env-file=.env.local scripts/test-api.mjs
 ```
 
-Testlar vaqtinchalik foydalanuvchilar yaratadi va oxirida ularni bazadan tozalaydi. 45 ta test auth, rollar, mahsulot/xizmat, savat, hamyon, manual to'lov, 0% komissiya, bepul rejim, promo kod va parol tiklash oqimlarini qamrab oladi.
+Testlar vaqtinchalik foydalanuvchilar yaratadi va oxirida ularni bazadan tozalaydi. 45 ta test auth, rollar, mahsulot/xizmat, savat, hamyon, manual to'lov, 5% komissiya, bepul rejim, promo kod va parol tiklash oqimlarini qamrab oladi.
 
 ## Asosiy imkoniyatlar
 
@@ -67,14 +67,14 @@ Testlar vaqtinchalik foydalanuvchilar yaratadi va oxirida ularni bazadan tozalay
 - **Videolar:** YouTube havolalari va o'z video e'lonlari.
 - **AI maslahatchi:** kuniga 50 ta bepul savol (fair-use), serverda hisoblanadi.
 - **Rollar:** fermer, sotuvchi, usta, agronom va admin uchun alohida kabinet.
-- **Monetizatsiya:** platforma to'liq bepul — 0% komissiya, cheksiz e'lon, obuna yo'q. Faqat top mahsulot ixtiyoriy pullik xizmat.
+- **Monetizatsiya:** obunasiz platforma — 5% savdo komissiyasi, cheksiz e'lon. Faqat top mahsulot ixtiyoriy pullik xizmat.
 - **Admin panel:** real foydalanuvchilar, mahsulotlar, buyurtmalar, to'lovlar, xabarlar, kartalar, parol so'rovlari va sozlamalar.
 
 ## To'lov oqimlari
 
 - **Hamyon:** balansdan darhol yechiladi, sotuvchilarga darhol o'tkaziladi.
 - **Manual bank o'tkazmasi:** buyurtma `pending` holatida turadi; admin chekni tasdiqlagach faollashadi.
-- **Naqd:** buyurtma yakunlanganda summa to'liq sotuvchiga o'tadi — komissiya 0%.
+- **Naqd:** buyurtma yakunlanganda summaning 95% sotuvchiga o'tadi — 5% komissiya.
 - **Payme/Click:** merchant credential’lari bo'lsa redirect va webhook orqali ishlaydi.
 
 ## Deploy

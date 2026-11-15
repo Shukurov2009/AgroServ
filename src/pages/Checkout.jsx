@@ -422,7 +422,7 @@ export default function Checkout() {
         <EmptyState
           icon="🎉"
           title="Tariflar endi mavjud emas"
-          description="AgroServ endi to'liq bepul: cheksiz e'lon, 0% komissiya va kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q."
+          description="AgroServ'da obuna yo'q: cheksiz e'lon, 5% savdo komissiyasi va kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q."
           action="Bepul platforma"
           actionTo="/narxlar"
         />
@@ -680,8 +680,8 @@ export default function Checkout() {
               {method === 'cash' && (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[11px] leading-relaxed text-amber-800">
                   Naqd to'lovda buyurtma «To'lov kutilmoqda» holatida yaratiladi. Mahsulotni
-                  qabul qilganda kuryerga to'lov qilasiz. Platforma komissiyasi 0% — summa
-                  to'liq sotuvchiga o'tadi.
+                  qabul qilganda kuryerga to'lov qilasiz. Platforma komissiyasi 5% — summaning
+                  95% sotuvchiga o'tadi.
                 </div>
               )}
 

@@ -172,7 +172,7 @@ const KNOWLEDGE = [
       "3. Minimal buyurtma va yetkazib berish shartlarini aniq belgilang.\n" +
       "4. Mijoz izohlariga tez javob bering — bu ishonchni oshiradi.\n" +
       "5. Top mahsulot xizmatidan foydalaning: reklama qilingan mahsulotlar 3–5 baravar ko'proq ko'riladi.\n" +
-      "6. Platforma bepul: e'lonlar cheksiz, savdo komissiyasi 0% — summa to'liq sizga qoladi.\n\n" +
+      "6. Obuna yo'q: e'lonlar cheksiz, savdo komissiyasi 5% — summaning 95% sizga qoladi.\n\n" +
       "💡 Birinchi savdoni tezroq boshlash uchun kichik partiyadan boshlang va sifat bilan obro' orttiring.",
   },
   {
@@ -184,7 +184,7 @@ const KNOWLEDGE = [
       "• Xizmatlar: texnika ustalari va agronomlarni yollang, gektar yoki tashrif bo'yicha hisoblang.\n" +
       "• Ish o'rinlari: agro sohada ish toping yoki e'lon joylang.\n" +
       "• AI maslahatchi: kuniga 50 ta bepul savol (fair-use).\n" +
-      "• Narxlar: platforma to'liq bepul — obuna yo'q, komissiya 0%, e'lonlar cheksiz.\n" +
+      "• Narxlar: obuna yo'q — 5% savdo komissiyasi, e'lonlar cheksiz.\n" +
       "• Rollar: Fermer, Sotuvchi, Texnika ustasi, Agronom va Administrator.\n\n" +
       "Savolingiz bo'lsa, «Haqida» sahifasidagi aloqa formasi orqali yozing yoki qo'llab-quvvatlash raqamiga qo'ng'iroq qiling.",
   },

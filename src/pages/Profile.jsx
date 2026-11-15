@@ -497,9 +497,9 @@ export default function Profile() {
                   <div className="mt-3 flex flex-col justify-between gap-3 rounded-xl bg-gradient-to-br from-emerald-50 to-lime-50 p-4 sm:flex-row sm:items-center">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Sizning imkoniyatingiz</p>
-                      <p className="mt-0.5 text-lg font-black text-emerald-950">🌱 Barchasi bepul</p>
+                      <p className="mt-0.5 text-lg font-black text-emerald-950">🌱 Obuna yo'q</p>
                       <p className="mt-1 text-[10px] text-stone-500">
-                        Cheksiz e'lon · 0% komissiya · kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q.
+                        Cheksiz e'lon · 5% komissiya · kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q.
                       </p>
                     </div>
                     <Link to="/narxlar" className="btn btn-secondary btn-sm shrink-0">

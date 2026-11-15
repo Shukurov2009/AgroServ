@@ -390,10 +390,10 @@ export default function Dashboard() {
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-400 text-emerald-950">
                   <Sparkles size={19} />
                 </span>
-                <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-lime-300">Bepul platforma</p>
-                <h3 className="text-xl font-black">Barchasi bepul</h3>
+                <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-lime-300">Obunasiz platforma</p>
+                <h3 className="text-xl font-black">Obuna yo'q</h3>
                 <p className="mt-1 text-[10px] leading-relaxed text-emerald-100/60">
-                  Cheksiz e'lon · 0% komissiya · kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q.
+                  Cheksiz e'lon · 5% komissiya · kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q.
                 </p>
                 <Link to="/narxlar" className="btn btn-lime btn-sm mt-3 w-full">
                   Batafsil <ArrowRight size={13} />
