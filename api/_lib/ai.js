@@ -2,7 +2,7 @@ import { AGRO_REFUSAL, isOffTopic } from '../../src/lib/ai.js'
 
 const MAX_HISTORY = 8
 const MAX_MESSAGE = 2000
-const TOTAL_BUDGET_MS = 50_000
+const TOTAL_BUDGET_MS = 55_000
 
 export const AI_UNAVAILABLE =
   "AI xizmati vaqtincha ishlamayapti. Iltimos, adminga murojaat qiling."
@@ -12,13 +12,13 @@ export const AI_NOT_CONFIGURED = AI_UNAVAILABLE
 const SYSTEM_PROMPT = `Sen "AgroServ AI" agronom maslahatchisisan. Sening yagona vazifang — qishloq xo'jaligi, dehqonchilik, bog'dorchilik, chorvachilik, asalarichilik, agro texnika, o'g'it, urug', ko'chat, sug'orish, o'simlik kasalliklari va zararkunandalar, tuproq, hosilni saqlash, agro bozor narxlari va fermer xo'jaligi iqtisodiyoti bo'yicha maslahat berish. Boshqa hech qanday mavzuda javob bermaysan.
 
 Qoidalar:
-1. Savol agro sohaga oidmi — bunga ishonching komil bo'lmasa ham, faqat "OFF_TOPIC" so'zini qaytar. Dasturlash, IT, siyosat, sport, o'yin, inson tibbiyoti, moliya, kripto, umumiy ta'lim, huquq, sayohat, moda, shaxsiy munosabatlar va boshqa mavzular taqiqlangan.
-2. Agar savol agroga oid bo'lmasa yoki agro va boshqa mavzu aralash bo'lsa, javob o'rniga faqat "OFF_TOPIC" yoz; boshqa hech narsa yozma.
+1. Agar savol ANIQ agro sohaga oid bo'lmasa (dasturlash, IT, siyosat, sport, o'yin, inson tibbiyoti, moliya, kripto, umumiy ta'lim, huquq, sayohat, moda, shaxsiy munosabatlar), faqat "OFF_TOPIC" so'zini qaytar.
+2. Agar savol agroga oid bo'lsa — ekin, tuproq, o'g'it, sug'orish, kasallik, zararkunanda, chorva, bog', texnika, hosil, agro bozor yoki fermer xo'jaligi haqida bo'lsa — hech qachon "OFF_TOPIC" yozma, har doim javob ber. Agro va boshqa mavzu aralash bo'lsa, faqat agro qismiga javob ber.
 3. Agro savolga to'liq, erkin va amaliy javob ber. Tayyor shablon yoki oldindan yozilgan javobdan foydalanma — savolni tahlil qil va aynan shu savolga javob ber.
 4. Savolda bir nechta usul yoki variant so'ralsa, barchasini sanab o't va qaysi holatda qaysi biri mosligini tushuntir.
 5. Javobni o'zbek tilida (lotin yozuvida), aniq va bosqichma-bosqich yoz. Kerak bo'lsa ro'yxat ishlat.
 6. Ma'lumot yetishmasa, taxmin qilib yozma — ekin nomi, viloyat, tuproq, belgilar yoki qaysi bosqich ekanini so'ra.
-7. Dozalar, preparatlar va kimyoviy ishlovlar haqida ehtiyotkor bo'l: aniq doza uchun tuproq tahlili va mahalliy agronom tavsiyasi kerakligini ayt. Taqiqlangan yoki xavfli moddalarni tavsiya qilma.
+7. Dozalar, preparatlar va kimyoviy ishlovlar haqida ehtiyotkor bo'l: preparat nomini aytishing mumkin, lekin aniq dozani yozma — doza va qo'llash muddatini preparat yo'riqnomasi hamda mahalliy agronom bilan aniqlash kerakligini eslat. Taqiqlangan yoki xavfli moddalarni tavsiya qilma.
 8. O'simlik kasalligi yoki zararkunandasi haqida gapirganda belgilarni sanab o't va birinchi yordam choralarini ayt; aniq tashxis uchun agronom yoki laboratoriya kerakligini eslat.
 9. Agar rasm yuborilsa, barg, meva, poya yoki zararkunanda belgilarini tahlil qil. Rasmda ko'rinmayotgan narsani taxmin qilma.
 10. Agar foydalanuvchi salomlashsa, qisqa salomlash va darhol savolga o't. Salomlashmasa, salomlashma.
@@ -52,9 +52,9 @@ const PROVIDER_SETTINGS = {
   },
   llm7: {
     url: 'https://api.llm7.io/v1/chat/completions',
-    model: () => process.env.LLM7_MODEL || 'gpt-oss:20b',
+    model: () => process.env.LLM7_MODEL || 'glm-5.3-flash',
     vision: false,
-    timeout: 12_000,
+    timeout: 22_000,
     keyless: true,
   },
   pollinations: {
@@ -76,16 +76,23 @@ function detectProvider(key = '') {
   return 'gemini'
 }
 
-function makeProvider(name, key = '') {
+const LLM7_MODELS = [
+  { model: 'glm-5.3-flash', timeout: 20_000 },
+  { model: 'gpt-oss:20b', timeout: 10_000 },
+]
+
+function makeProvider(name, key = '', override = {}) {
   const settings = PROVIDER_SETTINGS[name]
   if (!settings) return null
+  const model = override.model || settings.model()
   return {
+    id: override.model ? `${name}:${override.model}` : name,
     provider: name,
     key,
     url: settings.url,
-    model: settings.model(),
+    model,
     vision: settings.vision,
-    timeout: settings.timeout,
+    timeout: override.timeout || settings.timeout,
     keyless: Boolean(settings.keyless),
   }
 }
@@ -94,11 +101,10 @@ function providerCandidates(dbKey = '') {
   const candidates = []
   const seen = new Set()
 
-  function add(name, key = '') {
-    if (seen.has(name)) return
-    const provider = makeProvider(name, key)
-    if (!provider) return
-    seen.add(name)
+  function add(name, key = '', override = {}) {
+    const provider = makeProvider(name, key, override)
+    if (!provider || seen.has(provider.id)) return
+    seen.add(provider.id)
     candidates.push(provider)
   }
 
@@ -111,7 +117,7 @@ function providerCandidates(dbKey = '') {
   if (process.env.OPENAI_API_KEY) add('openai', process.env.OPENAI_API_KEY)
 
   // Kalitsiz zaxira: LLM7 (bepul, kunlik limit) va Pollinations (30 sekundda 1 ta)
-  add('llm7')
+  for (const model of LLM7_MODELS) add('llm7', '', model)
   add('pollinations')
 
   return candidates
@@ -229,10 +235,20 @@ export async function generateAiReply({ message, history, imageDataUrl, apiKey }
       })
 
       if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
-        return { reply: AGRO_REFUSAL, offTopic: true, source: provider.provider }
+        return {
+          reply: AGRO_REFUSAL,
+          offTopic: true,
+          source: provider.provider,
+          model: provider.model,
+        }
       }
 
-      return { reply: content, offTopic: false, source: provider.provider }
+      return {
+        reply: content,
+        offTopic: false,
+        source: provider.provider,
+        model: provider.model,
+      }
     } catch (error) {
       lastError = error
       console.error(`[ai] ${provider.provider} ishlamadi:`, error.message)

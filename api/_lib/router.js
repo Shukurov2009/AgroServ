@@ -1333,6 +1333,7 @@ async function aiChat(ctx) {
     reply: result.reply,
     offTopic: Boolean(result.offTopic),
     source: result.source,
+    model: result.model || '',
     provider: ['gemini', 'groq', 'openrouter', 'openai', 'llm7', 'pollinations'].includes(
       result.source,
     )
