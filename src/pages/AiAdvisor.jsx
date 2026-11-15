@@ -45,6 +45,7 @@ export default function AiAdvisor() {
   const [typing, setTyping] = useState(false)
   const [image, setImage] = useState(null)
   const [limitHit, setLimitHit] = useState(false)
+  const [engine, setEngine] = useState('')
   const bottomRef = useRef(null)
   const fileRef = useRef(null)
 
@@ -119,6 +120,13 @@ export default function AiAdvisor() {
     }
 
     setLimitHit(false)
+    setEngine(
+      result.provider === 'local'
+        ? 'Lokal bilim bazasi'
+        : result.provider === 'gemini'
+          ? 'Gemini'
+          : result.provider || 'AI',
+    )
     setMessages((prev) => [
       ...prev,
       {
@@ -183,7 +191,7 @@ export default function AiAdvisor() {
                   <p className="text-sm font-black text-emerald-950">AgroServ AI</p>
                   <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
                     <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-emerald-500" />
-                    Onlayn · real AI maslahat
+                    Onlayn · {engine || 'AI maslahat'}
                   </p>
                 </div>
               </div>

@@ -1301,7 +1301,7 @@ async function aiChat(ctx) {
       reply: result.reply,
       offTopic: Boolean(result.offTopic),
       source: result.source,
-      provider: aiProviderName(),
+      provider: String(result.source || '').startsWith('local') ? 'local' : aiProviderName(),
       remaining: quota.remaining,
       used: quota.used,
     }
