@@ -430,7 +430,7 @@ export const AI_SUGGESTIONS = [
   "Karbamidni qachon qo'llash to'g'ri?",
   "Tomchilatib sug'orish tizimini qanday o'rnataman?",
   "Olma bog'ini bahorda qanday parvarishlayman?",
-  "AgroServ'da qanday bepul imkoniyatlar bor?",
+  "Pomidor ko'chatini issiqxonada qanday parvarishlayman?",
 ]
 
 export const AGRO_REFUSAL =

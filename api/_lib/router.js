@@ -84,10 +84,16 @@ function planForRow() {
   return PLANS.free
 }
 
-async function loadSettings(client = null) {
+function publicSettings(settings) {
+  const { aiApiKey, ...rest } = settings
+  return { ...rest, aiKeyConfigured: Boolean(aiApiKey) }
+}
+
+async function loadSettings(client = null, { withSecrets = false } = {}) {
   const runner = client ? client.query.bind(client) : query
   const { rows } = await runner('SELECT key, value FROM settings')
-  return { ...DEFAULT_SETTINGS, ...settingsFromRows(rows) }
+  const settings = { ...DEFAULT_SETTINGS, ...settingsFromRows(rows) }
+  return withSecrets ? settings : publicSettings(settings)
 }
 
 function providersConfig() {
@@ -302,7 +308,7 @@ async function bootstrap(ctx) {
   ])
 
   return {
-    settings: { ...DEFAULT_SETTINGS, ...settingsFromRows(settingsRows.rows) },
+    settings: publicSettings({ ...DEFAULT_SETTINGS, ...settingsFromRows(settingsRows.rows) }),
     products: productsResult.rows.map(toProduct),
     services: servicesResult.rows.map(toService),
     jobs: jobsResult.rows.map(toJob),
@@ -1290,18 +1296,22 @@ async function aiChat(ctx) {
   const user = rows[0]
   if (!user) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
 
+  const settings = await loadSettings(null, { withSecrets: true })
+  const apiKey = settings.aiApiKey || ''
+
   const quota = await consumeAiQuota(user)
   try {
     const result = await generateAiReply({
       message,
       history: body.history,
       imageName: clean(body.imageName, 200),
+      apiKey,
     })
     return {
       reply: result.reply,
       offTopic: Boolean(result.offTopic),
       source: result.source,
-      provider: String(result.source || '').startsWith('local') ? 'local' : aiProviderName(),
+      provider: String(result.source || '').startsWith('local') ? 'local' : aiProviderName(apiKey),
       remaining: quota.remaining,
       used: quota.used,
     }
@@ -1710,10 +1720,24 @@ async function updateSettings(ctx) {
     'freeDeliveryFrom',
     'workingHours',
     'manualPaymentNote',
+    'aiApiKey',
   ]
   const numeric = new Set(['commissionRate', 'featuredPrice', 'deliveryFee', 'freeDeliveryFrom'])
   for (const key of allowed) {
     if (body[key] === undefined) continue
+    if (key === 'aiApiKey') {
+      const value = clean(body[key], 300)
+      if (value) {
+        await query(
+          `INSERT INTO settings (key, value) VALUES ($1, $2::jsonb)
+           ON CONFLICT (key) DO UPDATE SET value = $2::jsonb`,
+          [key, JSON.stringify(value)],
+        )
+      } else {
+        await query('DELETE FROM settings WHERE key = $1', [key])
+      }
+      continue
+    }
     const value = numeric.has(key) ? Math.max(0, Number(body[key]) || 0) : clean(body[key], 500)
     await query(
       `INSERT INTO settings (key, value) VALUES ($1, $2::jsonb)

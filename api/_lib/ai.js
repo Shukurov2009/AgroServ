@@ -17,8 +17,8 @@ Qoidalar:
 9. O'simlik kasalligi yoki zararkunanda haqida gapirganda belgilarni sanab o't va birinchi yordam choralarini ayt; aniq tashxis uchun agronom yoki laboratoriya kerakligini eslat.
 10. Hech qachon boshqa tildagi yoki mavzudagi javobni aralashtirma.`
 
-function providerConfig() {
-  const geminiKey = process.env.GEMINI_API_KEY
+function providerConfig(dbKey = '') {
+  const geminiKey = dbKey || process.env.GEMINI_API_KEY
   if (geminiKey) {
     return {
       provider: 'gemini',
@@ -61,8 +61,8 @@ function providerConfig() {
   return null
 }
 
-export function aiProviderName() {
-  return providerConfig()?.provider || 'local'
+export function aiProviderName(dbKey = '') {
+  return providerConfig(dbKey)?.provider || 'local'
 }
 
 function sanitizeHistory(history) {
@@ -102,8 +102,8 @@ async function callProvider(provider, { message, history }) {
         ...sanitizeHistory(history),
         { role: 'user', content: message.slice(0, MAX_MESSAGE) },
       ],
-      temperature: 0.4,
-      max_tokens: 900,
+      temperature: 0.5,
+      max_tokens: 1600,
     }),
     signal: AbortSignal.timeout(30000),
   })
@@ -128,7 +128,7 @@ async function callProvider(provider, { message, history }) {
   return content.trim()
 }
 
-export async function generateAiReply({ message, history, imageName }) {
+export async function generateAiReply({ message, history, imageName, apiKey }) {
   const cleanMessage = String(message || '').trim()
   if (!cleanMessage) {
     return { reply: 'Savolingizni yozing.', offTopic: false, source: 'guard' }
@@ -144,14 +144,14 @@ export async function generateAiReply({ message, history, imageName }) {
     return { reply: AGRO_REFUSAL, offTopic: true, source: 'guard' }
   }
 
-  const provider = providerConfig()
+  const provider = providerConfig(apiKey)
   if (!provider) {
     return { ...getLocalReply(cleanMessage), source: 'local' }
   }
 
   try {
     const content = await callProvider(provider, { message: cleanMessage, history })
-    if (/^\s*OFF_TOPIC\b/i.test(content)) {
+    if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
       return { reply: AGRO_REFUSAL, offTopic: true, source: provider.provider }
     }
     return { reply: content, offTopic: false, source: provider.provider }

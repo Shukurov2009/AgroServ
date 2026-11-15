@@ -104,7 +104,7 @@ const FAQ = [
   },
   {
     q: 'AI maslahatchi qanday ishlaydi?',
-    a: "AI maslahatchi ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha bilim bazasidan javob beradi. Har bir savol serverda hisoblanadi. Kuniga 50 ta bepul savol — fair-use limit.",
+    a: "AI maslahatchi real LLM (Gemini) orqali ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha javob beradi. Faqat agro sohaga oid savollarga javob beradi. Har bir savol serverda hisoblanadi. Kuniga 50 ta bepul savol — fair-use limit.",
   },
 ]
 

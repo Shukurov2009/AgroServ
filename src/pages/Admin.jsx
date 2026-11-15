@@ -135,7 +135,7 @@ export default function Admin() {
   const [walletAmount, setWalletAmount] = useState('50000')
   const [cardOpen, setCardOpen] = useState(false)
   const [cardForm, setCardForm] = useState({ cardType: 'UzCard', number: '', holder: 'AgroServ MChJ' })
-  const [settingsForm, setSettingsForm] = useState({ ...settings })
+  const [settingsForm, setSettingsForm] = useState({ ...settings, aiApiKey: '' })
   const [resetResult, setResetResult] = useState(null)
 
   const unread = messages.filter((message) => !message.read).length
@@ -319,8 +319,21 @@ export default function Admin() {
       deliveryFee: Number(settingsForm.deliveryFee) || 0,
       freeDeliveryFrom: Number(settingsForm.freeDeliveryFrom) || 0,
     }
+    const keyTyped = String(settingsForm.aiApiKey || '').trim()
+    if (!keyTyped) delete payload.aiApiKey
     const result = await updateSettings(payload)
-    if (result.ok) toast.success('Platforma sozlamalari saqlandi')
+    if (result.ok) {
+      if (keyTyped) setSettingsForm((prev) => ({ ...prev, aiApiKey: '' }))
+      toast.success(keyTyped ? 'Sozlamalar va AI kaliti saqlandi' : 'Platforma sozlamalari saqlandi')
+    } else {
+      toast.error(result.error)
+    }
+  }
+
+  async function removeAiKey() {
+    if (!window.confirm('Gemini API kaliti o‘chirilsinmi? AI lokal bilim bazasiga qaytadi.')) return
+    const result = await updateSettings({ aiApiKey: '' })
+    if (result.ok) toast.success('AI kaliti o‘chirildi')
     else toast.error(result.error)
   }
 
@@ -1439,6 +1452,46 @@ export default function Admin() {
                     className="input"
                   />
                 </div>
+                <div className="sm:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                  <label className="label">Gemini API kaliti — AI maslahatchi</label>
+                  <input
+                    type="password"
+                    value={settingsForm.aiApiKey || ''}
+                    onChange={(event) => setSettingsForm({ ...settingsForm, aiApiKey: event.target.value })}
+                    placeholder={
+                      settings.aiKeyConfigured
+                        ? "Kalit o'rnatilgan. Yangilash uchun yangi kalit kiriting"
+                        : 'AIza...'
+                    }
+                    className="input"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <p className="mt-2 text-[10px] leading-relaxed text-emerald-800/80">
+                    {settings.aiKeyConfigured
+                      ? "✅ Gemini ulangan. Kalit bazada saqlanadi va sayt foydalanuvchilariga ko'rinmaydi."
+                      : "Kalit kiritilmaguncha AI lokal bilim bazasida ishlaydi. Bepul kalit: "}
+                    {!settings.aiKeyConfigured && (
+                      <a
+                        href="https://aistudio.google.com/apikey"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-bold underline"
+                      >
+                        aistudio.google.com/apikey
+                      </a>
+                    )}
+                  </p>
+                  {settings.aiKeyConfigured && (
+                    <button
+                      type="button"
+                      onClick={removeAiKey}
+                      className="mt-2 text-[10px] font-bold text-rose-600 hover:underline"
+                    >
+                      Kalitni o'chirish
+                    </button>
+                  )}
+                </div>
               </div>
 
               <button type="submit" className="btn btn-primary mt-4">
@@ -1470,7 +1523,8 @@ export default function Admin() {
               <div className="card p-5">
                 <h2 className="text-sm font-black text-emerald-950">Tashqi integratsiyalar</h2>
                 <p className="mt-1 text-[10px] leading-relaxed text-stone-500">
-                  Kalitlar Vercel Environment Variables'ga qo'shiladi va sayt qayta deploy qilinadi.
+                  To'lov va Google kalitlari Vercel Environment Variables orqali, AI kaliti esa shu paneldagi
+                  sozlamalardan kiritiladi.
                 </p>
                 <div className="mt-3 space-y-2 text-[11px]">
                   <IntegrationRow
@@ -1496,6 +1550,11 @@ export default function Admin() {
                     label="Click"
                     ready={providers.click}
                     hint={providers.click ? 'Ulangan' : 'CLICK_SERVICE_ID + CLICK_SECRET_KEY'}
+                  />
+                  <IntegrationRow
+                    label="AI maslahatchi"
+                    ready={Boolean(settings.aiKeyConfigured)}
+                    hint={settings.aiKeyConfigured ? 'Gemini ulangan' : 'Gemini API kaliti'}
                   />
                 </div>
                 <p className="mt-3 rounded-lg bg-stone-50 px-2.5 py-2 text-[9px] leading-relaxed text-stone-500">
