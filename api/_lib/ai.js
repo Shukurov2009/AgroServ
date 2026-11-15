@@ -23,7 +23,7 @@ Qoidalar:
 9. Agar rasm yuborilsa, barg, meva, poya yoki zararkunanda belgilarini tahlil qil. Rasmda ko'rinmayotgan narsani taxmin qilma.
 10. Agar foydalanuvchi salomlashsa, qisqa salomlash va darhol savolga o't. Salomlashmasa, salomlashma.
 11. O'zingni tanishtirma va nimalar qila olishingni sanab o'tma; birinchi jumladan boshlab faqat savolga javob ber. Faqat so'ralsa "AgroServ AI maslahatchisi" deb ayt. O'zingni inson deb ko'rsatma.
-12. Javobda boshqa til yoki mavzuni aralashtirma. Faqat agro soha.`
+12. Javobda boshqa til yoki mavzuni aralashtirma. Faqat o'zbek lotin alifbosidagi harflardan foydalan; boshqa alifbo harflarini, diakritik belgilarni va inglizcha so'zlarni aralashtirma. Faqat agro soha.`
 
 const PROVIDER_SETTINGS = {
   gemini: {
@@ -80,6 +80,32 @@ const LLM7_MODELS = [
   { model: 'glm-5.3-flash', timeout: 20_000 },
   { model: 'gpt-oss:20b', timeout: 10_000 },
 ]
+
+// Model ba'zan o'zbek matniga boshqa til harflari yoki mojibake aralashtiradi.
+const GLITCH_PATTERN =
+  /[\u00C0-\u00C5\u00C8-\u00CB\u00CC-\u00CF\u00D2-\u00D6\u00D9-\u00DC\u00E0-\u00E5\u00E8-\u00EB\u00EC-\u00EF\u00F2-\u00F6\u00F9-\u00FC\u00FF\uFFFD]|\b(?:darling|the|and|with|from|this|that|your)\b/i
+
+const TYPO_FIXES = [
+  [/\bkech p[üu]sk[üu]rme\b/gi, 'kech chirish'],
+  [/\bsiyratroq\b/gi, 'siyrakroq'],
+]
+
+function normalizeReply(text) {
+  let value = String(text || '')
+  try {
+    value = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  } catch {
+    // normalizatsiya qo'llab-quvvatlanmasa, matnni o'zgartirmaymiz
+  }
+  for (const [pattern, replacement] of TYPO_FIXES) {
+    value = value.replace(pattern, replacement)
+  }
+  return value.replace(/\uFFFD/g, '').replace(/[ \t]{2,}/g, ' ').trim()
+}
+
+function looksGlitched(text) {
+  return GLITCH_PATTERN.test(text)
+}
 
 function makeProvider(name, key = '', override = {}) {
   const settings = PROVIDER_SETTINGS[name]
@@ -221,6 +247,7 @@ export async function generateAiReply({ message, history, imageDataUrl, apiKey }
 
   const deadline = Date.now() + TOTAL_BUDGET_MS
   let lastError = null
+  let bestEffort = null
 
   for (const provider of candidates) {
     const remaining = deadline - Date.now()
@@ -243,8 +270,18 @@ export async function generateAiReply({ message, history, imageDataUrl, apiKey }
         }
       }
 
+      const cleaned = normalizeReply(content)
+      if (!cleaned) throw new Error(`${provider.provider}: bo'sh javob`)
+
+      if (looksGlitched(cleaned)) {
+        console.warn(`[ai] ${provider.provider} sifatsiz javob qaytardi, keyingi provayder sinaladi`)
+        if (!bestEffort) bestEffort = cleaned
+        lastError = new Error(`${provider.provider}: sifatsiz javob`)
+        continue
+      }
+
       return {
-        reply: content,
+        reply: cleaned,
         offTopic: false,
         source: provider.provider,
         model: provider.model,
@@ -253,6 +290,11 @@ export async function generateAiReply({ message, history, imageDataUrl, apiKey }
       lastError = error
       console.error(`[ai] ${provider.provider} ishlamadi:`, error.message)
     }
+  }
+
+  // Barcha provayderlar sifatsiz javob qaytargan bo'lsa, hech bo'lmasa tozalangan matnni beramiz.
+  if (bestEffort) {
+    return { reply: bestEffort, offTopic: false, source: 'fallback' }
   }
 
   throw lastError || new Error('Barcha AI provayderlari ishlamadi')
