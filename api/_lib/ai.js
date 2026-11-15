@@ -79,6 +79,7 @@ function detectProvider(key = '') {
 const LLM7_MODELS = [
   { model: 'glm-5.3-flash', timeout: 20_000 },
   { model: 'gpt-oss:20b', timeout: 10_000 },
+  { model: 'minimax-m2.7', timeout: 18_000 },
 ]
 
 // Model ba'zan o'zbek matniga boshqa til harflari yoki mojibake aralashtiradi.
