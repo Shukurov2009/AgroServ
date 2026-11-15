@@ -262,8 +262,10 @@ img {
     height 0.16s ease;
 }
 
+.float-field.is-filled > .float-label,
 .float-field > input:focus ~ .float-label,
-.float-field > input:not(:placeholder-shown) ~ .float-label {
+.float-field > input:not(:placeholder-shown) ~ .float-label,
+.float-field > select:focus ~ .float-label {
   top: -0.42rem;
   left: 0.6rem;
   transform: none;
@@ -274,10 +276,12 @@ img {
   color: #059669;
 }
 
+.float-field.is-filled > .float-label > svg,
 .float-field > input:focus ~ .float-label > svg,
-.float-field > input:not(:placeholder-shown) ~ .float-label > svg {
-  width: 0.62rem;
-  height: 0.62rem;
+.float-field > input:not(:placeholder-shown) ~ .float-label > svg,
+.float-field > select:focus ~ .float-label > svg {
+  width: 0.68rem;
+  height: 0.68rem;
 }
 
 .float-field > input:not(:placeholder-shown):not(:focus) ~ .float-label {

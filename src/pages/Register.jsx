@@ -93,24 +93,26 @@ export default function Register() {
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
               <div>
-                <label className="label" htmlFor="reg-role">Men kimman?</label>
-                <select
-                  id="reg-role"
-                  value={form.role}
-                  onChange={(event) => update('role', event.target.value)}
-                  className="input"
-                >
-                  <option value="">Rolni tanlang</option>
-                  {ROLE_GROUPS.map((group) => (
-                    <optgroup key={group.id} label={group.label}>
-                      {group.roles.map((role) => (
-                        <option key={role} value={role}>
-                          {ROLES[role].icon} {ROLES[role].label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <div className={`float-field ${form.role ? 'is-filled' : ''}`}>
+                  <select
+                    id="reg-role"
+                    value={form.role}
+                    onChange={(event) => update('role', event.target.value)}
+                    className="input"
+                  >
+                    <option value="">Rolni tanlang</option>
+                    {ROLE_GROUPS.map((group) => (
+                      <optgroup key={group.id} label={group.label}>
+                        {group.roles.map((role) => (
+                          <option key={role} value={role}>
+                            {ROLES[role].icon} {ROLES[role].label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <label className="float-label" htmlFor="reg-role">Men kimman?</label>
+                </div>
                 <p className="mt-1.5 text-[10px] text-stone-400">
                   {form.role ? ROLES[form.role].description : "O'zingizga mos rolni tanlang — bu keyin o'zgartirilishi mumkin."}
                 </p>
@@ -169,19 +171,20 @@ export default function Register() {
                   {errors.email && <p className="mt-1 text-[10px] font-semibold text-rose-500">{errors.email}</p>}
                 </div>
                 <div>
-                  <label className="label" htmlFor="reg-region">Viloyat</label>
-                  <div className="relative">
-                    <MapPin size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                  <div className="float-field is-filled">
                     <select
                       id="reg-region"
                       value={form.region}
                       onChange={(event) => update('region', event.target.value)}
-                      className="input pl-10"
+                      className="input"
                     >
                       {REGIONS.map((region) => (
                         <option key={region} value={region}>{region}</option>
                       ))}
                     </select>
+                    <label className="float-label" htmlFor="reg-region">
+                      <MapPin size={16} /> Viloyat
+                    </label>
                   </div>
                 </div>
               </div>
