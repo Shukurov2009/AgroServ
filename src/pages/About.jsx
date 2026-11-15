@@ -25,6 +25,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
+import { canOfferServices } from '../lib/constants'
 import { formatNumber, formatSom } from '../lib/format'
 import PageHero from '../components/PageHero'
 import SectionHeader from '../components/SectionHeader'
@@ -34,7 +35,7 @@ const VALUES = [
   {
     icon: ShieldCheck,
     title: 'Ishonch va shaffoflik',
-    text: "Har bir sotuvchi, mutaxassis va to'lov tarixi tizimda ko'rinadi. Yashirin to'lov yo'q — platforma bepul.",
+    text: "Har bir sotuvchi, mutaxassis va to'lov tarixi tizimda ko'rinadi. Yashirin to'lov yo'q — platforma obunasiz.",
     tone: 'emerald',
   },
   {
@@ -136,7 +137,7 @@ export default function About() {
     .filter((order) => order.status !== 'cancelled')
     .reduce((sum, order) => sum + order.total, 0)
   const completedOrders = orders.filter((order) => order.status === 'completed').length
-  const providersCount = users.filter((user) => ['worker', 'agronomist'].includes(user.role)).length
+  const providersCount = users.filter((user) => canOfferServices(user.role) && user.role !== 'admin').length
   const averageRating = reviews.length
     ? reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
     : 0

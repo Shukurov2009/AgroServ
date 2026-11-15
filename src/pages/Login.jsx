@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { GoogleLogin } from '@react-oauth/google'
-import { ArrowRight, Check, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { ROLES, SELF_ROLES } from '../lib/constants'
+import { ROLES, ROLE_GROUPS, SELF_ROLES, roleHome } from '../lib/constants'
 import AuthVisual from '../components/AuthVisual'
 import Modal from '../components/Modal'
 
@@ -88,13 +88,7 @@ export default function Login() {
     if (result.ok) {
       setPendingGoogle(null)
       toast.success(`Hisob yaratildi. Xush kelibsiz, ${result.user.name}!`)
-      const target =
-        selectedRole === 'seller'
-          ? '/dokon'
-          : ['worker', 'agronomist'].includes(selectedRole)
-            ? '/xizmatlarim'
-            : '/kabinet'
-      navigate(target, { replace: true })
+      navigate(roleHome(selectedRole), { replace: true })
     } else {
       toast.error(result.error)
     }
@@ -318,33 +312,25 @@ export default function Login() {
               <p className="text-stone-500">{pendingGoogle.profile.email}</p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            {SELF_ROLES.map((role) => {
-              const info = ROLES[role]
-              const active = selectedRole === role
-              return (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => setSelectedRole(role)}
-                  className={`relative rounded-xl border p-2.5 text-left transition ${
-                    active
-                      ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100'
-                      : 'border-stone-200 bg-white hover:border-emerald-300'
-                  }`}
-                >
-                  <span className="text-lg">{info.icon}</span>
-                  <p className={`mt-1 text-[10px] font-black ${active ? 'text-emerald-800' : 'text-stone-700'}`}>
-                    {info.label}
-                  </p>
-                  {active && (
-                    <span className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-white">
-                      <Check size={9} strokeWidth={3} />
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+          <div>
+            <label className="label" htmlFor="google-role">Rolni tanlang</label>
+            <select
+              id="google-role"
+              value={selectedRole}
+              onChange={(event) => setSelectedRole(event.target.value)}
+              className="input"
+            >
+              <option value="">Rolni tanlang</option>
+              {ROLE_GROUPS.map((group) => (
+                <optgroup key={group.id} label={group.label}>
+                  {group.roles.map((role) => (
+                    <option key={role} value={role}>
+                      {ROLES[role].icon} {ROLES[role].label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
           <p className="text-[10px] leading-relaxed text-stone-400">
             {selectedRole ? ROLES[selectedRole].description : "Hisob yaratish uchun rolni tanlang."}

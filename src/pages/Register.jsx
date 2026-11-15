@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ArrowRight, Check, Eye, EyeOff, Loader2, Lock, Mail, MapPin, Phone, User } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, MapPin, Phone, User } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { REGIONS, ROLES, SELF_ROLES } from '../lib/constants'
+import { REGIONS, ROLES, ROLE_GROUPS, SELF_ROLES, roleHome } from '../lib/constants'
 import AuthVisual from '../components/AuthVisual'
 
 const INITIAL = {
@@ -26,13 +26,7 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false)
 
   if (currentUser) {
-    const target =
-      currentUser.role === 'seller'
-        ? '/dokon'
-        : ['worker', 'agronomist'].includes(currentUser.role)
-          ? '/xizmatlarim'
-          : '/kabinet'
-    return <Navigate to={target} replace />
+    return <Navigate to={roleHome(currentUser.role)} replace />
   }
 
   const strength = getStrength(form.password)
@@ -74,9 +68,7 @@ export default function Register() {
     }
 
     toast.success("Hisob yaratildi. AgroServ'ga xush kelibsiz!")
-    if (form.role === 'seller') navigate('/dokon')
-    else if (['worker', 'agronomist'].includes(form.role)) navigate('/xizmatlarim')
-    else navigate('/kabinet')
+    navigate(roleHome(form.role))
   }
 
   return (
@@ -84,7 +76,7 @@ export default function Register() {
       <div className="container-page grid min-h-[calc(100vh-68px)] items-center gap-8 py-8 lg:grid-cols-2 lg:gap-12 lg:py-12">
         <AuthVisual
           title="Bir daqiqada hisob oching va savdoni boshlang"
-          subtitle="Rolingizni tanlang — tizim sizga mos kabinet, imkoniyatlar va tarif tavsiyalarini tayyorlaydi."
+          subtitle="Rolingizni tanlang — tizim sizga mos kabinet va imkoniyatlarni tayyorlaydi."
         />
 
         <div className="mx-auto w-full max-w-xl">
@@ -96,40 +88,29 @@ export default function Register() {
               Ro'yxatdan o'tish
             </h1>
             <p className="mt-1.5 text-sm text-stone-500">
-              Bepul boshlang. E'lon joylash, savdo qilish va AI maslahat — barchasi bepul.
+              Obuna yo'q. E'lon joylash bepul, har bir savdodan 5% komissiya.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
               <div>
-                <label className="label">Men kimman?</label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {SELF_ROLES.map((role) => {
-                    const info = ROLES[role]
-                    const active = form.role === role
-                    return (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => update('role', role)}
-                        className={`relative rounded-xl border p-2.5 text-left transition ${
-                          active
-                            ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100'
-                            : 'border-stone-200 bg-white hover:border-emerald-300'
-                        }`}
-                      >
-                        <span className="text-lg">{info.icon}</span>
-                        <p className={`mt-1 text-[10px] font-black ${active ? 'text-emerald-800' : 'text-stone-700'}`}>
-                          {info.label}
-                        </p>
-                        {active && (
-                          <span className="absolute right-1.5 top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-600 text-white">
-                            <Check size={9} strokeWidth={3} />
-                          </span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
+                <label className="label" htmlFor="reg-role">Men kimman?</label>
+                <select
+                  id="reg-role"
+                  value={form.role}
+                  onChange={(event) => update('role', event.target.value)}
+                  className="input"
+                >
+                  <option value="">Rolni tanlang</option>
+                  {ROLE_GROUPS.map((group) => (
+                    <optgroup key={group.id} label={group.label}>
+                      {group.roles.map((role) => (
+                        <option key={role} value={role}>
+                          {ROLES[role].icon} {ROLES[role].label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
                 <p className="mt-1.5 text-[10px] text-stone-400">
                   {form.role ? ROLES[form.role].description : "O'zingizga mos rolni tanlang — bu keyin o'zgartirilishi mumkin."}
                 </p>

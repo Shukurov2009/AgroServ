@@ -26,6 +26,7 @@ import {
   PRODUCT_GRADIENTS,
   PRODUCT_UNITS,
   REGIONS,
+  ROLE_DEFAULT_CATEGORY,
 } from '../lib/constants'
 import { formatDate, formatNumber, formatSom } from '../lib/format'
 import PageHero from '../components/PageHero'
@@ -51,14 +52,16 @@ export default function SellerStore() {
   const [form, setForm] = useState(makeEmptyForm(currentUser))
 
   function makeEmptyForm(user) {
+    const category = ROLE_DEFAULT_CATEGORY[user?.role] || 'meva'
+    const emoji = category === 'texnika' ? '🚜' : category === 'ogit' ? '🧪' : '🍎'
     return {
       title: '',
-      category: 'meva',
+      category,
       price: '',
       unit: 'kg',
       stock: '',
       region: user?.region || 'Toshkent',
-      emoji: '🍎',
+      emoji,
       gradient: PRODUCT_GRADIENTS[0],
       description: '',
       phone: user?.phone || '',

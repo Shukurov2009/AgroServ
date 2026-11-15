@@ -21,7 +21,7 @@ import {
   X,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { ORDER_STATUS, REGIONS, SERVICE_GRADIENTS } from '../lib/constants'
+import { ORDER_STATUS, REGIONS, ROLES, ROLE_DEFAULT_SERVICE_TYPE, SERVICE_GRADIENTS } from '../lib/constants'
 import { formatDate, formatNumber, formatSom, initials } from '../lib/format'
 import PageHero from '../components/PageHero'
 import StatCard from '../components/StatCard'
@@ -45,8 +45,10 @@ export default function MyServices() {
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(makeEmptyForm(currentUser))
 
+  const lockedType = ROLE_DEFAULT_SERVICE_TYPE[currentUser.role]
+
   function makeEmptyForm(user) {
-    const type = user?.role === 'agronomist' ? 'agronomist' : 'worker'
+    const type = ROLE_DEFAULT_SERVICE_TYPE[user?.role] || 'worker'
     return {
       type,
       name: user?.name || '',
@@ -508,10 +510,17 @@ export default function MyServices() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="label">Xizmat turi</label>
-              <select value={form.type} onChange={(event) => changeType(event.target.value)} className="input">
-                <option value="worker">🔧 Texnika ustasi</option>
-                <option value="agronomist">🌿 Agronom</option>
-              </select>
+              {lockedType ? (
+                <div className="input flex items-center justify-between bg-stone-50 text-stone-600">
+                  <span>{lockedType === 'agronomist' ? '🌿 Agronom' : '🔧 Texnika xizmati'}</span>
+                  <span className="text-[10px] font-semibold text-stone-400">{ROLES[currentUser.role].label}</span>
+                </div>
+              ) : (
+                <select value={form.type} onChange={(event) => changeType(event.target.value)} className="input">
+                  <option value="worker">🔧 Texnika ustasi</option>
+                  <option value="agronomist">🌿 Agronom</option>
+                </select>
+              )}
             </div>
             <div>
               <label className="label">Ko'rsatiladigan ism</label>

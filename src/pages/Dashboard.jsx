@@ -15,12 +15,13 @@ import {
   Sparkles,
   Store,
   TrendingUp,
+  Truck,
   Wallet,
   Wrench,
   Zap,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { ORDER_STATUS, ROLES } from '../lib/constants'
+import { ORDER_STATUS, ROLES, canSellProducts, canOfferServices } from '../lib/constants'
 import { formatDate, formatNumber, formatSom, initials } from '../lib/format'
 import StatCard from '../components/StatCard'
 
@@ -37,8 +38,8 @@ export default function Dashboard() {
   } = useStore()
 
   const roleInfo = ROLES[currentUser.role] || ROLES.user
-  const isSeller = ['seller', 'admin'].includes(currentUser.role)
-  const isProvider = ['worker', 'agronomist', 'admin'].includes(currentUser.role)
+  const isSeller = canSellProducts(currentUser.role)
+  const isProvider = canOfferServices(currentUser.role)
 
   const myOrders = useMemo(
     () => orders.filter((order) => order.buyerId === currentUser.id),
@@ -57,6 +58,7 @@ export default function Dashboard() {
   const myServices = services.filter((service) => service.userId === currentUser.id)
   const myApplications = applications.filter((entry) => entry.userId === currentUser.id)
   const pendingSales = salesOrders.filter((order) => ['paid', 'processing'].includes(order.status))
+  const deliveryOrders = orders.filter((order) => order.courierId === currentUser.id)
 
   const earned = salesOrders.reduce((sum, order) => sum + order.subtotal - order.platformFee, 0)
   const spent = myOrders
@@ -88,6 +90,15 @@ export default function Dashboard() {
   }
   if (isProvider) {
     quickActions.unshift({ to: '/xizmatlarim', icon: Wrench, label: 'Mening xizmatlarim', text: `${myServices.length} ta xizmat`, tone: 'bg-lime-50 text-lime-700' })
+  }
+  if (currentUser.role === 'delivery') {
+    quickActions.unshift({
+      to: '/buyurtmalar',
+      icon: Truck,
+      label: 'Yetkazib berish',
+      text: `${deliveryOrders.length} ta biriktirilgan buyurtma`,
+      tone: 'bg-sky-50 text-sky-700',
+    })
   }
 
   return (

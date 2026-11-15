@@ -15,7 +15,6 @@ const PLATFORM_LINKS = [
 
 const COMPANY_LINKS = [
   { to: '/haqida', label: 'Biz haqimizda' },
-  { to: '/narxlar', label: 'Bepul platforma' },
   { to: '/haqida#aloqa', label: 'Aloqa' },
   { to: '/login', label: 'Kirish' },
   { to: '/register', label: "Ro'yxatdan o'tish" },

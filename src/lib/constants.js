@@ -72,26 +72,77 @@ export const CATEGORIES = [
   },
 ]
 
+export const ROLE_GROUPS = [
+  {
+    id: 'buyers',
+    label: 'Xaridor va dehqonlar',
+    roles: ['buyer', 'farmer'],
+  },
+  {
+    id: 'product-sellers',
+    label: 'Mahsulot sotuvchilari',
+    roles: ['vegetable_seller', 'fruit_seller', 'product_seller', 'equipment_seller'],
+  },
+  {
+    id: 'service-providers',
+    label: "Xizmat ko'rsatuvchilar",
+    roles: ['equipment_renter', 'agronomist'],
+  },
+  {
+    id: 'delivery',
+    label: 'Yetkazib berish',
+    roles: ['delivery'],
+  },
+]
+
 export const ROLES = {
-  user: {
-    label: 'Fermer',
-    short: 'Fermer',
-    icon: '🌾',
-    description: 'Mahsulot sotib olish, xizmat yollash va AI maslahat',
+  buyer: {
+    label: 'Xaridor',
+    short: 'Xaridor',
+    icon: '🛒',
+    description: "Mahsulot xarid qilish, xizmat yollash va AI maslahat",
     badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   },
-  seller: {
-    label: 'Sotuvchi',
-    short: 'Sotuvchi',
+  farmer: {
+    label: 'Dehqon',
+    short: 'Dehqon',
+    icon: '🌾',
+    description: "Mahsulot yetishtirish, sotib olish va AI maslahat",
+    badge: 'bg-lime-50 text-lime-700 border-lime-200',
+  },
+  vegetable_seller: {
+    label: 'Sabzavot sotuvchisi',
+    short: 'Sabzavot',
+    icon: '🥬',
+    description: "Sabzavot e'lonlarini joylash va sotish",
+    badge: 'bg-green-50 text-green-700 border-green-200',
+  },
+  fruit_seller: {
+    label: 'Meva sotuvchisi',
+    short: 'Meva',
+    icon: '🍎',
+    description: "Meva e'lonlarini joylash va sotish",
+    badge: 'bg-rose-50 text-rose-700 border-rose-200',
+  },
+  product_seller: {
+    label: 'Mahsulot sotuvchisi',
+    short: 'Mahsulot',
     icon: '🏪',
-    description: "Do'kon ochish, mahsulot joylash va savdo qilish",
+    description: "O'g'it, dori va boshqa agro mahsulotlarini sotish",
     badge: 'bg-sky-50 text-sky-700 border-sky-200',
   },
-  worker: {
-    label: 'Texnika ustasi',
-    short: 'Usta',
+  equipment_seller: {
+    label: 'Texnika sotuvchisi',
+    short: 'Texnika',
+    icon: '🚜',
+    description: 'Texnika va ehtiyot qismlarini sotish',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200',
+  },
+  equipment_renter: {
+    label: 'Texnika ijarachisi',
+    short: 'Ijara',
     icon: '🔧',
-    description: 'Texnika xizmatlarini ko\'rsatish va buyurtma olish',
+    description: "Texnika ijarasi va xizmatlarini taklif qilish",
     badge: 'bg-amber-50 text-amber-700 border-amber-200',
   },
   agronomist: {
@@ -100,6 +151,38 @@ export const ROLES = {
     icon: '🌿',
     description: 'Agronomik maslahat va dala xizmatlarini taklif qilish',
     badge: 'bg-lime-50 text-lime-700 border-lime-200',
+  },
+  delivery: {
+    label: 'Yetkazib beruvchi',
+    short: 'Kuryer',
+    icon: '🚚',
+    description: "Buyurtmalarni manzilga yetkazib berish",
+    badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  },
+  // Eski rollar — mavjud hisoblar uchun saqlanadi, ro'yxatdan o'tishda ko'rinmaydi.
+  user: {
+    label: 'Fermer (eski)',
+    short: 'Fermer',
+    icon: '🌱',
+    description: 'Eski foydalanuvchi roli',
+    badge: 'bg-stone-50 text-stone-700 border-stone-200',
+    legacy: true,
+  },
+  seller: {
+    label: 'Sotuvchi (eski)',
+    short: 'Sotuvchi',
+    icon: '🏬',
+    description: 'Eski sotuvchi roli',
+    badge: 'bg-stone-50 text-stone-700 border-stone-200',
+    legacy: true,
+  },
+  worker: {
+    label: 'Texnika ustasi (eski)',
+    short: 'Usta',
+    icon: '🛠️',
+    description: 'Eski usta roli',
+    badge: 'bg-stone-50 text-stone-700 border-stone-200',
+    legacy: true,
   },
   admin: {
     label: 'Administrator',
@@ -110,7 +193,52 @@ export const ROLES = {
   },
 }
 
-export const SELF_ROLES = ['user', 'seller', 'worker', 'agronomist']
+export const SELF_ROLES = ROLE_GROUPS.flatMap((group) => group.roles)
+
+// Eski hisoblar uchun saqlanadigan rollar — yangi ro'yxatdan o'tishda ko'rinmaydi.
+export const LEGACY_ROLES = ['user', 'seller', 'worker']
+
+export const PRODUCT_SELLER_ROLES = [
+  'vegetable_seller',
+  'fruit_seller',
+  'product_seller',
+  'equipment_seller',
+  'seller',
+]
+
+export const SERVICE_ROLES = ['equipment_renter', 'agronomist', 'worker']
+
+export function canSellProducts(role) {
+  return role === 'admin' || PRODUCT_SELLER_ROLES.includes(role)
+}
+
+export function canOfferServices(role) {
+  return role === 'admin' || SERVICE_ROLES.includes(role)
+}
+
+export function isBuyerRole(role) {
+  return ['buyer', 'farmer', 'user', 'delivery'].includes(role)
+}
+
+export const ROLE_DEFAULT_CATEGORY = {
+  vegetable_seller: 'meva',
+  fruit_seller: 'meva',
+  product_seller: 'ogit',
+  equipment_seller: 'texnika',
+  seller: 'meva',
+}
+
+export const ROLE_DEFAULT_SERVICE_TYPE = {
+  equipment_renter: 'worker',
+  agronomist: 'agronomist',
+  worker: 'worker',
+}
+
+export function roleHome(role) {
+  if (canSellProducts(role)) return '/dokon'
+  if (canOfferServices(role)) return '/xizmatlarim'
+  return '/kabinet'
+}
 
 export const FREE_PLAN = {
   id: 'free',

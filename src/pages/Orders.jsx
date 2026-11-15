@@ -12,7 +12,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { ORDER_STATUS } from '../lib/constants'
+import { ORDER_STATUS, canSellProducts } from '../lib/constants'
 import { formatDateTime, formatNumber, formatSom } from '../lib/format'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
@@ -31,10 +31,11 @@ const FILTERS = [
 export default function Orders() {
   const { orders, currentUser, isAdmin, updateOrderStatus } = useStore()
   const [filter, setFilter] = useState('all')
-  const [scope, setScope] = useState('my')
+  const [scope, setScope] = useState(currentUser?.role === 'delivery' ? 'delivery' : 'my')
   const [detail, setDetail] = useState(null)
 
-  const isSeller = currentUser?.role === 'seller' || isAdmin
+  const isSeller = canSellProducts(currentUser?.role) || isAdmin
+  const isDelivery = currentUser?.role === 'delivery'
 
   const myOrders = useMemo(
     () => orders.filter((order) => order.buyerId === currentUser?.id),
@@ -51,7 +52,17 @@ export default function Orders() {
     [orders, currentUser],
   )
 
-  const base = scope === 'sales' && isSeller ? sellerOrders : myOrders
+  const deliveryOrders = useMemo(
+    () => orders.filter((order) => order.courierId === currentUser?.id),
+    [orders, currentUser],
+  )
+
+  const base =
+    scope === 'sales' && isSeller
+      ? sellerOrders
+      : scope === 'delivery' && isDelivery
+        ? deliveryOrders
+        : myOrders
   const filtered = filter === 'all' ? base : base.filter((order) => order.status === filter)
 
   const counts = {
@@ -96,6 +107,16 @@ export default function Orders() {
     }
   }
 
+  async function markShipped(order) {
+    const result = await updateOrderStatus(order.id, 'shipped')
+    if (result.ok) {
+      toast.success("Buyurtma «Yo'lda» holatiga o'tdi")
+      setDetail({ ...order, status: 'shipped' })
+    } else {
+      toast.error(result.error)
+    }
+  }
+
   async function confirmReceipt(order) {
     const result = await updateOrderStatus(order.id, 'completed')
     if (result.ok) {
@@ -118,7 +139,11 @@ export default function Orders() {
               Buyurtmalar tarixi
             </h1>
             <p className="mt-1 text-xs text-stone-500">
-              {scope === 'sales' ? 'Sizning mahsulotlaringiz bo\'yicha savdolar' : 'Sizning xaridlaringiz va holati'}
+              {scope === 'sales'
+                ? "Sizning mahsulotlaringiz bo'yicha savdolar"
+                : scope === 'delivery'
+                  ? "Sizga biriktirilgan buyurtmalar va manzillar"
+                  : 'Sizning xaridlaringiz va holati'}
             </p>
           </div>
           <Link to="/bozor" className="btn btn-secondary btn-sm">
@@ -126,8 +151,8 @@ export default function Orders() {
           </Link>
         </div>
 
-        {isSeller && (
-          <div className="mt-4 flex gap-2">
+        {(isSeller || isDelivery) && (
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => { setScope('my'); setFilter('all') }}
@@ -137,15 +162,28 @@ export default function Orders() {
             >
               <ShoppingBag size={14} /> Mening xaridlarim ({myOrders.length})
             </button>
-            <button
-              type="button"
-              onClick={() => { setScope('sales'); setFilter('all') }}
-              className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
-                scope === 'sales' ? 'bg-emerald-600 text-white' : 'bg-white text-stone-600 hover:bg-emerald-50'
-              }`}
-            >
-              <Store size={14} /> Savdolarim ({sellerOrders.length})
-            </button>
+            {isSeller && (
+              <button
+                type="button"
+                onClick={() => { setScope('sales'); setFilter('all') }}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+                  scope === 'sales' ? 'bg-emerald-600 text-white' : 'bg-white text-stone-600 hover:bg-emerald-50'
+                }`}
+              >
+                <Store size={14} /> Savdolarim ({sellerOrders.length})
+              </button>
+            )}
+            {isDelivery && (
+              <button
+                type="button"
+                onClick={() => { setScope('delivery'); setFilter('all') }}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+                  scope === 'delivery' ? 'bg-emerald-600 text-white' : 'bg-white text-stone-600 hover:bg-emerald-50'
+                }`}
+              >
+                <Truck size={14} /> Yetkazishlarim ({deliveryOrders.length})
+              </button>
+            )}
           </div>
         )}
 
@@ -176,11 +214,19 @@ export default function Orders() {
             </span>
             <div>
               <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">
-                {scope === 'sales' ? 'Tushum' : 'Sarflangan'}
+                {scope === 'sales' ? 'Tushum' : scope === 'delivery' ? "Yo'lda" : 'Sarflangan'}
               </p>
               <p className="text-lg font-black text-emerald-950">
-                {formatNumber(scope === 'sales' ? totalEarned : totalSpent)}
-                <span className="ml-1 text-[10px] font-semibold text-stone-400">so'm</span>
+                {scope === 'delivery' ? (
+                  <>
+                    {base.filter((order) => order.status === 'shipped').length} ta
+                  </>
+                ) : (
+                  <>
+                    {formatNumber(scope === 'sales' ? totalEarned : totalSpent)}
+                    <span className="ml-1 text-[10px] font-semibold text-stone-400">so'm</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -319,6 +365,11 @@ export default function Orders() {
                 {isAdmin && detail.status !== 'completed' && detail.status !== 'cancelled' && (
                   <button type="button" onClick={() => advance(detail)} className="btn btn-primary btn-sm">
                     Holatni o'zgartirish
+                  </button>
+                )}
+                {scope === 'delivery' && ['paid', 'processing'].includes(detail.status) && (
+                  <button type="button" onClick={() => markShipped(detail)} className="btn btn-primary btn-sm">
+                    <Truck size={13} /> Yo'lga chiqdi
                   </button>
                 )}
                 {scope === 'my' && detail.status === 'shipped' && (

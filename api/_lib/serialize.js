@@ -159,6 +159,7 @@ export function toOrder(row) {
     buyerId: row.buyer_id,
     buyerName: row.buyer_name || '',
     sellerId: row.seller_id,
+    courierId: row.courier_id || null,
     type: row.type,
     status: row.status,
     paymentMethod: row.payment_method,

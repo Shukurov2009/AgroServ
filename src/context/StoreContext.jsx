@@ -234,6 +234,11 @@ export function StoreProvider({ children }) {
     [run],
   )
 
+  const assignCourier = useCallback(
+    (orderId, courierId) => run(() => api.patch(`/admin/orders/${orderId}/courier`, { courierId })),
+    [run],
+  )
+
   const topUp = useCallback(
     (amount, method = 'manual') => run(() => api.post('/wallet/topup', { amount, method })),
     [run],
@@ -398,6 +403,7 @@ export function StoreProvider({ children }) {
     toggleFavorite,
     checkout,
     updateOrderStatus,
+    assignCourier,
     topUp,
     promoteProduct,
     addProduct,

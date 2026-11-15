@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { ROLES } from '../lib/constants'
+import { ROLES, canSellProducts, canOfferServices } from '../lib/constants'
 import { formatNumber } from '../lib/format'
 import Logo from './Logo'
 
@@ -28,7 +28,6 @@ const NAV_ITEMS = [
   { to: '/videolar', label: 'Videolar' },
   { to: '/ai-maslahatchi', label: 'AI maslahatchi' },
   { to: '/haqida', label: 'Haqida' },
-  { to: '/narxlar', label: 'Bepul' },
 ]
 
 export default function Navbar() {
@@ -81,9 +80,6 @@ export default function Navbar() {
             <span className="flex items-center gap-1.5 text-lime-300">
               <Sparkles size={12} /> Obuna yo'q — 5% savdo komissiyasi
             </span>
-            <Link to="/narxlar" className="font-semibold text-white/90 underline-offset-4 hover:underline">
-              Bepul platforma
-            </Link>
           </div>
         </div>
       </div>
@@ -172,17 +168,17 @@ export default function Navbar() {
                         Kabinet
                       </MenuLink>
                       <MenuLink to="/buyurtmalar" icon={<ShoppingCart size={16} />} onClick={() => setUserMenu(false)}>
-                        Buyurtmalar
+                        {currentUser.role === 'delivery' ? 'Yetkazib berish' : 'Buyurtmalar'}
                       </MenuLink>
                       <MenuLink to="/profil" icon={<User size={16} />} onClick={() => setUserMenu(false)}>
                         Profil va hamyon
                       </MenuLink>
-                      {['seller', 'admin'].includes(currentUser.role) && (
+                      {canSellProducts(currentUser.role) && (
                         <MenuLink to="/dokon" icon={<Store size={16} />} onClick={() => setUserMenu(false)}>
                           Mening do'konim
                         </MenuLink>
                       )}
-                      {['worker', 'agronomist', 'admin'].includes(currentUser.role) && (
+                      {canOfferServices(currentUser.role) && (
                         <MenuLink to="/xizmatlarim" icon={<Wrench size={16} />} onClick={() => setUserMenu(false)}>
                           Mening xizmatlarim
                         </MenuLink>

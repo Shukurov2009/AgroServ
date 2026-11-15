@@ -11,7 +11,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { JOB_TYPES, REGIONS } from '../lib/constants'
+import { JOB_TYPES, REGIONS, canOfferServices } from '../lib/constants'
 import { formatDate } from '../lib/format'
 import PageHero from '../components/PageHero'
 import JobCard from '../components/JobCard'
@@ -278,7 +278,7 @@ export default function Jobs() {
           {[
             {
               icon: Users,
-              title: `${users.filter((user) => ['worker', 'agronomist'].includes(user.role)).length} mutaxassis`,
+              title: `${users.filter((user) => canOfferServices(user.role) && user.role !== 'admin').length} mutaxassis`,
               text: "Platformada ro'yxatdan o'tgan usta va agronomlar.",
             },
             { icon: Briefcase, title: "Oson ariza", text: "Bir necha maydon to'ldirib, arizani yuboring." },

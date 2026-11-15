@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { PLANS, SELF_ROLES } from '../../src/lib/constants.js'
+import { PLANS, SELF_ROLES, canSellProducts, canOfferServices, ROLE_DEFAULT_SERVICE_TYPE } from '../../src/lib/constants.js'
 import { query, withTransaction } from './db.js'
 import {
   HttpError,
@@ -239,12 +239,19 @@ async function bootstrap(ctx) {
               `SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id
                ORDER BY o.created_at DESC`,
             )
-          : query(
-              `SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id
-               WHERE o.buyer_id = $1 OR o.seller_id = $1 OR $1 = ANY(o.seller_ids)
-               ORDER BY o.created_at DESC`,
-              [user.id],
-            ),
+          : user.role === 'delivery'
+            ? query(
+                `SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id
+                 WHERE o.buyer_id = $1 OR o.courier_id = $1
+                 ORDER BY o.created_at DESC`,
+                [user.id],
+              )
+            : query(
+                `SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id
+                 WHERE o.buyer_id = $1 OR o.seller_id = $1 OR $1 = ANY(o.seller_ids)
+                 ORDER BY o.created_at DESC`,
+                [user.id],
+              ),
         admin
           ? query('SELECT * FROM transactions ORDER BY created_at DESC')
           : query('SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC', [user.id]),
@@ -919,12 +926,15 @@ async function updateOrderStatus(ctx) {
     const isSeller =
       order.seller_id === ctx.user.id || (Array.isArray(order.seller_ids) && order.seller_ids.includes(ctx.user.id))
     const isBuyer = order.buyer_id === ctx.user.id
+    const isCourier = order.courier_id === ctx.user.id
     const isAdmin = ctx.user.role === 'admin'
 
     if (!isAdmin) {
       const sellerAllowed = isSeller && ['processing', 'shipped', 'completed'].includes(status)
       const buyerAllowed = isBuyer && status === 'cancelled'
-      if (!sellerAllowed && !buyerAllowed) {
+      const courierAllowed =
+        isCourier && status === 'shipped' && ['paid', 'processing'].includes(order.status)
+      if (!sellerAllowed && !buyerAllowed && !courierAllowed) {
         throw new HttpError(403, "Bu amal uchun ruxsat yo'q", 'FORBIDDEN')
       }
     }
@@ -1258,8 +1268,8 @@ async function consumeAi(ctx) {
 
 async function createProduct(ctx) {
   const body = await readBody(ctx.req)
-  if (!['seller', 'admin'].includes(ctx.user.role)) {
-    throw new HttpError(403, "Mahsulot joylash uchun sotuvchi bo'ling", 'FORBIDDEN')
+  if (!canSellProducts(ctx.user.role)) {
+    throw new HttpError(403, "Mahsulot joylash uchun sotuvchi roli kerak", 'FORBIDDEN')
   }
   const title = clean(body.title, 150)
   const price = Math.max(0, Math.round(Number(body.price) || 0))
@@ -1354,10 +1364,11 @@ async function deleteProduct(ctx) {
 
 async function createService(ctx) {
   const body = await readBody(ctx.req)
-  if (!['worker', 'agronomist', 'admin'].includes(ctx.user.role)) {
-    throw new HttpError(403, "Xizmat joylash uchun usta yoki agronom bo'ling", 'FORBIDDEN')
+  if (!canOfferServices(ctx.user.role)) {
+    throw new HttpError(403, "Xizmat joylash uchun usta, ijara yoki agronom roli kerak", 'FORBIDDEN')
   }
-  const type = body.type === 'agronomist' ? 'agronomist' : 'worker'
+  const roleType = ROLE_DEFAULT_SERVICE_TYPE[ctx.user.role]
+  const type = roleType || (body.type === 'agronomist' ? 'agronomist' : 'worker')
   const price = Math.max(0, Math.round(Number(body.price) || 0))
   if (price <= 0) throw new HttpError(400, 'Narxni kiriting', 'BAD_PRICE')
   const { rows } = await query(
@@ -1671,7 +1682,7 @@ async function updateSettings(ctx) {
 async function adminSetRole(ctx) {
   const body = await readBody(ctx.req)
   const role = String(body.role || '')
-  if (!['user', 'seller', 'worker', 'agronomist', 'admin'].includes(role)) {
+  if (![...SELF_ROLES, 'admin'].includes(role)) {
     throw new HttpError(400, "Noto'g'ri rol", 'BAD_ROLE')
   }
   if (ctx.params.id === ctx.user.id && role !== 'admin') {
@@ -1688,6 +1699,30 @@ async function adminSetRole(ctx) {
     ctx.params.id,
   ])
   return { user: toUser(rows[0], { admin: true }) }
+}
+
+async function adminAssignCourier(ctx) {
+  const body = await readBody(ctx.req)
+  const courierId = body.courierId ? String(body.courierId) : null
+  if (courierId) {
+    const courier = await query(
+      "SELECT id FROM users WHERE id = $1 AND role = 'delivery' AND status = 'active'",
+      [courierId],
+    )
+    if (!courier.rows[0]) {
+      throw new HttpError(400, "Yetkazib beruvchi topilmadi yoki bloklangan", 'COURIER_NOT_FOUND')
+    }
+  }
+  const { rows } = await query(
+    'UPDATE orders SET courier_id = $1, updated_at = now() WHERE id = $2 RETURNING id',
+    [courierId, ctx.params.id],
+  )
+  if (!rows[0]) throw new HttpError(404, 'Buyurtma topilmadi', 'ORDER_NOT_FOUND')
+  const full = await query(
+    'SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id WHERE o.id = $1',
+    [ctx.params.id],
+  )
+  return { order: toOrder(full.rows[0]) }
 }
 
 async function adminToggleUser(ctx) {
@@ -2162,6 +2197,7 @@ route('POST', '/reviews', addReview)
 
 // Admin
 route('PATCH', '/admin/users/:id/role', adminSetRole, { admin: true })
+route('PATCH', '/admin/orders/:id/courier', adminAssignCourier, { admin: true })
 route('PATCH', '/admin/users/:id/status', adminToggleUser, { admin: true })
 route('POST', '/admin/users/:id/wallet', adminAdjustWallet, { admin: true })
 route('POST', '/admin/users/:id/password', adminSetPassword, { admin: true })

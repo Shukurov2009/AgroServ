@@ -5,7 +5,6 @@ import {
   ArrowRight,
   BadgeCheck,
   Bot,
-  Check,
   KeyRound,
   Lock,
   Mail,
@@ -18,7 +17,7 @@ import {
   Wallet,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { REGIONS, ROLES, SELF_ROLES } from '../lib/constants'
+import { REGIONS, ROLES, ROLE_GROUPS, LEGACY_ROLES } from '../lib/constants'
 import { formatDateTime, formatSom } from '../lib/format'
 import { RoleBadge } from '../components/Badges'
 
@@ -447,32 +446,32 @@ export default function Profile() {
                     </div>
                   ) : (
                     <>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        {SELF_ROLES.map((roleId) => {
-                          const info = ROLES[roleId]
-                          const active = role === roleId
-                          return (
-                            <button
-                              key={roleId}
-                              type="button"
-                              onClick={() => setRole(roleId)}
-                              className={`flex items-start gap-2 rounded-xl border p-3 text-left transition ${
-                                active
-                                  ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100'
-                                  : 'border-stone-200 bg-white hover:border-emerald-300'
-                              }`}
-                            >
-                              <span className="text-lg">{info.icon}</span>
-                              <span>
-                                <span className="flex items-center gap-1 text-[11px] font-black text-emerald-950">
-                                  {info.label}
-                                  {active && <Check size={11} className="text-emerald-600" />}
-                                </span>
-                                <span className="mt-0.5 block text-[9px] leading-relaxed text-stone-500">{info.description}</span>
-                              </span>
-                            </button>
-                          )
-                        })}
+                      <div className="mt-3">
+                        <label className="label" htmlFor="profile-role">Rol</label>
+                        <select
+                          id="profile-role"
+                          value={role}
+                          onChange={(event) => setRole(event.target.value)}
+                          className="input"
+                        >
+                          {LEGACY_ROLES.includes(currentUser.role) && (
+                            <option value={currentUser.role}>
+                              {ROLES[currentUser.role].icon} {ROLES[currentUser.role].label} — joriy
+                            </option>
+                          )}
+                          {ROLE_GROUPS.map((group) => (
+                            <optgroup key={group.id} label={group.label}>
+                              {group.roles.map((roleId) => (
+                                <option key={roleId} value={roleId}>
+                                  {ROLES[roleId].icon} {ROLES[roleId].label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                        <p className="mt-1.5 text-[10px] leading-relaxed text-stone-500">
+                          {role ? ROLES[role].description : "Faoliyatingizga mos rolni tanlang."}
+                        </p>
                       </div>
                       <button
                         type="button"

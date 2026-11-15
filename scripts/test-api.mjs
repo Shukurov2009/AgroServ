@@ -66,12 +66,13 @@ const suffix = randomUUID().slice(0, 8)
 const sellerEmail = `test+seller-${suffix}@example.test`
 const buyerEmail = `test+buyer-${suffix}@example.test`
 const workerEmail = `test+worker-${suffix}@example.test`
+const deliveryEmail = `test+delivery-${suffix}@example.test`
 const password = 'TestParol#2026'
 const adminPassword = process.env.TEST_ADMIN_PASSWORD
 let promoUsesBefore = null
 
 async function cleanup() {
-  const emails = [sellerEmail, buyerEmail, workerEmail]
+  const emails = [sellerEmail, buyerEmail, workerEmail, deliveryEmail]
   const users = await query('SELECT id FROM users WHERE email = ANY($1)', [emails])
   const ids = users.rows.map((row) => row.id)
   if (promoUsesBefore !== null) {
@@ -80,7 +81,7 @@ async function cleanup() {
   if (!ids.length) return
   await query('DELETE FROM transactions WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM payments WHERE user_id = ANY($1)', [ids])
-  await query('DELETE FROM orders WHERE buyer_id = ANY($1) OR seller_id = ANY($1)', [ids])
+  await query('DELETE FROM orders WHERE buyer_id = ANY($1) OR seller_id = ANY($1) OR courier_id = ANY($1)', [ids])
   await query('DELETE FROM products WHERE seller_id = ANY($1)', [ids])
   await query('DELETE FROM services WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM reviews WHERE user_id = ANY($1)', [ids])
@@ -108,9 +109,9 @@ try {
   )
 
   const seller = await call('POST', '/api/auth/register', {
-    body: { name: 'Test Sotuvchi', email: sellerEmail, password, role: 'seller', region: 'Toshkent' },
+    body: { name: 'Test Sotuvchi', email: sellerEmail, password, role: 'product_seller', region: 'Toshkent' },
   })
-  assert(seller.status === 200 && seller.data.user.role === 'seller', "sotuvchi rolida ro'yxatdan o'tish", seller)
+  assert(seller.status === 200 && seller.data.user.role === 'product_seller', "sotuvchi rolida ro'yxatdan o'tish", seller)
   const sellerCookie = seller.cookie
   assert(Boolean(sellerCookie), 'session cookie berildi')
 
@@ -156,10 +157,36 @@ try {
   const serviceId = service.data.service.id
 
   const buyer = await call('POST', '/api/auth/register', {
-    body: { name: 'Test Xaridor', email: buyerEmail, password, role: 'user', region: 'Toshkent' },
+    body: { name: 'Test Xaridor', email: buyerEmail, password, role: 'buyer', region: 'Toshkent' },
   })
-  assert(buyer.status === 200 && buyer.data.user.role === 'user', "xaridor rolida ro'yxatdan o'tish", buyer)
+  assert(buyer.status === 200 && buyer.data.user.role === 'buyer', "xaridor rolida ro'yxatdan o'tish", buyer)
   const buyerCookie = buyer.cookie
+
+  const delivery = await call('POST', '/api/auth/register', {
+    body: { name: 'Test Kuryer', email: deliveryEmail, password, role: 'delivery', region: 'Toshkent' },
+  })
+  assert(delivery.status === 200 && delivery.data.user.role === 'delivery', "yetkazib beruvchi rolida ro'yxatdan o'tish", delivery)
+  const deliveryCookie = delivery.cookie
+
+  const buyerProduct = await call('POST', '/api/products', {
+    cookie: buyerCookie,
+    body: { title: 'Ruxsatsiz mahsulot', category: 'meva', price: 10000, stock: 1, unit: 'kg' },
+  })
+  assert(
+    buyerProduct.status === 403 && buyerProduct.data.code === 'FORBIDDEN',
+    'xaridor mahsulot joylay olmaydi',
+    buyerProduct,
+  )
+
+  const buyerService = await call('POST', '/api/services', {
+    cookie: buyerCookie,
+    body: { type: 'worker', serviceType: 'Ruxsatsiz xizmat', price: 10000 },
+  })
+  assert(
+    buyerService.status === 403 && buyerService.data.code === 'FORBIDDEN',
+    'xaridor xizmat joylay olmaydi',
+    buyerService,
+  )
 
   const wrongPassword = await call('POST', '/api/auth/login', {
     body: { email: buyerEmail, password: 'notogri-parol' },
@@ -167,7 +194,7 @@ try {
   assert(wrongPassword.status === 401, "noto'g'ri parol rad etiladi", wrongPassword)
 
   const shortPassword = await call('POST', '/api/auth/register', {
-    body: { name: 'Qisqa Parol', email: `test+short-${suffix}@example.test`, password: '1234567', role: 'user' },
+    body: { name: 'Qisqa Parol', email: `test+short-${suffix}@example.test`, password: '1234567', role: 'buyer' },
   })
   assert(
     shortPassword.status === 400 && shortPassword.data.code === 'BAD_PASSWORD',
@@ -224,6 +251,44 @@ try {
       checkout.status === 200 && checkout.data.order.total === 110000,
       'checkout wallet ishlaydi',
       checkout,
+    )
+
+    const courierAssign = await call('PATCH', `/api/admin/orders/${checkout.data.order.id}/courier`, {
+      cookie: adminCookie,
+      body: { courierId: delivery.data.user.id },
+    })
+    assert(
+      courierAssign.status === 200 && courierAssign.data.order.courierId === delivery.data.user.id,
+      'admin buyurtmaga kuryer biriktirdi',
+      courierAssign,
+    )
+
+    const courierBootstrap = await call('GET', '/api/bootstrap', { cookie: deliveryCookie })
+    assert(
+      courierBootstrap.status === 200 &&
+        courierBootstrap.data.orders.some((order) => order.id === checkout.data.order.id),
+      'kuryer biriktirilgan buyurtmani ko‘radi',
+      courierBootstrap.data.orders,
+    )
+
+    const courierShipped = await call('PATCH', `/api/orders/${checkout.data.order.id}/status`, {
+      cookie: deliveryCookie,
+      body: { status: 'shipped' },
+    })
+    assert(
+      courierShipped.status === 200 && courierShipped.data.order.status === 'shipped',
+      'kuryer buyurtmani yo‘lga chiqardi',
+      courierShipped,
+    )
+
+    const courierComplete = await call('PATCH', `/api/orders/${checkout.data.order.id}/status`, {
+      cookie: deliveryCookie,
+      body: { status: 'completed' },
+    })
+    assert(
+      courierComplete.status === 403 && courierComplete.data.code === 'FORBIDDEN',
+      'kuryer buyurtmani yakunlay olmaydi',
+      courierComplete,
     )
 
     const sellerBootstrap = await call('GET', '/api/bootstrap', { cookie: sellerCookie })

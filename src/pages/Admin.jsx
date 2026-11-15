@@ -32,6 +32,11 @@ import {
   CATEGORIES,
   ORDER_STATUS,
   ROLES,
+  ROLE_GROUPS,
+  SELF_ROLES,
+  LEGACY_ROLES,
+  canSellProducts,
+  canOfferServices,
 } from '../lib/constants'
 import {
   formatCompact,
@@ -82,7 +87,8 @@ const PAYMENT_STATUS = {
   failed: { label: 'Xato', className: 'bg-rose-50 text-rose-600' },
 }
 
-const ROLE_OPTIONS = ['user', 'seller', 'worker', 'agronomist', 'admin']
+const ROLE_OPTIONS = [...SELF_ROLES, 'admin']
+const ROLE_FILTER_OPTIONS = [...SELF_ROLES, ...LEGACY_ROLES, 'admin']
 const GOOGLE_CLIENT_READY = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
 
 export default function Admin() {
@@ -109,6 +115,7 @@ export default function Admin() {
     adminResolvePasswordReset,
     adminRejectPasswordReset,
     updateOrderStatus,
+    assignCourier,
     markMessageRead,
     deleteMessage,
     addCard,
@@ -152,14 +159,19 @@ export default function Admin() {
       revenue: commission + feature,
       activeUsers: users.filter((user) => user.status === 'active').length,
       blockedUsers: users.filter((user) => user.status === 'blocked').length,
-      sellers: users.filter((user) => user.role === 'seller').length,
-      providers: users.filter((user) => ['worker', 'agronomist'].includes(user.role)).length,
+      sellers: users.filter((user) => user.role !== 'admin' && canSellProducts(user.role)).length,
+      providers: users.filter((user) => user.role !== 'admin' && canOfferServices(user.role)).length,
       activeProducts: products.filter((product) => product.status === 'active').length,
       activeServices: services.filter((service) => service.status === 'active').length,
       pendingOrders: orders.filter((order) => order.status === 'pending').length,
       completedOrders: orders.filter((order) => order.status === 'completed').length,
     }
   }, [orders, transactions, users, products, services])
+
+  const deliveryUsers = useMemo(
+    () => users.filter((user) => user.role === 'delivery' && user.status === 'active'),
+    [users],
+  )
 
   const roleCounts = useMemo(
     () =>
@@ -257,6 +269,12 @@ export default function Admin() {
   async function handleOrderStatus(order, status) {
     const result = await updateOrderStatus(order.id, status)
     if (result.ok) toast.success(`${order.number} holati yangilandi`)
+    else toast.error(result.error)
+  }
+
+  async function handleOrderCourier(order, courierId) {
+    const result = await assignCourier(order.id, courierId || null)
+    if (result.ok) toast.success(courierId ? 'Yetkazib beruvchi biriktirildi' : 'Yetkazib beruvchi olib tashlandi')
     else toast.error(result.error)
   }
 
@@ -629,9 +647,18 @@ export default function Admin() {
                 className="input w-full sm:w-44"
               >
                 <option value="all">Barcha rollar</option>
-                {ROLE_OPTIONS.map((role) => (
-                  <option key={role} value={role}>{ROLES[role].label}</option>
+                {ROLE_GROUPS.map((group) => (
+                  <optgroup key={group.id} label={group.label}>
+                    {group.roles.map((role) => (
+                      <option key={role} value={role}>{ROLES[role].label}</option>
+                    ))}
+                  </optgroup>
                 ))}
+                <optgroup label="Boshqa">
+                  {ROLE_FILTER_OPTIONS.filter((role) => !SELF_ROLES.includes(role)).map((role) => (
+                    <option key={role} value={role}>{ROLES[role].label}</option>
+                  ))}
+                </optgroup>
               </select>
               <span className="shrink-0 rounded-xl bg-stone-100 px-3 py-2 text-[10px] font-bold text-stone-500">
                 {filteredUsers.length} ta
@@ -676,9 +703,17 @@ export default function Admin() {
                             onChange={(event) => handleRoleChange(user, event.target.value)}
                             className="rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-[10px] font-bold text-stone-600 outline-none focus:border-emerald-400"
                           >
-                            {ROLE_OPTIONS.map((role) => (
-                              <option key={role} value={role}>{ROLES[role].label}</option>
+                            {LEGACY_ROLES.includes(user.role) && (
+                              <option value={user.role}>{ROLES[user.role].label} — joriy</option>
+                            )}
+                            {ROLE_GROUPS.map((group) => (
+                              <optgroup key={group.id} label={group.label}>
+                                {group.roles.map((role) => (
+                                  <option key={role} value={role}>{ROLES[role].label}</option>
+                                ))}
+                              </optgroup>
                             ))}
+                            <option value="admin">{ROLES.admin.label}</option>
                           </select>
                         </td>
                         <td>
@@ -848,6 +883,7 @@ export default function Admin() {
                     <th>Mahsulotlar</th>
                     <th>Summa</th>
                     <th>To'lov</th>
+                    <th>Kuryer</th>
                     <th>Holat</th>
                   </tr>
                 </thead>
@@ -872,6 +908,23 @@ export default function Admin() {
                       </td>
                       <td className="text-[10px] font-semibold text-stone-500">
                         {PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod}
+                      </td>
+                      <td>
+                        <select
+                          value={order.courierId || ''}
+                          onChange={(event) => handleOrderCourier(order, event.target.value)}
+                          className="max-w-[130px] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-[10px] font-bold text-stone-600 outline-none focus:border-emerald-400"
+                        >
+                          <option value="">Biriktirilmagan</option>
+                          {order.courierId && !deliveryUsers.some((courier) => courier.id === order.courierId) && (
+                            <option value={order.courierId}>
+                              {users.find((user) => user.id === order.courierId)?.name || "Noma'lum kuryer"}
+                            </option>
+                          )}
+                          {deliveryUsers.map((courier) => (
+                            <option key={courier.id} value={courier.id}>{courier.name}</option>
+                          ))}
+                        </select>
                       </td>
                       <td>
                         <select

@@ -28,6 +28,7 @@ import MyServices from './pages/MyServices'
 import Admin from './pages/Admin'
 import { Privacy, Terms } from './pages/Legal'
 import NotFound from './pages/NotFound'
+import { PRODUCT_SELLER_ROLES, SERVICE_ROLES } from './lib/constants'
 
 export default function App() {
   return (
@@ -95,7 +96,7 @@ export default function App() {
             <Route
               path="/dokon"
               element={
-                <RoleRoute roles={['seller', 'admin']}>
+                <RoleRoute roles={[...PRODUCT_SELLER_ROLES, 'admin']}>
                   <SellerStore />
                 </RoleRoute>
               }
@@ -103,7 +104,7 @@ export default function App() {
             <Route
               path="/xizmatlarim"
               element={
-                <RoleRoute roles={['worker', 'agronomist', 'admin']}>
+                <RoleRoute roles={[...SERVICE_ROLES, 'admin']}>
                   <MyServices />
                 </RoleRoute>
               }

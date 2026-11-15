@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   email text NOT NULL UNIQUE,
   phone text,
   region text,
-  role text NOT NULL DEFAULT 'user' CHECK (role IN ('user','seller','worker','agronomist','admin')),
+  role text NOT NULL DEFAULT 'buyer' CHECK (role IN ('buyer','farmer','vegetable_seller','fruit_seller','product_seller','equipment_seller','equipment_renter','agronomist','delivery','user','seller','worker','admin')),
   password_hash text,
   google_id text UNIQUE,
   avatar_url text,
@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS orders (
   buyer_id uuid NOT NULL REFERENCES users(id),
   seller_id uuid REFERENCES users(id),
   seller_ids uuid[] NOT NULL DEFAULT '{}',
+  courier_id uuid REFERENCES users(id) ON DELETE SET NULL,
   type text NOT NULL CHECK (type IN ('product','service')),
   status text NOT NULL DEFAULT 'pending',
   payment_method text NOT NULL DEFAULT 'manual',
@@ -286,6 +287,7 @@ CREATE SEQUENCE IF NOT EXISTS order_number_seq START WITH 1001;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar text NOT NULL DEFAULT '🌱';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio text NOT NULL DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS seller_ids uuid[] NOT NULL DEFAULT '{}';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_id uuid REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE products DROP CONSTRAINT IF EXISTS products_status_check;
 ALTER TABLE products ADD CONSTRAINT products_status_check
   CHECK (status IN ('active','paused','hidden','sold','blocked'));
@@ -298,6 +300,7 @@ CREATE INDEX IF NOT EXISTS products_status_idx ON products(status);
 CREATE INDEX IF NOT EXISTS services_user_idx ON services(user_id);
 CREATE INDEX IF NOT EXISTS orders_buyer_idx ON orders(buyer_id);
 CREATE INDEX IF NOT EXISTS orders_seller_idx ON orders(seller_id);
+CREATE INDEX IF NOT EXISTS orders_courier_idx ON orders(courier_id);
 CREATE INDEX IF NOT EXISTS transactions_user_idx ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS payments_user_idx ON payments(user_id);
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
