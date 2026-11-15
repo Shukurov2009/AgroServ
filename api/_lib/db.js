@@ -22,19 +22,33 @@ export function getPool() {
   return globalForPg.__agroservPool
 }
 
+const TRANSIENT_CODES = new Set(['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EPIPE'])
+
+function isTransient(error) {
+  return (
+    TRANSIENT_CODES.has(error?.code) ||
+    /Connection terminated|connection error|Connection closed/i.test(error?.message || '')
+  )
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export async function query(text, params) {
-  try {
-    return await getPool().query(text, params)
-  } catch (error) {
-    const transient =
-      ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EPIPE'].includes(error.code) ||
-      /Connection terminated|connection error/i.test(error.message || '')
-    const readOnly = /^\s*(select|with)\b/i.test(text)
-    if (transient && readOnly) {
-      return getPool().query(text, params)
+  const readOnly = /^\s*(select|with)\b/i.test(text)
+  const attempts = readOnly ? 3 : 1
+  let lastError
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await getPool().query(text, params)
+    } catch (error) {
+      lastError = error
+      if (!readOnly || !isTransient(error) || attempt === attempts - 1) throw error
+      await sleep(100 * (attempt + 1))
     }
-    throw error
   }
+  throw lastError
 }
 
 export async function withTransaction(callback) {
