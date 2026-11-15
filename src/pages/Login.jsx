@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { GoogleLogin } from '@react-oauth/google'
@@ -9,6 +9,11 @@ import AuthVisual from '../components/AuthVisual'
 import Modal from '../components/Modal'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+
+function googleButtonWidth() {
+  if (typeof window === 'undefined') return 300
+  return Math.max(200, Math.min(360, window.innerWidth - 96))
+}
 
 export default function Login() {
   const { currentUser, signIn, loginWithGoogle, resetPassword, integrations } = useStore()
@@ -27,6 +32,15 @@ export default function Login() {
   const [forgotLoading, setForgotLoading] = useState(false)
   const [pendingGoogle, setPendingGoogle] = useState(null)
   const [selectedRole, setSelectedRole] = useState('')
+  const [googleWidth, setGoogleWidth] = useState(googleButtonWidth)
+
+  useEffect(() => {
+    function onResize() {
+      setGoogleWidth(googleButtonWidth())
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   if (currentUser) return <Navigate to={from} replace />
 
@@ -111,7 +125,7 @@ export default function Login() {
       <div className="container-page grid min-h-[calc(100vh-68px)] items-center gap-8 py-8 lg:grid-cols-2 lg:gap-12 lg:py-12">
         <AuthVisual />
 
-        <div className="mx-auto w-full max-w-md">
+        <div className="mx-auto w-full min-w-0 max-w-md">
           <div className="card p-6 sm:p-8">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">
               <span className="h-px w-6 bg-emerald-500" /> Hisobingizga kiring
@@ -134,7 +148,7 @@ export default function Login() {
                       shape="rectangular"
                       size="large"
                       text="continue_with"
-                      width="360"
+                      width={String(googleWidth)}
                     />
                   </div>
                   {googleLoading && (

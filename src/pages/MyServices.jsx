@@ -27,12 +27,11 @@ import PageHero from '../components/PageHero'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
-import { PlanBadge, StatusBadge } from '../components/Badges'
+import { StatusBadge } from '../components/Badges'
 
 export default function MyServices() {
   const {
     currentUser,
-    plan,
     services,
     orders,
     addService,
@@ -89,7 +88,7 @@ export default function MyServices() {
     const fee =
       item.fee !== undefined
         ? item.fee
-        : Math.round((gross * (item.commissionRate ?? plan.commission)) / 100)
+        : Math.round((gross * (item.commissionRate ?? 0)) / 100)
     return gross - fee
   }
 
@@ -112,8 +111,6 @@ export default function MyServices() {
   const avgRating = rated.length
     ? (rated.reduce((sum, service) => sum + service.rating, 0) / rated.length).toFixed(1)
     : '—'
-  const limit = plan.listings
-  const limitReached = limit !== Infinity && myServices.length >= limit
 
   const filtered = useMemo(() => {
     let list = myServices
@@ -134,10 +131,6 @@ export default function MyServices() {
     .slice(0, 4)
 
   function openCreate() {
-    if (limitReached) {
-      toast.error(`«${plan.name}» tarifida ${limit} tagacha xizmat joylash mumkin. Tarifni oshiring.`)
-      return
-    }
     setEditId(null)
     setForm(makeEmptyForm(currentUser))
     setModalOpen(true)
@@ -209,11 +202,6 @@ export default function MyServices() {
     else toast.error(result.error)
   }
 
-  function usageWidth() {
-    if (limit === Infinity) return 100
-    return Math.min(100, Math.round((myServices.length / limit) * 100))
-  }
-
   return (
     <div>
       <PageHero
@@ -230,9 +218,11 @@ export default function MyServices() {
               <Wrench size={15} /> Xizmatlarni ko'rish
             </Link>
             <div className="flex flex-wrap items-center gap-2">
-              <PlanBadge plan={plan} />
+              <span className="rounded-full border border-lime-300/25 bg-lime-300/10 px-3 py-1 text-[11px] font-semibold text-lime-300">
+                0% komissiya
+              </span>
               <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-emerald-100/70">
-                {myServices.length} / {limit === Infinity ? '∞' : limit} xizmat
+                {myServices.length} ta xizmat
               </span>
             </div>
           </>
@@ -276,40 +266,26 @@ export default function MyServices() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
-                  <ClipboardList size={15} className="text-emerald-600" /> Tarif limiti
+                  <ClipboardList size={15} className="text-emerald-600" /> Bepul xizmatlar
                 </h2>
                 <p className="mt-0.5 text-[11px] text-stone-500">
-                  {limit === Infinity
-                    ? 'Pro tarifida xizmatlar soni cheksiz.'
-                    : `${plan.name} tarifida ${limit} tagacha xizmat joylash mumkin.`}
+                  Xizmat joylash bepul va cheklanmagan. Savdodan komissiya olinmaydi.
                 </p>
               </div>
-              {plan.id !== 'pro' && (
-                <Link to="/narxlar" className="btn btn-secondary btn-sm shrink-0">
-                  Tarifni oshirish
-                </Link>
-              )}
-            </div>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-100">
-                <div
-                  className={`h-full rounded-full ${
-                    limitReached
-                      ? 'bg-gradient-to-r from-rose-400 to-orange-400'
-                      : 'bg-gradient-to-r from-emerald-500 to-lime-400'
-                  }`}
-                  style={{ width: `${usageWidth()}%` }}
-                />
-              </div>
-              <span className="text-[10px] font-black text-stone-500">
-                {myServices.length}/{limit === Infinity ? '∞' : limit}
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
+                {myServices.length} ta xizmat
               </span>
             </div>
-            {limitReached && (
-              <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-600">
-                Limit tugadi. Yangi xizmat qo'shish uchun tarifni oshiring yoki keraksiz xizmatni o'chiring.
-              </p>
-            )}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-stone-50 p-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">Faol</p>
+                <p className="mt-0.5 text-sm font-black text-emerald-950">{activeCount} ta</p>
+              </div>
+              <div className="rounded-xl bg-stone-50 p-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">To'xtatilgan</p>
+                <p className="mt-0.5 text-sm font-black text-emerald-950">{myServices.length - activeCount} ta</p>
+              </div>
+            </div>
           </div>
 
           <div className="card p-5">

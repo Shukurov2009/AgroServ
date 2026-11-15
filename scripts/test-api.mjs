@@ -253,12 +253,16 @@ try {
       cookie: sellerCookie,
       body: { planId: 'plus', billing: 'monthly', method: 'wallet' },
     })
-    assert(plan.status === 200 && plan.data.plan === 'plus', 'tarif sotib olish ishlaydi', plan)
+    assert(
+      plan.status === 410 && plan.data.code === 'PLANS_REMOVED',
+      'obuna tariflari butunlay olib tashlangan',
+      plan,
+    )
 
     const sellerAfterPlan = await call('GET', '/api/bootstrap', { cookie: sellerCookie })
     assert(
-      sellerAfterPlan.data.currentUser.plan === 'plus' && sellerAfterPlan.data.currentUser.planExpiresAt,
-      'tarif DB‘da saqlandi',
+      sellerAfterPlan.data.currentUser.plan === 'free' && !sellerAfterPlan.data.currentUser.planExpiresAt,
+      'sotuvchi bepul rejimda qoladi',
       sellerAfterPlan.data.currentUser,
     )
 
@@ -374,8 +378,9 @@ try {
 
     const sellerAfterCash = await call('GET', '/api/bootstrap', { cookie: sellerCookie })
     assert(
-      sellerAfterCash.data.currentUser.wallet === walletBeforeCash - cashOrder.data.order.platformFee,
-      'naqd savdoda sotuvchidan komissiya yechildi',
+      cashOrder.data.order.platformFee === 0 &&
+        sellerAfterCash.data.currentUser.wallet === walletBeforeCash,
+      'naqd savdoda komissiya 0% va hamyon o‘zgarmaydi',
       {
         walletBeforeCash,
         walletAfterCash: sellerAfterCash.data.currentUser.wallet,
@@ -401,8 +406,9 @@ try {
 
     const workerBootstrap = await call('GET', '/api/bootstrap', { cookie: workerCookie })
     assert(
-      workerBootstrap.data.currentUser.wallet === 200000 - serviceOrder.data.order.platformFee,
-      'xizmat sotuvchisiga tushum yozildi',
+      serviceOrder.data.order.platformFee === 0 &&
+        workerBootstrap.data.currentUser.wallet === 200000,
+      'xizmat sotuvchisiga to‘liq tushum yozildi (0% komissiya)',
       workerBootstrap.data.currentUser,
     )
     const serviceAfterOrder = workerBootstrap.data.services.find((item) => item.id === serviceId)

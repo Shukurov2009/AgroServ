@@ -25,7 +25,7 @@ const settings = {
   supportPhone: '+998 71 200 00 00',
   supportEmail: 'salom@agroserv.uz',
   telegram: '@agroserv_uz',
-  commissionRate: 5,
+  commissionRate: 0,
   featuredPrice: 25000,
   deliveryFee: 20000,
   freeDeliveryFrom: 1000000,
@@ -78,7 +78,7 @@ async function main() {
     const hash = await bcrypt.hash(adminPassword, 12)
     await pool.query(
       `INSERT INTO users (name, email, phone, region, role, password_hash, plan, verified, status)
-       VALUES ($1,$2,$3,$4,'admin',$5,'pro',true,'active')`,
+       VALUES ($1,$2,$3,$4,'admin',$5,'free',true,'active')`,
       [adminName, adminEmail, '+998 71 200 00 00', 'Toshkent', hash],
     )
     console.log(`✓ Admin yaratildi: ${adminEmail}`)

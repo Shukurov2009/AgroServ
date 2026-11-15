@@ -31,7 +31,6 @@ import { useStore } from '../context/StoreContext'
 import {
   CATEGORIES,
   ORDER_STATUS,
-  PLANS,
   ROLES,
 } from '../lib/constants'
 import {
@@ -46,7 +45,7 @@ import PageHero from '../components/PageHero'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
-import { PlanBadge, StatusBadge } from '../components/Badges'
+import { StatusBadge } from '../components/Badges'
 
 const TABS = [
   { id: 'overview', label: 'Umumiy', icon: LayoutDashboard },
@@ -71,7 +70,7 @@ const PAYMENT_LABELS = {
 
 const PURPOSE_LABELS = {
   order: 'Buyurtma',
-  plan: 'Tarif',
+  plan: 'Eski tarif',
   wallet_topup: "Hamyon to'ldirish",
   feature: 'Top mahsulot',
 }
@@ -143,18 +142,14 @@ export default function Admin() {
     const commission = transactions
       .filter((entry) => entry.type === 'commission')
       .reduce((sum, entry) => sum + entry.amount, 0)
-    const subscription = transactions
-      .filter((entry) => entry.type === 'subscription')
-      .reduce((sum, entry) => sum + entry.amount, 0)
     const feature = transactions
       .filter((entry) => entry.type === 'feature')
       .reduce((sum, entry) => sum + entry.amount, 0)
     return {
       grossSales,
       commission,
-      subscription,
       feature,
-      revenue: commission + subscription + feature,
+      revenue: commission + feature,
       activeUsers: users.filter((user) => user.status === 'active').length,
       blockedUsers: users.filter((user) => user.status === 'blocked').length,
       sellers: users.filter((user) => user.role === 'seller').length,
@@ -301,7 +296,6 @@ export default function Admin() {
     event.preventDefault()
     const payload = {
       ...settingsForm,
-      commissionRate: Number(settingsForm.commissionRate) || 0,
       featuredPrice: Number(settingsForm.featuredPrice) || 0,
       deliveryFee: Number(settingsForm.deliveryFee) || 0,
       freeDeliveryFrom: Number(settingsForm.freeDeliveryFrom) || 0,
@@ -355,9 +349,8 @@ export default function Admin() {
   }
 
   const revenueRows = [
-    { label: 'Savdo komissiyasi', value: stats.commission, tone: 'from-emerald-400 to-lime-400', hint: 'Har bir bitimdan 1–5%' },
-    { label: 'Obuna tariflari', value: stats.subscription, tone: 'from-violet-400 to-purple-400', hint: 'Plus va Pro obunalar' },
-    { label: 'Top mahsulot', value: stats.feature, tone: 'from-amber-400 to-orange-400', hint: '30 kunlik reklama' },
+    { label: 'Savdo komissiyasi', value: stats.commission, tone: 'from-emerald-400 to-lime-400', hint: '0% — platforma bepul' },
+    { label: 'Top mahsulot', value: stats.feature, tone: 'from-amber-400 to-orange-400', hint: '30 kunlik ixtiyoriy reklama' },
   ]
 
   return (
@@ -434,7 +427,7 @@ export default function Admin() {
                 icon={<Wallet size={18} />}
                 label="Platforma daromadi"
                 value={formatSom(stats.revenue)}
-                hint="Komissiya + obuna + reklama"
+                hint="Faqat ixtiyoriy top mahsulot xizmati"
                 tone="amber"
               />
               <StatCard
@@ -650,7 +643,6 @@ export default function Admin() {
                   <tr>
                     <th>Foydalanuvchi</th>
                     <th>Rol</th>
-                    <th>Tarif</th>
                     <th>Hamyon</th>
                     <th>Holat</th>
                     <th className="text-right">Amallar</th>
@@ -658,7 +650,6 @@ export default function Admin() {
                 </thead>
                 <tbody>
                   {filteredUsers.map((user) => {
-                    const plan = PLANS[user.plan] || PLANS.free
                     return (
                       <tr key={user.id}>
                         <td>
@@ -689,7 +680,6 @@ export default function Admin() {
                             ))}
                           </select>
                         </td>
-                        <td><PlanBadge plan={plan} /></td>
                         <td>
                           <p className="font-bold text-emerald-950">{formatSom(user.wallet || 0)}</p>
                           <button
@@ -1355,15 +1345,11 @@ export default function Admin() {
                   />
                 </div>
                 <div>
-                  <label className="label">Standart komissiya (%)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={30}
-                    value={settingsForm.commissionRate}
-                    onChange={(event) => setSettingsForm({ ...settingsForm, commissionRate: event.target.value })}
-                    className="input"
-                  />
+                  <label className="label">Savdo komissiyasi</label>
+                  <div className="input flex items-center justify-between bg-stone-50 text-stone-500">
+                    <span>0% — platforma bepul</span>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-700">Bepul</span>
+                  </div>
                 </div>
                 <div>
                   <label className="label">Top mahsulot narxi (so'm)</label>

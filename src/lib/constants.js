@@ -112,71 +112,30 @@ export const ROLES = {
 
 export const SELF_ROLES = ['user', 'seller', 'worker', 'agronomist']
 
+export const FREE_PLAN = {
+  id: 'free',
+  name: 'Bepul platforma',
+  tagline: 'Barcha imkoniyatlar bepul — obuna yo\'q',
+  monthly: 0,
+  yearly: 0,
+  listings: Infinity,
+  commission: 0,
+  featured: 0,
+  ai: 50,
+  color: 'emerald',
+  icon: '🌱',
+  features: [
+    'Cheksiz mahsulot va xizmat e\'lonlari',
+    '0% savdo komissiyasi — summa to\'liq sotuvchiga',
+    'Kuniga 50 ta bepul AI savol',
+    'Bepul hamyon va buyurtma boshqaruvi',
+    'Top mahsulot — ixtiyoriy pullik xizmat',
+  ],
+}
+
+// Eski kod bilan moslik uchun saqlanadi. Platformada faqat bitta bepul rejim mavjud.
 export const PLANS = {
-  free: {
-    id: 'free',
-    name: 'Bepul',
-    tagline: 'Platformani sinab ko\'rish uchun',
-    monthly: 0,
-    yearly: 0,
-    listings: 3,
-    commission: 5,
-    featured: 0,
-    ai: 5,
-    color: 'stone',
-    icon: '🌱',
-    features: [
-      '3 tagacha mahsulot / xizmat',
-      '5% savdo komissiyasi',
-      'Kuniga 5 ta AI savol',
-      'Asosiy statistika',
-      'Email qo\'llab-quvvatlash',
-    ],
-  },
-  plus: {
-    id: 'plus',
-    name: 'Plus',
-    tagline: 'O\'sayotgan fermer va sotuvchilar uchun',
-    monthly: 49000,
-    yearly: 470000,
-    listings: 20,
-    commission: 3,
-    featured: 1,
-    ai: 50,
-    color: 'emerald',
-    icon: '⚡',
-    popular: true,
-    features: [
-      '20 tagacha mahsulot / xizmat',
-      '3% savdo komissiyasi',
-      'Oyiga 1 ta top mahsulot',
-      'Kuniga 50 ta AI savol',
-      'Kengaytirilgan statistika',
-      'Tezkor qo\'llab-quvvatlash',
-    ],
-  },
-  pro: {
-    id: 'pro',
-    name: 'Pro',
-    tagline: 'Yirik fermer xo\'jaliklari va do\'konlar uchun',
-    monthly: 149000,
-    yearly: 1430000,
-    listings: Infinity,
-    commission: 1,
-    featured: 5,
-    ai: Infinity,
-    color: 'violet',
-    icon: '👑',
-    features: [
-      'Cheksiz mahsulot / xizmat',
-      '1% savdo komissiyasi',
-      'Oyiga 5 ta top mahsulot',
-      'Cheksiz AI maslahat',
-      'Shaxsiy menejer',
-      'Tasdiqlangan sotuvchi belgisi',
-      'API va eksport',
-    ],
-  },
+  free: FREE_PLAN,
 }
 
 export const PROMOS = {
@@ -196,15 +155,6 @@ export const PROMOS = {
     minTotal: 200000,
     scope: 'order',
     description: '200 000 so\'mdan yuqori buyurtmaga 50 000 so\'m chegirma',
-  },
-  PLUS20: {
-    code: 'PLUS20',
-    type: 'percent',
-    value: 20,
-    maxDiscount: 300000,
-    minTotal: 0,
-    scope: 'plan',
-    description: 'Obuna tarifiga 20% chegirma',
   },
   TOP25: {
     code: 'TOP25',
@@ -259,12 +209,8 @@ export const SERVICE_GRADIENTS = [
   'from-violet-400 via-purple-500 to-indigo-600',
 ]
 
-export function getPlan(user) {
-  if (!user) return PLANS.free
-  const plan = PLANS[user.plan] || PLANS.free
-  if (plan.id === 'free') return plan
-  if (!user.planExpiresAt) return PLANS.free
-  return new Date(user.planExpiresAt).getTime() > Date.now() ? plan : PLANS.free
+export function getPlan() {
+  return FREE_PLAN
 }
 
 export function getPlanName(user) {

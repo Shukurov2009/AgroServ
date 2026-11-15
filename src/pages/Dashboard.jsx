@@ -6,7 +6,6 @@ import {
   Bot,
   Briefcase,
   ClipboardList,
-  Crown,
   Heart,
   LayoutDashboard,
   Package,
@@ -28,7 +27,6 @@ import StatCard from '../components/StatCard'
 export default function Dashboard() {
   const {
     currentUser,
-    plan,
     orders,
     products,
     services,
@@ -66,12 +64,11 @@ export default function Dashboard() {
     .reduce((sum, order) => sum + order.total, 0)
 
   const completeness = (() => {
-    let score = 30
+    let score = 50
     if (currentUser.phone) score += 15
     if (currentUser.bio) score += 15
     if (currentUser.avatar && currentUser.avatar !== '🌱') score += 10
     if (currentUser.region) score += 10
-    if (plan.id !== 'free') score += 20
     return Math.min(100, score)
   })()
 
@@ -117,7 +114,7 @@ export default function Dashboard() {
                     {roleInfo.icon} {roleInfo.label}
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-emerald-100">
-                    {plan.icon} {plan.name} tarif
+                    🌱 Bepul platforma
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-emerald-100">
                     {currentUser.region}
@@ -144,7 +141,7 @@ export default function Dashboard() {
             icon={<Wallet size={18} />}
             label="Hamyon"
             value={formatSom(currentUser.wallet || 0)}
-            hint="Xarid va obuna uchun"
+            hint="Xarid va to'lovlar uchun"
             tone="emerald"
           />
           <StatCard
@@ -158,7 +155,7 @@ export default function Dashboard() {
             icon={isSeller ? <Store size={18} /> : isProvider ? <Wrench size={18} /> : <Heart size={18} />}
             label={isSeller ? 'Faol e\'lonlar' : isProvider ? 'Xizmatlarim' : 'Sevimlilar'}
             value={isSeller ? myProducts.length : isProvider ? myServices.length : favoriteIds.length}
-            hint={isSeller ? `Limit: ${plan.listings === Infinity ? 'cheksiz' : plan.listings} ta` : 'Saqlanganlar'}
+            hint={isSeller ? "Cheksiz e'lonlar" : 'Saqlanganlar'}
             tone="amber"
           />
           <StatCard
@@ -391,24 +388,16 @@ export default function Dashboard() {
               <div className="pattern-grid absolute inset-0 opacity-25" />
               <div className="relative">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-400 text-emerald-950">
-                  {plan.id === 'pro' ? <Crown size={19} /> : <Sparkles size={19} />}
+                  <Sparkles size={19} />
                 </span>
-                <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-lime-300">Joriy tarif</p>
-                <h3 className="text-xl font-black">{plan.name}</h3>
+                <p className="mt-3 text-[10px] font-black uppercase tracking-wide text-lime-300">Bepul platforma</p>
+                <h3 className="text-xl font-black">Barchasi bepul</h3>
                 <p className="mt-1 text-[10px] leading-relaxed text-emerald-100/60">
-                  Komissiya {plan.commission}% · {plan.listings === Infinity ? 'cheksiz' : `${plan.listings} ta`} e'lon ·{' '}
-                  {plan.ai === Infinity ? 'cheksiz' : `${plan.ai} ta`} AI savol
+                  Cheksiz e'lon · 0% komissiya · kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q.
                 </p>
-                {currentUser.planExpiresAt && plan.id !== 'free' && (
-                  <p className="mt-2 text-[9px] font-semibold text-emerald-100/50">
-                    Amal qiladi: {formatDate(currentUser.planExpiresAt)}
-                  </p>
-                )}
-                {plan.id !== 'pro' && (
-                  <Link to="/narxlar" className="btn btn-lime btn-sm mt-3 w-full">
-                    Tarifni oshirish <ArrowRight size={13} />
-                  </Link>
-                )}
+                <Link to="/narxlar" className="btn btn-lime btn-sm mt-3 w-full">
+                  Batafsil <ArrowRight size={13} />
+                </Link>
               </div>
             </div>
 
@@ -442,8 +431,8 @@ export default function Dashboard() {
                 <TrendingUp size={14} /> Foydali maslahat
               </p>
               <p className="mt-1 text-[10px] leading-relaxed text-amber-800/80">
-                Yillik obuna oylikdan 20% arzon. Plus tarifida komissiya 3% ga tushadi —
-                faol sotuvchilar uchun tejamkor.
+                Top mahsulot — ixtiyoriy xizmat. Mahsulotingizni 30 kun bozor boshida ko'rsatib,
+                ko'proq xaridor jalb qiling. Asosiy platforma bepul.
               </p>
             </div>
           </div>

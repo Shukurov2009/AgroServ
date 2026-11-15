@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   ArrowRight,
   Bot,
   Camera,
-  Check,
-  Crown,
   Image as ImageIcon,
   Leaf,
   Loader2,
@@ -15,11 +12,9 @@ import {
   Trash2,
   User,
   X,
-  Zap,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { AI_SUGGESTIONS, getAiReply } from '../lib/ai'
-import { PLANS } from '../lib/constants'
 import PageHero from '../components/PageHero'
 
 const INITIAL_MESSAGES = [
@@ -83,7 +78,7 @@ export default function AiAdvisor() {
     if (!limit.ok) {
       setTyping(false)
       setLimitHit(true)
-      toast.error(limit.error || 'Kunlik AI limit tugadi. Tarifni oshiring.')
+      toast.error(limit.error || "Kunlik bepul AI limiti tugadi. Ertaga qayta urinib ko'ring.")
       return
     }
     setLimitHit(false)
@@ -145,7 +140,7 @@ export default function AiAdvisor() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1.5 rounded-full border border-lime-300/25 bg-lime-300/10 px-3 py-1 text-[11px] font-bold text-lime-300">
-              <Sparkles size={12} /> {plan.name} tarif
+              <Sparkles size={12} /> Bepul platforma
             </span>
             <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-emerald-100/70">
               {aiRemaining === Infinity ? 'Cheksiz savol' : `${aiRemaining} ta savol qoldi`}
@@ -238,11 +233,8 @@ export default function AiAdvisor() {
 
             {limitHit && (
               <div className="border-t border-rose-100 bg-rose-50 px-4 py-2.5">
-                <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-rose-700">
-                  Kunlik limit tugadi.
-                  <Link to="/narxlar" className="inline-flex items-center gap-1 font-black underline">
-                    Tarifni oshiring <ArrowRight size={11} />
-                  </Link>
+                <p className="text-[11px] font-semibold text-rose-700">
+                  Kunlik bepul limit tugadi. Ertaga qayta urinib ko'ring.
                 </p>
               </div>
             )}
@@ -336,9 +328,9 @@ export default function AiAdvisor() {
 
             <div className="card p-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-black text-emerald-950">Kunlik limit</h3>
+                <h3 className="text-sm font-black text-emerald-950">Kunlik bepul limit</h3>
                 <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
-                  {plan.name}
+                  Fair use
                 </span>
               </div>
               <div className="mt-2 flex items-end justify-between">
@@ -361,25 +353,10 @@ export default function AiAdvisor() {
                   }}
                 />
               </div>
-              <div className="mt-3 space-y-1.5">
-                {Object.values(PLANS).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-[10px]">
-                    <span className={`flex items-center gap-1 font-bold ${item.id === plan.id ? 'text-emerald-700' : 'text-stone-500'}`}>
-                      {item.id === 'pro' ? <Crown size={11} /> : item.id === 'plus' ? <Zap size={11} /> : <Sparkles size={11} />}
-                      {item.name}
-                      {item.id === plan.id && <Check size={10} />}
-                    </span>
-                    <span className="font-semibold text-stone-400">
-                      {item.ai === Infinity ? 'Cheksiz' : `${item.ai} savol`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {plan.id !== 'pro' && (
-                <Link to="/narxlar" className="btn btn-primary btn-sm mt-3 w-full">
-                  Tarifni oshirish <ArrowRight size={13} />
-                </Link>
-              )}
+              <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] leading-relaxed text-emerald-800">
+                Limit har kuni yangilanadi. Bu barcha foydalanuvchilar uchun bepul fair-use cheklovi —
+                obuna yoki qo'shimcha to'lov talab qilinmaydi.
+              </p>
             </div>
 
             <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">

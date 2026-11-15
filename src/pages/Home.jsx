@@ -17,12 +17,11 @@ import {
   Truck,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { CATEGORIES, PLANS, getPlan } from '../lib/constants'
+import { CATEGORIES } from '../lib/constants'
 import { formatNumber } from '../lib/format'
 import ProductCard from '../components/ProductCard'
 import ServiceCard from '../components/ServiceCard'
 import VideoCard from '../components/VideoCard'
-import PlanCard from '../components/PlanCard'
 import SectionHeader from '../components/SectionHeader'
 
 const QUICK_TAGS = ['Traktor', 'Olma', 'Karbamid', 'Agronom', 'Kombayn']
@@ -48,7 +47,7 @@ const STEPS = [
 const TRUST = [
   { icon: ShieldCheck, title: 'Tekshirilgan sotuvchilar', text: "Har bir sotuvchi profili va mahsuloti moderatsiyadan o'tadi." },
   { icon: CircleDollarSign, title: 'Xavfsiz to\'lov', text: "Karta, hamyon yoki naqd — barcha to'lovlar tarixi saqlanadi." },
-  { icon: Bot, title: 'AI agronom maslahati', text: "Kuniga 5 ta bepul savol, Plus va Pro tariflarida ko'proq." },
+  { icon: Bot, title: 'AI agronom maslahati', text: "Kuniga 50 ta bepul savol — obuna talab qilinmaydi." },
   { icon: Truck, title: 'Yetkazib berish', text: "1 000 000 so'mdan yuqori buyurtmalarga yetkazish bepul." },
 ]
 
@@ -64,7 +63,6 @@ export default function Home() {
 
   const topServices = [...services].sort((a, b) => b.rating - a.rating).slice(0, 3)
   const latestVideos = videos.slice(0, 3)
-  const plan = currentUser ? getPlan(currentUser) : PLANS.free
   const totalRevenue = orders
     .filter((order) => order.status !== 'cancelled')
     .reduce((sum, order) => sum + order.total, 0)
@@ -94,7 +92,7 @@ export default function Home() {
     [averageRating ? `${averageRating.toFixed(1)}/5` : '—', "O'rtacha reyting"],
     [settings.workingHours || '09:00–19:00', "Qo'llab-quvvatlash"],
     [formatNumber(completedOrders), 'Yakunlangan buyurtma'],
-    ['1%', 'Pro tarif komissiyasi'],
+    ['0%', 'Savdo komissiyasi'],
   ]
 
   function handleSearch(event) {
@@ -403,39 +401,43 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PRICING */}
+      {/* FREE PLATFORM */}
       <section className="bg-white/60">
         <div className="container-page section-pad">
           <SectionHeader
-            eyebrow="Monetizatsiya"
-            title="O'sishingizga mos tarifni tanlang"
-            description="Bepul boshlang, savdo hajmi oshgani sari komissiyani kamaytiring. Yashirin to'lovlar yo'q."
-            action="Tariflarni solishtirish"
+            eyebrow="Bepul platforma"
+            title="AgroServ — to'liq bepul"
+            description="Oylik va yillik obunalar yo'q. E'lon joylash, savdo qilish va AI maslahat bepul."
+            action="Batafsil"
             actionTo="/narxlar"
           />
-          <div className="grid gap-4 lg:grid-cols-3">
-            {Object.values(PLANS).map((item) => (
-              <PlanCard
-                key={item.id}
-                plan={item}
-                billing="monthly"
-                currentPlanId={currentUser ? plan.id : 'free'}
-                onSelect={() =>
-                  item.id === 'free'
-                    ? navigate(currentUser ? '/kabinet' : '/register')
-                    : navigate('/narxlar')
-                }
-              />
-            ))}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: Store, title: "Cheksiz e'lonlar", text: "Mahsulot va xizmatlarni cheklovsiz joylang." },
+              { icon: CircleDollarSign, title: '0% komissiya', text: "Savdo summasi to'liq sotuvchiga qoladi." },
+              { icon: Bot, title: 'Bepul AI', text: 'Kuniga 50 ta agronomik savol.' },
+              { icon: Sparkles, title: 'Bepul hamyon', text: "To'lovlar va buyurtmalar bitta joyda." },
+            ].map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.title} className="card p-5">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                    <Icon size={20} />
+                  </span>
+                  <h3 className="mt-3 text-sm font-black text-emerald-950">{item.title}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-stone-500">{item.text}</p>
+                </div>
+              )
+            })}
           </div>
-          <div className="mt-5 flex flex-col items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-white p-4 sm:flex-row">
+          <div className="mt-4 flex flex-col items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-white p-4 sm:flex-row">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-100 text-lime-700">
-                <CircleDollarSign size={20} />
+                <Sparkles size={20} />
               </span>
               <div>
-                <p className="text-sm font-black text-emerald-950">Platforma qanday daromad qiladi?</p>
-                <p className="text-[11px] text-stone-500">Savdo komissiyasi, obunalar va top mahsulot xizmati.</p>
+                <p className="text-sm font-black text-emerald-950">Faqat ixtiyoriy xizmat — top mahsulot</p>
+                <p className="text-[11px] text-stone-500">30 kun bozor boshida ko'rsatish. Asosiy imkoniyatlar bepul.</p>
               </div>
             </div>
             <Link to="/narxlar" className="text-xs font-bold text-emerald-700 hover:text-emerald-900">

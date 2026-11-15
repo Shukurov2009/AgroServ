@@ -28,11 +28,11 @@ const NAV_ITEMS = [
   { to: '/videolar', label: 'Videolar' },
   { to: '/ai-maslahatchi', label: 'AI maslahatchi' },
   { to: '/haqida', label: 'Haqida' },
-  { to: '/narxlar', label: 'Narxlar' },
+  { to: '/narxlar', label: 'Bepul' },
 ]
 
 export default function Navbar() {
-  const { currentUser, plan, cartCount, signOut } = useStore()
+  const { currentUser, cartCount, signOut } = useStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenu, setUserMenu] = useState(false)
   const location = useLocation()
@@ -79,10 +79,10 @@ export default function Navbar() {
           </div>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-lime-300">
-              <Sparkles size={12} /> Yangi: Plus tarifida komissiya 3%
+              <Sparkles size={12} /> Barcha imkoniyatlar bepul — 0% komissiya
             </span>
             <Link to="/narxlar" className="font-semibold text-white/90 underline-offset-4 hover:underline">
-              Tariflar
+              Bepul platforma
             </Link>
           </div>
         </div>
@@ -139,7 +139,7 @@ export default function Navbar() {
                       {currentUser.name}
                     </span>
                     <span className="block text-[10px] font-medium text-stone-500">
-                      {roleInfo?.label} · {plan.name}
+                      {roleInfo?.label}
                     </span>
                   </span>
                   <ChevronDown

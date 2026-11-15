@@ -1,12 +1,5 @@
 import { query } from './db.js'
-import { PLANS } from '../../src/lib/constants.js'
 import { HttpError } from './http.js'
-
-export function planAmount(planId, billing) {
-  const plan = PLANS[planId]
-  if (!plan || plan.id === 'free') throw new HttpError(400, "Bu tarifni sotib olish mumkin emas", 'BAD_PLAN')
-  return billing === 'yearly' ? plan.yearly : plan.monthly
-}
 
 export async function validatePromo(code, scope, amount) {
   const normalized = String(code || '').trim().toUpperCase()
@@ -41,12 +34,6 @@ export async function consumePromo(client, promoCode) {
 export async function releasePromo(client, promoCode) {
   if (!promoCode) return
   await client.query('UPDATE promo_codes SET uses = GREATEST(0, uses - 1) WHERE code = $1', [promoCode])
-}
-
-function extendPlanDate(current, billing) {
-  const base = current && new Date(current).getTime() > Date.now() ? new Date(current) : new Date()
-  base.setMonth(base.getMonth() + (billing === 'yearly' ? 12 : 1))
-  return base
 }
 
 export function sellerIncome(items) {
@@ -90,17 +77,19 @@ export async function creditOrderSellers(client, order) {
       ],
     )
   }
-  await client.query(
-    `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-     VALUES ($1,'commission',$2,NULL,$3,$4,$5,'completed')`,
-    [
-      order.buyer_id,
-      Number(order.commission_amount || 0),
-      `${order.number} buyurtmasi bo'yicha komissiya`,
-      order.id,
-      order.payment_method,
-    ],
-  )
+  if (Number(order.commission_amount || 0) > 0) {
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+       VALUES ($1,'commission',$2,NULL,$3,$4,$5,'completed')`,
+      [
+        order.buyer_id,
+        Number(order.commission_amount || 0),
+        `${order.number} buyurtmasi bo'yicha komissiya`,
+        order.id,
+        order.payment_method,
+      ],
+    )
+  }
   await client.query('UPDATE orders SET credited = true, updated_at = now() WHERE id = $1', [order.id])
 }
 
@@ -130,20 +119,10 @@ export async function applyPaidPayment(client, paymentId, providerTxId = null) {
       [user.id, amount, Number(updated.rows[0].wallet), description, payment.id, payment.provider, providerTxId],
     )
   } else if (payment.purpose === 'plan') {
-    const [planId, billing = 'monthly'] = String(payment.reference || '').split(':')
-    const plan = PLANS[planId]
-    if (!plan || plan.id === 'free') throw new HttpError(400, "Tarif noto'g'ri", 'BAD_PLAN')
-    const expiresAt = extendPlanDate(user.plan_expires_at, billing)
-    const updated = await client.query(
-      `UPDATE users SET plan = $1, plan_billing = $2, plan_expires_at = $3, updated_at = now()
-       WHERE id = $4 RETURNING wallet`,
-      [planId, billing, expiresAt.toISOString(), user.id],
-    )
-    description = `${plan.name} tarifi (${billing === 'yearly' ? 'yillik' : 'oylik'})`
-    await client.query(
-      `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, provider_tx_id, status)
-       VALUES ($1,'subscription',$2,$3,$4,$5,$6,$7,'completed')`,
-      [user.id, -amount, Number(updated.rows[0].wallet), description, payment.id, payment.provider, providerTxId],
+    throw new HttpError(
+      410,
+      "Obuna tariflari bekor qilindi. AgroServ endi to'liq bepul.",
+      'PLANS_REMOVED',
     )
   } else if (payment.purpose === 'feature') {
     const productResult = await client.query(

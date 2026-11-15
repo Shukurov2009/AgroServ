@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS = {
   supportPhone: '+998 71 200 00 00',
   supportEmail: 'salom@agroserv.uz',
   telegram: '@agroserv_uz',
-  commissionRate: 5,
+  commissionRate: 0,
   featuredPrice: 25000,
   deliveryFee: 20000,
   freeDeliveryFrom: 1000000,
@@ -234,12 +234,6 @@ export function StoreProvider({ children }) {
     [run],
   )
 
-  const purchasePlan = useCallback(
-    (planId, billing = 'monthly', method = 'wallet', promoCode = '') =>
-      run(() => api.post('/plans/purchase', { planId, billing, method, promoCode })),
-    [run],
-  )
-
   const topUp = useCallback(
     (amount, method = 'manual') => run(() => api.post('/wallet/topup', { amount, method })),
     [run],
@@ -404,7 +398,6 @@ export function StoreProvider({ children }) {
     toggleFavorite,
     checkout,
     updateOrderStatus,
-    purchasePlan,
     topUp,
     promoteProduct,
     addProduct,

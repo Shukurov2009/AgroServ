@@ -39,7 +39,6 @@ import {
   settingsFromRows,
 } from './serialize.js'
 import {
-  planAmount,
   validatePromo,
   consumePromo,
   releasePromo,
@@ -56,7 +55,7 @@ const DEFAULT_SETTINGS = {
   supportPhone: '+998 71 200 00 00',
   supportEmail: 'salom@agroserv.uz',
   telegram: '@agroserv_uz',
-  commissionRate: 5,
+  commissionRate: 0,
   featuredPrice: 25000,
   deliveryFee: 20000,
   freeDeliveryFrom: 1000000,
@@ -80,18 +79,14 @@ function isEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
-function planForRow(row) {
-  if (!row) return PLANS.free
-  const plan = PLANS[row.plan] || PLANS.free
-  if (plan.id === 'free') return plan
-  if (!row.plan_expires_at || new Date(row.plan_expires_at).getTime() <= Date.now()) return PLANS.free
-  return plan
+function planForRow() {
+  return PLANS.free
 }
 
 async function loadSettings(client = null) {
   const runner = client ? client.query.bind(client) : query
   const { rows } = await runner('SELECT key, value FROM settings')
-  return { ...DEFAULT_SETTINGS, ...settingsFromRows(rows) }
+  return { ...DEFAULT_SETTINGS, ...settingsFromRows(rows), commissionRate: 0 }
 }
 
 function providersConfig() {
@@ -734,10 +729,7 @@ async function checkout(ctx) {
             'OUT_OF_STOCK',
           )
         }
-        const rate = planForRow({
-          plan: product.seller_plan,
-          plan_expires_at: product.seller_plan_expires_at,
-        }).commission
+        const rate = 0
         built.push({
           type: 'product',
           refId: product.id,
@@ -766,10 +758,7 @@ async function checkout(ctx) {
           throw new HttpError(400, "O'z xizmatingizni band qila olmaysiz", 'OWN_SERVICE')
         }
         const qty = Math.max(1, Math.floor(Number(item.qty) || 1))
-        const rate = planForRow({
-          plan: service.seller_plan,
-          plan_expires_at: service.seller_plan_expires_at,
-        }).commission
+        const rate = 0
         built.push({
           type: 'service',
           refId: service.id,
@@ -951,6 +940,7 @@ async function updateOrderStatus(ctx) {
           const groups = groupBySeller(items)
           for (const [sellerId, sellerItems] of groups) {
             const fee = sellerFee(sellerItems)
+            if (fee <= 0) continue
             const updated = await client.query(
               'UPDATE users SET wallet = wallet - $1, updated_at = now() WHERE id = $2 RETURNING wallet',
               [fee, sellerId],
@@ -967,16 +957,18 @@ async function updateOrderStatus(ctx) {
               ],
             )
           }
-          await client.query(
-            `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-             VALUES ($1,'commission',$2,NULL,$3,$4,'cash','completed')`,
-            [
-              order.buyer_id,
-              Number(order.commission_amount || 0),
-              `${order.number} buyurtmasi bo'yicha komissiya`,
-              order.id,
-            ],
-          )
+          if (Number(order.commission_amount || 0) > 0) {
+            await client.query(
+              `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+               VALUES ($1,'commission',$2,NULL,$3,$4,'cash','completed')`,
+              [
+                order.buyer_id,
+                Number(order.commission_amount || 0),
+                `${order.number} buyurtmasi bo'yicha komissiya`,
+                order.id,
+              ],
+            )
+          }
           await client.query('UPDATE orders SET credited = true WHERE id = $1', [order.id])
         } else {
           await creditOrderSellers(client, order)
@@ -1047,21 +1039,23 @@ async function updateOrderStatus(ctx) {
         for (const [sellerId, sellerItems] of groups) {
           if (paymentMethod === 'cash') {
             const fee = sellerFee(sellerItems)
-            const updated = await client.query(
-              'UPDATE users SET wallet = wallet + $1, updated_at = now() WHERE id = $2 RETURNING wallet',
-              [fee, sellerId],
-            )
-            await client.query(
-              `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-               VALUES ($1,'refund',$2,$3,$4,$5,'cash','completed')`,
-              [
-                sellerId,
-                fee,
-                Number(updated.rows[0]?.wallet || 0),
-                `${order.number} bekor qilindi — komissiya qaytarildi`,
-                order.id,
-              ],
-            )
+            if (fee > 0) {
+              const updated = await client.query(
+                'UPDATE users SET wallet = wallet + $1, updated_at = now() WHERE id = $2 RETURNING wallet',
+                [fee, sellerId],
+              )
+              await client.query(
+                `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+                 VALUES ($1,'refund',$2,$3,$4,$5,'cash','completed')`,
+                [
+                  sellerId,
+                  fee,
+                  Number(updated.rows[0]?.wallet || 0),
+                  `${order.number} bekor qilindi — komissiya qaytarildi`,
+                  order.id,
+                ],
+              )
+            }
           } else {
             const income = sellerIncome(sellerItems)
             const updated = await client.query(
@@ -1101,84 +1095,12 @@ async function updateOrderStatus(ctx) {
   return result
 }
 
-async function purchasePlan(ctx) {
-  const body = await readBody(ctx.req)
-  const planId = String(body.planId || '')
-  const billing = body.billing === 'yearly' ? 'yearly' : 'monthly'
-  const method = String(body.method || 'wallet')
-  if (!['wallet', 'manual', 'payme', 'click'].includes(method)) {
-    throw new HttpError(400, "To'lov usulini tanlang", 'BAD_METHOD')
-  }
-  if (['payme', 'click'].includes(method) && !providersConfig()[method]) {
-    throw new HttpError(503, 'Bu to\'lov tizimi hozircha sozlanmagan', 'PROVIDER_NOT_CONFIGURED')
-  }
-  const baseAmount = planAmount(planId, billing)
-  const promoCode = clean(body.promoCode, 40).toUpperCase()
-  let discount = 0
-  if (promoCode) {
-    const promotion = await validatePromo(promoCode, 'plan', baseAmount)
-    if (!promotion.ok) throw new HttpError(400, promotion.error, 'BAD_PROMO')
-    discount = promotion.discount
-  }
-  const amount = Math.max(0, baseAmount - discount)
-  const plan = PLANS[planId]
-
-  const result = await withTransaction(async (client) => {
-    const userResult = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [ctx.user.id])
-    const user = userResult.rows[0]
-    if (!user) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
-
-    if (method === 'wallet') {
-      if (Number(user.wallet) < amount) {
-        throw new HttpError(400, "Hamyonda mablag' yetarli emas", 'INSUFFICIENT_WALLET')
-      }
-      const base =
-        user.plan === planId && user.plan_expires_at && new Date(user.plan_expires_at).getTime() > Date.now()
-          ? new Date(user.plan_expires_at)
-          : new Date()
-      base.setMonth(base.getMonth() + (billing === 'yearly' ? 12 : 1))
-      const updated = await client.query(
-        `UPDATE users SET wallet = wallet - $1, plan = $2, plan_billing = $3,
-           plan_expires_at = $4, updated_at = now() WHERE id = $5 RETURNING wallet`,
-        [amount, planId, billing, base.toISOString(), user.id],
-      )
-      const payment = await createPaymentRow(client, {
-        userId: user.id,
-        purpose: 'plan',
-        reference: `${planId}:${billing}`,
-        amount,
-        provider: 'wallet',
-        meta: { promoCode, baseAmount, discount },
-      })
-      await client.query("UPDATE payments SET status = 'paid', paid_at = now() WHERE id = $1", [payment.id])
-      await client.query(
-        `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-         VALUES ($1,'subscription',$2,$3,$4,$5,'wallet','completed')`,
-        [
-          user.id,
-          -amount,
-          Number(updated.rows[0].wallet),
-          `${plan.name} tarifi (${billing === 'yearly' ? 'yillik' : 'oylik'})`,
-          payment.id,
-        ],
-      )
-      if (promoCode) await consumePromo(client, promoCode)
-      return { amount, plan: planId, payment: publicPayment({ ...payment, status: 'paid' }) }
-    }
-
-    const payment = await createPaymentRow(client, {
-      userId: user.id,
-      purpose: 'plan',
-      reference: `${planId}:${billing}`,
-      amount,
-      provider: method,
-      meta: { promoCode, baseAmount, discount, planId, billing },
-    })
-    if (promoCode) await consumePromo(client, promoCode)
-    return { amount, plan: planId, payment: publicPayment(payment) }
-  })
-
-  return result
+async function plansRemoved() {
+  throw new HttpError(
+    410,
+    "Obuna tariflari bekor qilindi. AgroServ endi to'liq bepul — oylik va yillik to'lov yo'q.",
+    'PLANS_REMOVED',
+  )
 }
 
 async function topUpWallet(ctx) {
@@ -1315,7 +1237,14 @@ async function consumeAi(ctx) {
 
   const current = await query('SELECT count FROM ai_usage WHERE user_id = $1 AND day = CURRENT_DATE', [user.id])
   const count = current.rows[0]?.count || 0
-  if (count >= limit) throw new HttpError(429, 'Kunlik AI limiti tugadi. Tarifni oshiring.', 'AI_LIMIT', { limit })
+  if (count >= limit) {
+    throw new HttpError(
+      429,
+      "Kunlik bepul AI limiti tugadi. Ertaga qayta urinib ko'ring.",
+      'AI_LIMIT',
+      { limit },
+    )
+  }
 
   const updated = await query(
     `INSERT INTO ai_usage (user_id, day, count) VALUES ($1, CURRENT_DATE, 1)
@@ -1330,15 +1259,6 @@ async function createProduct(ctx) {
   const body = await readBody(ctx.req)
   if (!['seller', 'admin'].includes(ctx.user.role)) {
     throw new HttpError(403, "Mahsulot joylash uchun sotuvchi bo'ling", 'FORBIDDEN')
-  }
-  const plan = planForRow({ plan: ctx.user.plan, plan_expires_at: ctx.user.plan_expires_at })
-  const countResult = await query('SELECT count(*)::int AS c FROM products WHERE seller_id = $1', [ctx.user.id])
-  if (ctx.user.role !== 'admin' && countResult.rows[0].c >= plan.listings) {
-    throw new HttpError(
-      403,
-      `«${plan.name}» tarifida ${plan.listings} tagacha mahsulot joylash mumkin. Tarifni oshiring.`,
-      'PLAN_LIMIT',
-    )
   }
   const title = clean(body.title, 150)
   const price = Math.max(0, Math.round(Number(body.price) || 0))
@@ -1435,15 +1355,6 @@ async function createService(ctx) {
   const body = await readBody(ctx.req)
   if (!['worker', 'agronomist', 'admin'].includes(ctx.user.role)) {
     throw new HttpError(403, "Xizmat joylash uchun usta yoki agronom bo'ling", 'FORBIDDEN')
-  }
-  const plan = planForRow({ plan: ctx.user.plan, plan_expires_at: ctx.user.plan_expires_at })
-  const countResult = await query('SELECT count(*)::int AS c FROM services WHERE user_id = $1', [ctx.user.id])
-  if (ctx.user.role !== 'admin' && countResult.rows[0].c >= plan.listings) {
-    throw new HttpError(
-      403,
-      `«${plan.name}» tarifida ${plan.listings} tagacha xizmat joylash mumkin. Tarifni oshiring.`,
-      'PLAN_LIMIT',
-    )
   }
   const type = body.type === 'agronomist' ? 'agronomist' : 'worker'
   const price = Math.max(0, Math.round(Number(body.price) || 0))
@@ -1736,14 +1647,13 @@ async function updateSettings(ctx) {
     'supportPhone',
     'supportEmail',
     'telegram',
-    'commissionRate',
     'featuredPrice',
     'deliveryFee',
     'freeDeliveryFrom',
     'workingHours',
     'manualPaymentNote',
   ]
-  const numeric = new Set(['commissionRate', 'featuredPrice', 'deliveryFee', 'freeDeliveryFrom'])
+  const numeric = new Set(['featuredPrice', 'deliveryFee', 'freeDeliveryFrom'])
   for (const key of allowed) {
     if (body[key] === undefined) continue
     const value = numeric.has(key) ? Math.max(0, Number(body[key]) || 0) : clean(body[key], 500)
@@ -2215,7 +2125,7 @@ route('DELETE', '/cart', async (ctx) => {
 route('POST', '/favorites/:productId', toggleFavorite)
 route('POST', '/checkout', checkout)
 route('PATCH', '/orders/:id/status', updateOrderStatus)
-route('POST', '/plans/purchase', purchasePlan)
+route('POST', '/plans/purchase', plansRemoved)
 route('POST', '/wallet/topup', topUpWallet)
 route('POST', '/products/:id/promote', promoteProduct)
 route('POST', '/ai/consume', consumeAi)

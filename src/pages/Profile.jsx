@@ -6,7 +6,6 @@ import {
   BadgeCheck,
   Bot,
   Check,
-  Crown,
   KeyRound,
   Lock,
   Mail,
@@ -29,7 +28,7 @@ const WALLET_LABELS = {
   topup: "To'ldirish",
   purchase: 'Xarid',
   earning: 'Tushum',
-  subscription: 'Obuna',
+  subscription: 'Eski obuna',
   feature: 'Top mahsulot',
   refund: 'Qaytarish',
   refund_deduction: 'Qaytarish ayirmasi',
@@ -39,7 +38,6 @@ const WALLET_LABELS = {
 export default function Profile() {
   const {
     currentUser,
-    plan,
     updateProfile,
     changePassword,
     setSelfRole,
@@ -135,7 +133,7 @@ export default function Profile() {
                 <p className="text-[10px] text-stone-400">{currentUser.email}</p>
                 <div className="mt-2 flex flex-wrap gap-1">
                   <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
-                    {plan.icon} {plan.name}
+                    🌱 Bepul platforma
                   </span>
                   <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[9px] font-bold text-stone-500">
                     {currentUser.region}
@@ -494,24 +492,18 @@ export default function Profile() {
               <div className="space-y-3">
                 <div className="card p-5 sm:p-6">
                   <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
-                    <Crown size={16} className="text-emerald-600" /> Obuna va tarif
+                    <Sparkles size={16} className="text-emerald-600" /> Bepul platforma
                   </h2>
                   <div className="mt-3 flex flex-col justify-between gap-3 rounded-xl bg-gradient-to-br from-emerald-50 to-lime-50 p-4 sm:flex-row sm:items-center">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Joriy tarif</p>
-                      <p className="mt-0.5 text-lg font-black text-emerald-950">{plan.icon} {plan.name}</p>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Sizning imkoniyatingiz</p>
+                      <p className="mt-0.5 text-lg font-black text-emerald-950">🌱 Barchasi bepul</p>
                       <p className="mt-1 text-[10px] text-stone-500">
-                        Komissiya {plan.commission}% · {plan.listings === Infinity ? 'cheksiz' : plan.listings} ta e'lon ·{' '}
-                        {plan.ai === Infinity ? 'cheksiz' : plan.ai} ta AI savol
+                        Cheksiz e'lon · 0% komissiya · kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q.
                       </p>
-                      {currentUser.planExpiresAt && plan.id !== 'free' && (
-                        <p className="mt-1 text-[9px] font-semibold text-emerald-600">
-                          Amal qiladi: {formatDateTime(currentUser.planExpiresAt)}
-                        </p>
-                      )}
                     </div>
-                    <Link to="/narxlar" className="btn btn-primary btn-sm shrink-0">
-                      {plan.id === 'pro' ? 'Tariflarni ko\'rish' : 'Tarifni oshirish'}
+                    <Link to="/narxlar" className="btn btn-secondary btn-sm shrink-0">
+                      Batafsil
                     </Link>
                   </div>
                 </div>

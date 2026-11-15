@@ -4,7 +4,6 @@ import toast from 'react-hot-toast'
 import {
   BadgeCheck,
   BarChart3,
-  Crown,
   Edit3,
   Eye,
   EyeOff,
@@ -19,7 +18,6 @@ import {
   Trash2,
   TrendingUp,
   X,
-  Zap,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import {
@@ -34,13 +32,11 @@ import PageHero from '../components/PageHero'
 import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
-import { PlanBadge } from '../components/Badges'
 
 export default function SellerStore() {
   const navigate = useNavigate()
   const {
     currentUser,
-    plan,
     products,
     orders,
     addProduct,
@@ -87,7 +83,7 @@ export default function SellerStore() {
     const fee =
       item.fee !== undefined
         ? item.fee
-        : Math.round((gross * (item.commissionRate ?? plan.commission)) / 100)
+        : Math.round((gross * (item.commissionRate ?? 0)) / 100)
     return gross - fee
   }
 
@@ -116,8 +112,6 @@ export default function SellerStore() {
   const avgRating = rated.length
     ? (rated.reduce((sum, product) => sum + product.rating, 0) / rated.length).toFixed(1)
     : '—'
-  const limit = plan.listings
-  const limitReached = limit !== Infinity && myProducts.length >= limit
 
   const filtered = useMemo(() => {
     let list = myProducts
@@ -132,10 +126,6 @@ export default function SellerStore() {
   }, [myProducts, statusFilter, query])
 
   function openCreate() {
-    if (limitReached) {
-      toast.error(`«${plan.name}» tarifida ${limit} tagacha mahsulot joylash mumkin. Tarifni oshiring.`)
-      return
-    }
     setEditId(null)
     setForm(makeEmptyForm(currentUser))
     setModalOpen(true)
@@ -205,11 +195,6 @@ export default function SellerStore() {
     navigate('/tolov', { state: { type: 'feature', productId: product.id } })
   }
 
-  function usageWidth() {
-    if (limit === Infinity) return 100
-    return Math.min(100, Math.round((myProducts.length / limit) * 100))
-  }
-
   return (
     <div>
       <PageHero
@@ -226,9 +211,11 @@ export default function SellerStore() {
               <Store size={15} /> Bozorni ko'rish
             </Link>
             <div className="flex flex-wrap items-center gap-2">
-              <PlanBadge plan={plan} />
+              <span className="rounded-full border border-lime-300/25 bg-lime-300/10 px-3 py-1 text-[11px] font-semibold text-lime-300">
+                0% komissiya
+              </span>
               <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-emerald-100/70">
-                {myProducts.length} / {limit === Infinity ? '∞' : limit} e'lon
+                {myProducts.length} ta e'lon
               </span>
             </div>
           </>
@@ -272,38 +259,26 @@ export default function SellerStore() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
-                  <Crown size={15} className="text-emerald-600" /> Tarif limiti
+                  <Sparkles size={15} className="text-emerald-600" /> Bepul e'lonlar
                 </h2>
                 <p className="mt-0.5 text-[11px] text-stone-500">
-                  {limit === Infinity
-                    ? "Pro tarifida e'lonlar soni cheksiz."
-                    : `${plan.name} tarifida ${limit} tagacha mahsulot joylash mumkin.`}
+                  Mahsulot joylash bepul va cheklanmagan. Savdodan komissiya olinmaydi.
                 </p>
               </div>
-              {plan.id !== 'pro' && (
-                <Link to="/narxlar" className="btn btn-secondary btn-sm shrink-0">
-                  <Zap size={13} /> Tarifni oshirish
-                </Link>
-              )}
-            </div>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-100">
-                <div
-                  className={`h-full rounded-full ${
-                    limitReached ? 'bg-gradient-to-r from-rose-400 to-orange-400' : 'bg-gradient-to-r from-emerald-500 to-lime-400'
-                  }`}
-                  style={{ width: `${usageWidth()}%` }}
-                />
-              </div>
-              <span className="text-[10px] font-black text-stone-500">
-                {myProducts.length}/{limit === Infinity ? '∞' : limit}
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-700">
+                {myProducts.length} ta e'lon
               </span>
             </div>
-            {limitReached && (
-              <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-600">
-                Limit tugadi. Yangi mahsulot qo'shish uchun tarifni oshiring yoki eski e'lonni o'chiring.
-              </p>
-            )}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-stone-50 p-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">Faol</p>
+                <p className="mt-0.5 text-sm font-black text-emerald-950">{activeCount} ta</p>
+              </div>
+              <div className="rounded-xl bg-stone-50 p-2.5">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">To'xtatilgan</p>
+                <p className="mt-0.5 text-sm font-black text-emerald-950">{myProducts.length - activeCount} ta</p>
+              </div>
+            </div>
           </div>
 
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-950 p-5 text-white">

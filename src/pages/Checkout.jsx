@@ -5,10 +5,8 @@ import {
   ArrowLeft,
   BadgePercent,
   Banknote,
-  Check,
   CheckCircle2,
   Clock,
-  Crown,
   Landmark,
   Loader2,
   Lock,
@@ -21,7 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { PLANS, REGIONS } from '../lib/constants'
+import { REGIONS } from '../lib/constants'
 import { formatNumber, formatSom, maskCard } from '../lib/format'
 import EmptyState from '../components/EmptyState'
 
@@ -47,7 +45,6 @@ export default function Checkout() {
     cards,
     providers,
     checkout,
-    purchasePlan,
     topUp,
     promoteProduct,
     validatePromoCode,
@@ -86,9 +83,6 @@ export default function Checkout() {
     if (type !== 'feature') return null
     return products.find((product) => product.id === config.productId) || null
   }, [type, config.productId, products])
-
-  const selectedPlan = type === 'plan' ? PLANS[config.planId] : null
-  const billing = config.billing === 'yearly' ? 'yearly' : 'monthly'
 
   const orderLines = useMemo(() => {
     if (type === 'cart') {
@@ -141,24 +135,17 @@ export default function Checkout() {
   const hasProducts = orderLines.some((line) => line.type === 'product')
   const delivery = hasProducts && subtotal < settings.freeDeliveryFrom ? settings.deliveryFee : 0
 
-  const planPrice = selectedPlan
-    ? billing === 'yearly'
-      ? selectedPlan.yearly
-      : selectedPlan.monthly
-    : 0
   const featurePrice = settings.featuredPrice
-  const promoScope = type === 'plan' ? 'plan' : type === 'feature' ? 'feature' : 'order'
-  const promoBase = type === 'plan' ? planPrice : type === 'feature' ? featurePrice : subtotal
+  const promoScope = type === 'feature' ? 'feature' : 'order'
+  const promoBase = type === 'feature' ? featurePrice : subtotal
   const discount = promoInfo?.discount || 0
 
   const total =
-    type === 'plan'
-      ? Math.max(0, planPrice - discount)
-      : type === 'feature'
-        ? Math.max(0, featurePrice - discount)
-        : type === 'topup'
-          ? Math.max(0, topupAmount)
-          : Math.max(0, subtotal - discount + delivery)
+    type === 'feature'
+      ? Math.max(0, featurePrice - discount)
+      : type === 'topup'
+        ? Math.max(0, topupAmount)
+        : Math.max(0, subtotal - discount + delivery)
 
   const walletBalance = currentUser?.wallet || 0
   const insufficientWallet = method === 'wallet' && walletBalance < total
@@ -234,8 +221,6 @@ export default function Checkout() {
           promoCode: promoInfo?.code || '',
           clearCartAfter: type === 'cart',
         })
-      } else if (type === 'plan') {
-        result = await purchasePlan(config.planId, billing, method, promoInfo?.code || '')
       } else if (type === 'topup') {
         result = await topUp(topupAmount, method)
       } else if (type === 'feature') {
@@ -281,25 +266,6 @@ export default function Checkout() {
           ],
         })
       }
-      return
-    }
-
-    if (type === 'plan') {
-      const pending = payment?.status === 'pending'
-      setSuccess({
-        kind: 'plan',
-        pending,
-        title: pending ? "To'lov kutilmoqda" : 'Tarif faollashtirildi!',
-        message: pending
-          ? `To'lov admin tomonidan tasdiqlangach ${selectedPlan.name} tarifi faollashadi.`
-          : `${selectedPlan.name} tarifi hisobingizga qo'shildi. Yangi imkoniyatlar darhol ishlaydi.`,
-        rows: [
-          ['Tarif', `${selectedPlan.name} (${billing === 'yearly' ? 'yillik' : 'oylik'})`],
-          ['Summa', formatSom(result.amount)],
-          ['Usul', PAYMENT_LABELS[method]],
-          ['Holat', pending ? 'Admin tasdig‘i kutilmoqda' : "To'langan"],
-        ],
-      })
       return
     }
 
@@ -353,20 +319,15 @@ export default function Checkout() {
             ['Buyurtmalarim', '/buyurtmalar'],
             ['Kabinetga o\'tish', '/kabinet'],
           ]
-        : success.kind === 'plan'
+        : success.kind === 'topup'
           ? [
-              ['Kabinetga o\'tish', '/kabinet'],
-              ['Tariflarni ko\'rish', '/narxlar'],
+              ['Profil va hamyon', '/profil'],
+              ['Bozorga o\'tish', '/bozor'],
             ]
-          : success.kind === 'topup'
-            ? [
-                ['Profil va hamyon', '/profil'],
-                ['Bozorga o\'tish', '/bozor'],
-              ]
-            : [
-                ['Mening do\'konim', '/dokon'],
-                ['Bozorni ko\'rish', '/bozor'],
-              ]
+          : [
+              ['Mening do\'konim', '/dokon'],
+              ['Bozorni ko\'rish', '/bozor'],
+            ]
 
     return (
       <div className="soft-gradient">
@@ -454,11 +415,17 @@ export default function Checkout() {
     )
   }
 
-  // Invalid / empty states
-  if (type === 'plan' && !selectedPlan) {
+  // Obuna tariflari butunlay olib tashlangan
+  if (type === 'plan') {
     return (
       <div className="container-page py-14">
-        <EmptyState icon="💳" title="Tarif topilmadi" description="Tarifni qaytadan tanlang." action="Tariflar" actionTo="/narxlar" />
+        <EmptyState
+          icon="🎉"
+          title="Tariflar endi mavjud emas"
+          description="AgroServ endi to'liq bepul: cheksiz e'lon, 0% komissiya va kuniga 50 ta AI savol. Oylik yoki yillik to'lov yo'q."
+          action="Bepul platforma"
+          actionTo="/narxlar"
+        />
       </div>
     )
   }
@@ -484,22 +451,18 @@ export default function Checkout() {
   }
 
   const title =
-    type === 'plan'
-      ? `${selectedPlan.name} tarifini sotib olish`
-      : type === 'topup'
-        ? "Hamyonni to'ldirish"
-        : type === 'feature'
-          ? "Mahsulotni top ro'yxatga chiqarish"
-          : 'Buyurtmani rasmiylashtirish'
+    type === 'topup'
+      ? "Hamyonni to'ldirish"
+      : type === 'feature'
+        ? "Mahsulotni top ro'yxatga chiqarish"
+        : 'Buyurtmani rasmiylashtirish'
 
   const subtitle =
-    type === 'plan'
-      ? `${billing === 'yearly' ? 'Yillik' : 'Oylik'} obuna · komissiya ${selectedPlan.commission}%`
-      : type === 'topup'
-        ? "Bank o'tkazmasi yoki onlayn to'lov orqali hamyon balansini to'ldiring"
-        : type === 'feature'
-          ? "30 kun davomida bozor boshida ko'rsatish"
-          : "Yetkazib berish ma'lumotlarini kiriting va to'lov usulini tanlang"
+    type === 'topup'
+      ? "Bank o'tkazmasi yoki onlayn to'lov orqali hamyon balansini to'ldiring"
+      : type === 'feature'
+        ? "30 kun davomida bozor boshida ko'rsatish"
+        : "Yetkazib berish ma'lumotlarini kiriting va to'lov usulini tanlang"
 
   const paymentOptions = [
     { id: 'manual', label: "Bank o'tkazmasi", hint: 'Admin tasdiqlaydi', icon: Landmark },
@@ -717,8 +680,8 @@ export default function Checkout() {
               {method === 'cash' && (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[11px] leading-relaxed text-amber-800">
                   Naqd to'lovda buyurtma «To'lov kutilmoqda» holatida yaratiladi. Mahsulotni
-                  qabul qilganda kuryerga to'lov qilasiz. Buyurtma yakunlanganda sotuvchidan
-                  platforma komissiyasi yechiladi.
+                  qabul qilganda kuryerga to'lov qilasiz. Platforma komissiyasi 0% — summa
+                  to'liq sotuvchiga o'tadi.
                 </div>
               )}
 
@@ -753,23 +716,6 @@ export default function Checkout() {
                       <span className="text-[11px] font-black text-emerald-800">{formatNumber(line.price * line.qty)}</span>
                     </div>
                   ))}
-                </div>
-              ) : type === 'plan' ? (
-                <div className="mt-3 rounded-xl bg-gradient-to-br from-emerald-50 to-lime-50 p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm">
-                      <Crown size={19} />
-                    </span>
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-black text-emerald-700">{selectedPlan.name}</span>
-                  </div>
-                  <p className="mt-2 text-sm font-black text-emerald-950">{selectedPlan.tagline}</p>
-                  <ul className="mt-2 space-y-1">
-                    {selectedPlan.features.slice(0, 4).map((feature) => (
-                      <li key={feature} className="flex items-start gap-1.5 text-[10px] text-emerald-900/80">
-                        <Check size={11} className="mt-0.5 shrink-0 text-emerald-600" /> {feature}
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               ) : type === 'feature' ? (
                 <div className="mt-3 rounded-xl bg-amber-50 p-4">
@@ -848,12 +794,6 @@ export default function Checkout() {
                       </span>
                     </div>
                   </>
-                )}
-                {type === 'plan' && (
-                  <div className="flex justify-between text-stone-500">
-                    <span>Obuna narxi</span>
-                    <span className="font-semibold text-emerald-950">{formatSom(planPrice)}</span>
-                  </div>
                 )}
                 {type === 'feature' && (
                   <div className="flex justify-between text-stone-500">

@@ -34,7 +34,7 @@ const VALUES = [
   {
     icon: ShieldCheck,
     title: 'Ishonch va shaffoflik',
-    text: "Har bir sotuvchi, mutaxassis va to'lov tarixi tizimda ko'rinadi. Yashirin komissiya yo'q.",
+    text: "Har bir sotuvchi, mutaxassis va to'lov tarixi tizimda ko'rinadi. Yashirin to'lov yo'q — platforma bepul.",
     tone: 'emerald',
   },
   {
@@ -52,7 +52,7 @@ const VALUES = [
   {
     icon: TrendingUp,
     title: "O'sishga yo'naltirilgan",
-    text: "Sotuvchilar uchun top mahsulot, obuna va reklama vositalari bilan daromadni oshirish.",
+    text: "Sotuvchilar uchun top mahsulot va ixtiyoriy reklama vositalari bilan daromadni oshirish.",
     tone: 'sky',
   },
 ]
@@ -71,12 +71,12 @@ const TIMELINE = [
   {
     year: '2025',
     title: 'AI va monetizatsiya',
-    text: "AI agronom maslahatchi, Plus/Pro obunalar, top mahsulot xizmati va hamyon tizimi qo'shildi.",
+    text: "AI agronom maslahatchi, top mahsulot xizmati va hamyon tizimi qo'shildi.",
   },
   {
     year: '2026',
     title: 'Milliy miqyos',
-    text: "Platforma O'zbekistonning barcha viloyatlarida ishlaydi. Har bir yangi foydalanuvchi va e'lon real vaqtda bazaga qo'shiladi.",
+    text: "Platforma O'zbekistonning barcha viloyatlarida ishlaydi va to'liq bepul bo'ldi: obuna, komissiya va e'lon limiti yo'q.",
   },
 ]
 
@@ -87,7 +87,7 @@ const FAQ = [
   },
   {
     q: "Ro'yxatdan o'tish pullikmi?",
-    a: "Yo'q. Bepul tarifda 3 tagacha mahsulot joylash, kuniga 5 ta AI savol va 5% komissiya bilan foydalanishingiz mumkin. Plus va Pro tariflar qo'shimcha imkoniyat beradi.",
+    a: "Yo'q. AgroServ to'liq bepul: cheksiz e'lon, 0% komissiya va kuniga 50 ta AI savol. Oylik yoki yillik obuna yo'q.",
   },
   {
     q: "To'lovlar qanday amalga oshiriladi?",
@@ -99,11 +99,11 @@ const FAQ = [
   },
   {
     q: "Komissiya qanday hisoblanadi?",
-    a: "Har bir savdodan tarifingizga qarab komissiya olinadi: Bepul — 5%, Plus — 3%, Pro — 1%. Komissiya faqat muvaffaqiyatli to'lovdan keyin hisoblanadi.",
+    a: "Komissiya olinmaydi — 0%. Savdo summasi to'liq sotuvchiga o'tadi. Faqat top mahsulot ixtiyoriy pullik xizmat bo'lib qoladi.",
   },
   {
     q: 'AI maslahatchi qanday ishlaydi?',
-    a: "AI maslahatchi ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha bilim bazasidan javob beradi. Har bir savol serverda hisoblanadi va tarif limitingizga mos tekshiriladi.",
+    a: "AI maslahatchi ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha bilim bazasidan javob beradi. Har bir savol serverda hisoblanadi. Kuniga 50 ta bepul savol — fair-use limit.",
   },
 ]
 
@@ -188,9 +188,9 @@ export default function About() {
               raqamli vositalar bilan hal qiladi.
             </p>
             <p className="mt-2.5 text-sm leading-relaxed text-stone-600">
-              Platforma sotuvchi, xizmat ko'rsatuvchi va fermerni bir joyda bog'laydi; to'lovlar,
-              komissiyalar va obunalar shaffof ishlaydi. Har bir yangi funksiya fermerning real
-              ehtiyojidan kelib chiqadi.
+              Platforma sotuvchi, xizmat ko'rsatuvchi va fermerni bir joyda bog'laydi; to'lovlar
+              va buyurtmalar shaffof ishlaydi. Platformadan foydalanish to'liq bepul — obuna
+              yoki komissiya yo'q.
             </p>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               {[
@@ -302,31 +302,31 @@ export default function About() {
       {/* HOW PLATFORM EARNS */}
       <section className="container-page section-pad">
         <SectionHeader
-          eyebrow="Monetizatsiya"
-          title="Platforma qanday daromad qiladi va bu sizga nima beradi"
-          description="Yashirin to'lovlar yo'q. Har bir daromad manbai foydalanuvchiga aniq qiymat beradi."
+          eyebrow="Bepul platforma"
+          title="Platforma qanday ishlaydi va nima bepul"
+          description="Yashirin to'lovlar yo'q. Asosiy imkoniyatlar barcha uchun bepul, faqat top mahsulot ixtiyoriy."
         />
         <div className="grid gap-3 md:grid-cols-3">
           {[
             {
               icon: Store,
-              title: 'Savdo komissiyasi',
-              value: '1–5%',
-              text: "Har bir muvaffaqiyatli savdodan olinadi. Tarif qanchalik yuqori bo'lsa, komissiya shunchalik past.",
+              title: 'Bepul foydalanish',
+              value: "0 so'm",
+              text: "Ro'yxatdan o'tish, e'lon joylash, savdo qilish va buyurtmalarni boshqarish bepul.",
               tone: 'bg-emerald-50 text-emerald-700',
             },
             {
               icon: Sparkles,
-              title: 'Obuna tariflari',
-              value: "49 000 so'm/oy",
-              text: "Plus va Pro tariflar ko'proq e'lon, kam komissiya, kengaytirilgan statistika va AI limit beradi.",
+              title: '0% komissiya',
+              value: '0%',
+              text: "Har bir savdo summasi to'liq sotuvchiga qoladi. Platforma ulush olmaydi.",
               tone: 'bg-violet-50 text-violet-700',
             },
             {
               icon: Target,
               title: 'Top mahsulot',
               value: "25 000 so'm",
-              text: "Mahsulotni 30 kun davomida bozor boshida ko'rsatadi. Sotuvchilar uchun qo'shimcha ko'rinish.",
+              text: "Ixtiyoriy xizmat: mahsulotni 30 kun davomida bozor boshida ko'rsatadi.",
               tone: 'bg-amber-50 text-amber-700',
             },
           ].map((item) => {
@@ -530,7 +530,7 @@ export default function About() {
                 Hisob ochish <ArrowRight size={17} />
               </Link>
               <Link to="/narxlar" className="btn btn-lg border-white/20 bg-white/5 text-white hover:bg-white/10">
-                Tariflarni ko'rish
+                Bepul platforma
               </Link>
             </div>
           </div>

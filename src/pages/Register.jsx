@@ -96,7 +96,7 @@ export default function Register() {
               Ro'yxatdan o'tish
             </h1>
             <p className="mt-1.5 text-sm text-stone-500">
-              Bepul boshlang. Keyin kerak bo'lsa Plus yoki Pro tarifga o'ting.
+              Bepul boshlang. E'lon joylash, savdo qilish va AI maslahat — barchasi bepul.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
