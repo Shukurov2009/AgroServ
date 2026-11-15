@@ -162,44 +162,44 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className={`space-y-3.5 ${GOOGLE_CLIENT_ID ? '' : 'mt-6'}`}>
               <div>
-                <label className="label" htmlFor="login-email">Email manzil</label>
-                <div className="relative">
+                <div className="float-field has-icon">
                   <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input
                     id="login-email"
                     type="email"
                     value={form.email}
                     onChange={(event) => setForm({ ...form, email: event.target.value })}
-                    placeholder="siz@agroserv.uz"
+                    placeholder=" "
                     className="input pl-10"
                     autoComplete="email"
                     required
                   />
+                  <label className="float-label" htmlFor="login-email">Email manzil</label>
                 </div>
               </div>
               <div>
-                <div className="flex items-center justify-between">
-                  <label className="label" htmlFor="login-password">Parol</label>
+                <div className="mb-1 flex justify-end">
                   <button
                     type="button"
                     onClick={() => setForgotOpen(true)}
-                    className="mb-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900"
+                    className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900"
                   >
                     Parolni unutdingizmi?
                   </button>
                 </div>
-                <div className="relative">
+                <div className="float-field has-icon">
                   <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                   <input
                     id="login-password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
                     onChange={(event) => setForm({ ...form, password: event.target.value })}
-                    placeholder="••••••••"
+                    placeholder=" "
                     className="input pl-10 pr-11"
                     autoComplete="current-password"
                     required
                   />
+                  <label className="float-label" htmlFor="login-password">Parol</label>
                   <button
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
@@ -273,17 +273,17 @@ export default function Login() {
           </div>
         ) : (
           <form onSubmit={handleForgot} className="space-y-3.5">
-            <div>
-              <label className="label" htmlFor="forgot-email">Email manzil</label>
+            <div className="float-field">
               <input
                 id="forgot-email"
                 type="email"
                 value={forgotEmail}
                 onChange={(event) => setForgotEmail(event.target.value)}
                 className="input"
-                placeholder="siz@agroserv.uz"
+                placeholder=" "
                 required
               />
+              <label className="float-label" htmlFor="forgot-email">Email manzil</label>
             </div>
             <p className="rounded-lg bg-stone-50 px-3 py-2 text-[10px] leading-relaxed text-stone-500">
               {integrations.email

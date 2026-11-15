@@ -222,6 +222,55 @@ img {
   color: #6b7280;
 }
 
+/* Floating label: yozuv input ichida turadi, focus yoki qiymat bo'lganda tepaga chiqadi */
+.float-field {
+  position: relative;
+  --float-label-left: 0.9rem;
+}
+
+.float-field.has-icon {
+  --float-label-left: 2.5rem;
+}
+
+.float-field > .float-label {
+  position: absolute;
+  left: var(--float-label-left);
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: calc(100% - var(--float-label-left) - 1rem);
+  overflow: hidden;
+  padding: 0 0.28rem;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #9ca3af;
+  font-size: 0.82rem;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transition:
+    top 0.16s ease,
+    left 0.16s ease,
+    font-size 0.16s ease,
+    color 0.16s ease;
+}
+
+.float-field > input:focus ~ .float-label,
+.float-field > input:not(:placeholder-shown) ~ .float-label {
+  top: -0.42rem;
+  left: 0.6rem;
+  transform: none;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #059669;
+}
+
+.float-field > input:not(:placeholder-shown):not(:focus) ~ .float-label {
+  color: #78716c;
+}
+
 select.input {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

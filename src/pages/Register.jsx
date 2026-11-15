@@ -119,49 +119,49 @@ export default function Register() {
 
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <div>
-                  <label className="label" htmlFor="reg-name">Ism-familiya</label>
-                  <div className="relative">
+                  <div className="float-field has-icon">
                     <User size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                     <input
                       id="reg-name"
                       value={form.name}
                       onChange={(event) => update('name', event.target.value)}
-                      placeholder="Aziz Karimov"
+                      placeholder=" "
                       className="input pl-10"
                       required
                     />
+                    <label className="float-label" htmlFor="reg-name">Ism-familiya</label>
                   </div>
                   {errors.name && <p className="mt-1 text-[10px] font-semibold text-rose-500">{errors.name}</p>}
                 </div>
                 <div>
-                  <label className="label" htmlFor="reg-phone">Telefon</label>
-                  <div className="relative">
+                  <div className="float-field has-icon">
                     <Phone size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                     <input
                       id="reg-phone"
                       value={form.phone}
                       onChange={(event) => update('phone', event.target.value)}
-                      placeholder="+998 90 123 45 67"
+                      placeholder=" "
                       className="input pl-10"
                     />
+                    <label className="float-label" htmlFor="reg-phone">Telefon</label>
                   </div>
                 </div>
               </div>
 
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <div>
-                  <label className="label" htmlFor="reg-email">Email manzil</label>
-                  <div className="relative">
+                  <div className="float-field has-icon">
                     <Mail size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                     <input
                       id="reg-email"
                       type="email"
                       value={form.email}
                       onChange={(event) => update('email', event.target.value)}
-                      placeholder="siz@agroserv.uz"
+                      placeholder=" "
                       className="input pl-10"
                       required
                     />
+                    <label className="float-label" htmlFor="reg-email">Email manzil</label>
                   </div>
                   {errors.email && <p className="mt-1 text-[10px] font-semibold text-rose-500">{errors.email}</p>}
                 </div>
@@ -185,18 +185,18 @@ export default function Register() {
 
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <div>
-                  <label className="label" htmlFor="reg-password">Parol</label>
-                  <div className="relative">
+                  <div className="float-field has-icon">
                     <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                     <input
                       id="reg-password"
                       type={showPassword ? 'text' : 'password'}
                       value={form.password}
                       onChange={(event) => update('password', event.target.value)}
-                      placeholder="Kamida 8 ta belgi"
+                      placeholder=" "
                       className="input pl-10 pr-10"
                       required
                     />
+                    <label className="float-label" htmlFor="reg-password">Parol</label>
                     <button
                       type="button"
                       onClick={() => setShowPassword((value) => !value)}
@@ -228,18 +228,18 @@ export default function Register() {
                   {errors.password && <p className="mt-1 text-[10px] font-semibold text-rose-500">{errors.password}</p>}
                 </div>
                 <div>
-                  <label className="label" htmlFor="reg-confirm">Parolni tasdiqlang</label>
-                  <div className="relative">
+                  <div className="float-field has-icon">
                     <Lock size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
                     <input
                       id="reg-confirm"
                       type={showPassword ? 'text' : 'password'}
                       value={form.confirm}
                       onChange={(event) => update('confirm', event.target.value)}
-                      placeholder="Parolni qayta kiriting"
+                      placeholder=" "
                       className="input pl-10"
                       required
                     />
+                    <label className="float-label" htmlFor="reg-confirm">Parolni tasdiqlang</label>
                   </div>
                   {errors.confirm && <p className="mt-1 text-[10px] font-semibold text-rose-500">{errors.confirm}</p>}
                 </div>
