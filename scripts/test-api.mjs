@@ -542,6 +542,27 @@ try {
     console.log('- TEST_ADMIN_PASSWORD berilmagan, admin oqimi o‘tkazib yuborildi')
   }
 
+  const aiChat = await call('POST', '/api/ai/chat', {
+    cookie: sellerCookie,
+    body: { message: "Pomidor ko'chatini qanday ekish kerak? Barcha usullarini ayt." },
+  })
+  assert(
+    aiChat.status === 200 && typeof aiChat.data.reply === 'string' && aiChat.data.reply.length > 100,
+    'AI chat javob beradi',
+    aiChat,
+  )
+  assert(Boolean(aiChat.data.source), 'AI javob manbasi qaytadi', aiChat.data.source)
+
+  const aiOffTopic = await call('POST', '/api/ai/chat', {
+    cookie: sellerCookie,
+    body: { message: 'Python dasturlashni qanday o‘rganaman?' },
+  })
+  assert(
+    aiOffTopic.status === 200 && aiOffTopic.data.offTopic === true,
+    "AI agro bo'lmagan savolni rad etadi",
+    aiOffTopic,
+  )
+
   console.log('\nBarcha API testlari muvaffaqiyatli o‘tdi.')
 } catch (error) {
   console.error('\nAPI testlari muvaffaqiyatsiz:', error.message)

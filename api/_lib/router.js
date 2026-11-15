@@ -49,6 +49,7 @@ import {
   applyPaidPayment,
 } from './payments.js'
 import { emailConfigured, sendEmail, passwordResetEmail } from './email.js'
+import { generateAiReply, aiProviderName } from './ai.js'
 
 const DEFAULT_SETTINGS = {
   siteName: 'AgroServ',
@@ -1239,12 +1240,9 @@ async function validatePromoRoute(ctx) {
   }
 }
 
-async function consumeAi(ctx) {
-  const { rows } = await query('SELECT * FROM users WHERE id = $1', [ctx.user.id])
-  const user = rows[0]
-  if (!user) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
+async function consumeAiQuota(user) {
   const limit = planForRow(user).ai
-  if (limit === Infinity) return { remaining: Infinity, limit: 'Infinity' }
+  if (limit === Infinity) return { remaining: Infinity, limit: 'Infinity', used: 0 }
 
   const current = await query('SELECT count FROM ai_usage WHERE user_id = $1 AND day = CURRENT_DATE', [user.id])
   const count = current.rows[0]?.count || 0
@@ -1264,6 +1262,53 @@ async function consumeAi(ctx) {
     [user.id],
   )
   return { remaining: Math.max(0, limit - updated.rows[0].count), limit, used: updated.rows[0].count }
+}
+
+async function refundAiQuota(user) {
+  if (planForRow(user).ai === Infinity) return
+  await query(
+    'UPDATE ai_usage SET count = GREATEST(0, count - 1) WHERE user_id = $1 AND day = CURRENT_DATE',
+    [user.id],
+  )
+}
+
+async function consumeAi(ctx) {
+  const { rows } = await query('SELECT * FROM users WHERE id = $1', [ctx.user.id])
+  const user = rows[0]
+  if (!user) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
+  return consumeAiQuota(user)
+}
+
+async function aiChat(ctx) {
+  rateLimit(`ai-chat:${ctx.user.id}`, 12, 60_000)
+
+  const body = await readBody(ctx.req)
+  const message = clean(body.message, 2000)
+  if (!message) throw new HttpError(400, 'Savolingizni yozing', 'EMPTY_MESSAGE')
+
+  const { rows } = await query('SELECT * FROM users WHERE id = $1', [ctx.user.id])
+  const user = rows[0]
+  if (!user) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
+
+  const quota = await consumeAiQuota(user)
+  try {
+    const result = await generateAiReply({
+      message,
+      history: body.history,
+      imageName: clean(body.imageName, 200),
+    })
+    return {
+      reply: result.reply,
+      offTopic: Boolean(result.offTopic),
+      source: result.source,
+      provider: aiProviderName(),
+      remaining: quota.remaining,
+      used: quota.used,
+    }
+  } catch (error) {
+    await refundAiQuota(user)
+    throw error
+  }
 }
 
 async function createProduct(ctx) {
@@ -2166,6 +2211,7 @@ route('POST', '/plans/purchase', plansRemoved)
 route('POST', '/wallet/topup', topUpWallet)
 route('POST', '/products/:id/promote', promoteProduct)
 route('POST', '/ai/consume', consumeAi)
+route('POST', '/ai/chat', aiChat)
 route('POST', '/payments/:id/cancel', async (ctx) => {
   const payment = await query('SELECT * FROM payments WHERE id = $1 AND user_id = $2', [
     ctx.params.id,

@@ -293,9 +293,9 @@ export function StoreProvider({ children }) {
 
   const updateSettings = useCallback((patch) => run(() => api.patch('/settings', patch)), [run])
 
-  const consumeAiMessage = useCallback(async () => {
+  const sendAiMessage = useCallback(async (payload) => {
     try {
-      const data = await api.post('/ai/consume', {})
+      const data = await api.post('/ai/chat', payload)
       setState((prev) => ({
         ...prev,
         aiUsage: { date: todayKey(), count: data.used ?? (prev.aiUsage?.count || 0) + 1 },
@@ -304,7 +304,7 @@ export function StoreProvider({ children }) {
     } catch (error) {
       return {
         ok: false,
-        error: error.message || 'AI limiti tugadi',
+        error: error.message || 'AI xizmatida xatolik',
         code: error.code || 'ERROR',
         data: error.data || null,
       }
@@ -424,7 +424,7 @@ export function StoreProvider({ children }) {
     deleteCard,
     toggleCard,
     updateSettings,
-    consumeAiMessage,
+    sendAiMessage,
     subscribeNewsletter,
     validatePromoCode,
   }

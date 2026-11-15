@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
-import { AI_SUGGESTIONS, getAiReply } from '../lib/ai'
+import { AI_SUGGESTIONS } from '../lib/ai'
 import PageHero from '../components/PageHero'
 
 const INITIAL_MESSAGES = [
@@ -23,8 +23,8 @@ const INITIAL_MESSAGES = [
     role: 'assistant',
     text:
       "Assalomu alaykum! Men AgroServ AI agronom maslahatchisiman. 🌱\n\n" +
-      "Menga ekinlar, kasalliklar, o'g'itlash, sug'orish yoki platforma xizmatlari haqida savol bering. " +
-      "Barg yoki o'simlik rasmini ham yuklashingiz mumkin — umumiy tahlil beraman.",
+      "Ekinlar, ko'chat, kasalliklar, o'g'itlash, sug'orish, chorvachilik va hosilni sotish bo'yicha savol bering. " +
+      "Faqat qishloq xo'jaligi va agro sohaga oid savollarga javob beraman.",
     at: new Date().toISOString(),
   },
 ]
@@ -39,7 +39,7 @@ const TOPICS = [
 ]
 
 export default function AiAdvisor() {
-  const { plan, aiRemaining, usedToday, consumeAiMessage } = useStore()
+  const { plan, aiRemaining, usedToday, sendAiMessage } = useStore()
   const [messages, setMessages] = useState(INITIAL_MESSAGES)
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
@@ -63,7 +63,6 @@ export default function AiAdvisor() {
   }
 
   function clearImage() {
-    if (image?.url) URL.revokeObjectURL(image.url)
     setImage(null)
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -74,41 +73,62 @@ export default function AiAdvisor() {
     if (typing) return
 
     setTyping(true)
-    const limit = await consumeAiMessage()
-    if (!limit.ok) {
-      setTyping(false)
-      setLimitHit(true)
-      toast.error(limit.error || "Kunlik bepul AI limiti tugadi. Ertaga qayta urinib ko'ring.")
-      return
-    }
-    setLimitHit(false)
+    const history = messages
+      .filter((message) => message.id !== 'welcome')
+      .slice(-8)
+      .map((message) => ({ role: message.role, content: message.text }))
 
+    const imageUrl = image?.url || null
+    const imageName = image?.name || ''
     const userMessage = {
       id: `u${Date.now()}`,
       role: 'user',
       text: content || 'Yuklangan rasmni tahlil qiling',
-      image: image?.url || null,
-      imageName: image?.name || '',
+      image: imageUrl,
+      imageName,
       at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, userMessage])
     setInput('')
-    const imageName = image?.name || ''
     clearImage()
 
-    const reply = getAiReply(content, imageName)
-    window.setTimeout(() => {
+    const result = await sendAiMessage({
+      message: content || 'Yuklangan rasmni tahlil qiling',
+      history,
+      imageName,
+    })
+
+    if (!result.ok) {
+      setTyping(false)
+      if (result.code === 'AI_LIMIT') {
+        setLimitHit(true)
+        toast.error(result.error || "Kunlik bepul AI limiti tugadi. Ertaga qayta urinib ko'ring.")
+        return
+      }
+      toast.error(result.error || "AI xizmatiga ulanib bo'lmadi")
       setMessages((prev) => [
         ...prev,
         {
           id: `a${Date.now()}`,
           role: 'assistant',
-          text: reply,
+          text: "⚠️ AI xizmatiga vaqtincha ulanib bo'lmadi. Birozdan keyin qayta urinib ko'ring.",
           at: new Date().toISOString(),
         },
       ])
-      setTyping(false)
-    }, 800)
+      return
+    }
+
+    setLimitHit(false)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `a${Date.now()}`,
+        role: 'assistant',
+        text: result.reply,
+        at: new Date().toISOString(),
+      },
+    ])
+    setTyping(false)
   }
 
   function handleSubmit(event) {
@@ -135,7 +155,7 @@ export default function AiAdvisor() {
       <PageHero
         eyebrow="AI maslahatchi"
         title="Agronom maslahati — 24/7"
-        description="Ekinlar, kasalliklar, o'g'itlash va sug'orish bo'yicha savollaringizga AgroServ bilim bazasi asosida javob beradi."
+        description="Ekinlar, ko'chat, kasalliklar, o'g'itlash va sug'orish bo'yicha savollaringizga real AI javob beradi. Faqat agro soha."
         breadcrumbs={[{ label: 'AI maslahatchi' }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -163,7 +183,7 @@ export default function AiAdvisor() {
                   <p className="text-sm font-black text-emerald-950">AgroServ AI</p>
                   <p className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
                     <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-emerald-500" />
-                    Onlayn · AgroServ bilim bazasi
+                    Onlayn · real AI maslahat
                   </p>
                 </div>
               </div>
@@ -281,7 +301,7 @@ export default function AiAdvisor() {
                 </button>
               </form>
               <p className="mt-1.5 text-center text-[9px] text-stone-400">
-                AI AgroServ bilim bazasidan javob beradi. Muhim qarorlar uchun agronomga murojaat qiling.
+                AI javoblari umumiy maslahat xarakteriga ega. Muhim qarorlar uchun agronomga murojaat qiling.
               </p>
             </div>
           </div>
@@ -364,8 +384,8 @@ export default function AiAdvisor() {
                 <ImageIcon size={14} /> Rasm yuborish
               </p>
               <p className="mt-1 text-[10px] leading-relaxed text-amber-800/80">
-                Kasallik belgilari bo'lgan barg yoki meva rasmini yuklang. AI rasm nomi va belgilar asosida
-                umumiy tahlil beradi. Aniq tashxis uchun agronomga murojaat qiling.
+                Kasallik belgilari bo'lgan barg yoki meva rasmini yuklang. AI rasm nomi va siz yozgan
+                belgilar asosida umumiy tahlil beradi. Aniq tashxis uchun agronomga murojaat qiling.
               </p>
             </div>
           </div>
