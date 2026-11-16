@@ -141,6 +141,16 @@ export default function ProductDetail() {
               <span className="relative text-[120px] drop-shadow-[0_20px_35px_rgba(0,0,0,0.2)] sm:text-[150px]">
                 {product.emoji}
               </span>
+              {product.imageUrl && (
+                <img
+                  src={product.imageUrl}
+                  alt={product.title}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none'
+                  }}
+                />
+              )}
               {product.featured && (
                 <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 shadow">
                   ⭐ Top mahsulot

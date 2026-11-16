@@ -41,6 +41,10 @@ export function toPublicUser(row) {
 }
 
 export function toProduct(row) {
+  const rawImage = row.image_url || ''
+  const imageUrl = rawImage.startsWith('data:')
+    ? `/api/products/${row.id}/image`
+    : rawImage || null
   return {
     id: row.id,
     title: row.title,
@@ -54,7 +58,7 @@ export function toProduct(row) {
     telegram: row.telegram || '',
     emoji: row.emoji || '🌱',
     gradient: row.gradient || 'from-emerald-300 via-green-400 to-teal-600',
-    imageUrl: row.image_url || null,
+    imageUrl,
     year: row.year || null,
     condition: row.condition || '',
     rating: Number(row.rating || 0),
@@ -214,6 +218,21 @@ export function toPayment(row) {
     meta: row.meta || {},
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
     paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null,
+  }
+}
+
+export function toWithdrawal(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    userName: row.user_name || '',
+    amount: num(row.amount),
+    cardNumber: row.card_number || '',
+    cardHolder: row.card_holder || '',
+    status: row.status,
+    adminNote: row.admin_note || '',
+    reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
   }
 }
 

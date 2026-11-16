@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   BarChart3,
+  Banknote,
   Check,
   CheckCircle2,
   Copy,
@@ -60,6 +61,7 @@ const TABS = [
   { id: 'products', label: 'Mahsulotlar', icon: Package },
   { id: 'orders', label: 'Buyurtmalar', icon: ShoppingBag },
   { id: 'payments', label: "To'lovlar", icon: Receipt },
+  { id: 'withdrawals', label: 'Pul yechish', icon: Banknote },
   { id: 'messages', label: 'Xabarlar', icon: MessageSquare },
   { id: 'cards', label: 'Kartalar', icon: CreditCard },
   { id: 'resets', label: 'Parol so‘rovlari', icon: KeyRound },
@@ -89,6 +91,13 @@ const PAYMENT_STATUS = {
   failed: { label: 'Xato', className: 'bg-rose-50 text-rose-600' },
 }
 
+const WITHDRAWAL_STATUS = {
+  pending: { label: 'Kutilmoqda', className: 'bg-amber-50 text-amber-700' },
+  approved: { label: "To'langan", className: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: 'Rad etilgan', className: 'bg-rose-50 text-rose-600' },
+  cancelled: { label: 'Bekor qilingan', className: 'bg-stone-100 text-stone-500' },
+}
+
 const ROLE_OPTIONS = [...SELF_ROLES, 'admin']
 const ROLE_FILTER_OPTIONS = [...SELF_ROLES, ...LEGACY_ROLES, 'admin']
 const GOOGLE_CLIENT_READY = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
@@ -107,6 +116,7 @@ export default function Admin() {
     payments,
     promoCodes,
     passwordResets,
+    withdrawals,
     providers,
     integrations,
     adminSetRole,
@@ -114,6 +124,8 @@ export default function Admin() {
     adminAdjustWallet,
     adminConfirmPayment,
     adminCancelPayment,
+    adminApproveWithdrawal,
+    adminRejectWithdrawal,
     adminResolvePasswordReset,
     adminRejectPasswordReset,
     updateOrderStatus,
@@ -145,6 +157,7 @@ export default function Admin() {
   const unread = messages.filter((message) => !message.read).length
   const pendingPayments = payments.filter((payment) => payment.status === 'pending')
   const pendingResets = passwordResets.filter((reset) => reset.status === 'pending')
+  const pendingWithdrawals = withdrawals.filter((entry) => entry.status === 'pending')
 
   const stats = useMemo(() => {
     const grossSales = orders
@@ -401,6 +414,27 @@ export default function Admin() {
     else toast.error(result.error)
   }
 
+  async function approveWithdrawal(entry) {
+    if (
+      !window.confirm(
+        `${entry.userName || 'Foydalanuvchi'} uchun ${formatSom(entry.amount)} yechishni tasdiqlaysizmi?\nKarta: ${entry.cardNumber}`,
+      )
+    ) {
+      return
+    }
+    const result = await adminApproveWithdrawal(entry.id)
+    if (result.ok) toast.success("Pul yechish tasdiqlandi. Endi kartaga o'tkazma qiling.")
+    else toast.error(result.error)
+  }
+
+  async function rejectWithdrawal(entry) {
+    const note = window.prompt('Rad etish sababi (ixtiyoriy):', '')
+    if (note === null) return
+    const result = await adminRejectWithdrawal(entry.id, note)
+    if (result.ok) toast.success("So'rov rad etildi va pul hamyonga qaytarildi")
+    else toast.error(result.error)
+  }
+
   async function resolveReset(reset) {
     if (!window.confirm(`${reset.email} uchun yangi parol yaratilsinmi?`)) return
     const result = await adminResolvePasswordReset(reset.id)
@@ -603,6 +637,32 @@ export default function Admin() {
               </div>
 
               <div className="space-y-4">
+                <div className="card p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
+                      <Banknote size={15} className="text-emerald-600" /> Pul yechish
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setTab('withdrawals')}
+                      className="text-[10px] font-bold text-emerald-700 hover:underline"
+                    >
+                      Barchasi →
+                    </button>
+                  </div>
+                  <p className="mt-2 text-2xl font-black text-emerald-950">{pendingWithdrawals.length} ta</p>
+                  <p className="text-[10px] text-stone-500">
+                    {formatSom(pendingWithdrawals.reduce((sum, entry) => sum + entry.amount, 0))} tasdiq kutmoqda
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setTab('withdrawals')}
+                    className="btn btn-secondary btn-sm mt-3 w-full"
+                  >
+                    So'rovlarni ko'rish
+                  </button>
+                </div>
+
                 <div className="card p-5">
                   <div className="flex items-center justify-between">
                     <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
@@ -1166,6 +1226,144 @@ export default function Admin() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'withdrawals' && (
+          <div className="mt-4 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <StatCard
+                icon={<Banknote size={18} />}
+                label="Kutilayotgan so'rovlar"
+                value={`${pendingWithdrawals.length} ta`}
+                hint={formatSom(pendingWithdrawals.reduce((sum, entry) => sum + entry.amount, 0))}
+                tone="amber"
+              />
+              <StatCard
+                icon={<CheckCircle2 size={18} />}
+                label="Tasdiqlangan summa"
+                value={formatSom(
+                  withdrawals
+                    .filter((entry) => entry.status === 'approved')
+                    .reduce((sum, entry) => sum + entry.amount, 0),
+                )}
+                hint={`${withdrawals.filter((entry) => entry.status === 'approved').length} ta so'rov`}
+                tone="emerald"
+              />
+              <StatCard
+                icon={<Wallet size={18} />}
+                label="Jami so'rovlar"
+                value={`${formatNumber(withdrawals.length)} ta`}
+                hint="Barcha vaqt"
+                tone="sky"
+              />
+            </div>
+
+            <div className="card overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-black text-emerald-950">Pul yechish so'rovlari</h2>
+                  <p className="text-[10px] text-stone-500">
+                    Tasdiqlangach kartaga o'tkazma qiling. Rad etilsa summa avtomatik hamyonga qaytadi.
+                  </p>
+                </div>
+                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
+                  {withdrawals.length} ta yozuv
+                </span>
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Sana</th>
+                      <th>Foydalanuvchi</th>
+                      <th>Summa</th>
+                      <th>Karta</th>
+                      <th>Holat</th>
+                      <th>Amallar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...withdrawals]
+                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                      .map((entry) => {
+                        const status = WITHDRAWAL_STATUS[entry.status] || WITHDRAWAL_STATUS.pending
+                        return (
+                          <tr key={entry.id}>
+                            <td className="whitespace-nowrap text-[10px] text-stone-500">
+                              {formatDateTime(entry.createdAt)}
+                            </td>
+                            <td>
+                              <p className="text-[11px] font-bold text-emerald-950">
+                                {entry.userName || 'Foydalanuvchi'}
+                              </p>
+                              <p className="text-[9px] text-stone-400">{entry.cardHolder || '—'}</p>
+                            </td>
+                            <td className="whitespace-nowrap font-bold text-emerald-800">
+                              {formatSom(entry.amount)}
+                            </td>
+                            <td className="whitespace-nowrap font-mono text-[10px] text-stone-600">
+                              {entry.cardNumber}
+                            </td>
+                            <td>
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
+                                {status.label}
+                              </span>
+                              {entry.adminNote && (
+                                <p className="mt-1 max-w-[160px] text-[9px] text-rose-500">{entry.adminNote}</p>
+                              )}
+                            </td>
+                            <td>
+                              {entry.status === 'pending' ? (
+                                <div className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => approveWithdrawal(entry)}
+                                    className="rounded-lg bg-emerald-600 px-2 py-1 text-[9px] font-bold text-white hover:bg-emerald-700"
+                                  >
+                                    Tasdiqlash
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => rejectWithdrawal(entry)}
+                                    className="rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-600 hover:bg-rose-100"
+                                  >
+                                    Rad etish
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-[9px] text-stone-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              {withdrawals.length === 0 && (
+                <div className="p-4">
+                  <EmptyState
+                    icon="💸"
+                    title="Pul yechish so'rovlari yo'q"
+                    description="Foydalanuvchilar pul yechish so'rovini yuborganda shu yerda ko'rinadi."
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="card p-5">
+              <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
+                <Banknote size={16} className="text-emerald-600" /> Qoidalar
+              </h2>
+              <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-stone-600">
+                <li>• Minimal summa — 1 so'm. Minimal limit yo'q.</li>
+                <li>• Bitta so'rovda maksimal 100 000 000 so'm yechish mumkin.</li>
+                <li>• 100 mln so'mdan katta summani foydalanuvchi bir necha so'rovga bo'lib yuboradi.</li>
+                <li>• So'rov yuborilganda summa hamyondan ushlab turiladi.</li>
+                <li>• Tasdiqlangach kartaga o'tkazma qiling; rad etilsa summa hamyonga qaytadi.</li>
+              </ul>
             </div>
           </div>
         )}

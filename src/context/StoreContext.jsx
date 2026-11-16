@@ -29,6 +29,7 @@ const EMPTY_STATE = {
   orders: [],
   transactions: [],
   walletTx: [],
+  withdrawals: [],
   applications: [],
   messages: [],
   cards: [],
@@ -74,6 +75,7 @@ export function StoreProvider({ children }) {
         orders: data.orders || [],
         transactions: data.transactions || [],
         walletTx: data.walletTx || [],
+        withdrawals: data.withdrawals || [],
         applications: data.applications || [],
         messages: data.messages || [],
         cards: data.cards || [],
@@ -244,6 +246,28 @@ export function StoreProvider({ children }) {
     [run],
   )
 
+  const requestWithdrawal = useCallback(
+    (amount, cardNumber, cardHolder) =>
+      run(() => api.post('/withdrawals', { amount, cardNumber, cardHolder })),
+    [run],
+  )
+
+  const cancelWithdrawal = useCallback(
+    (withdrawalId) => run(() => api.post(`/withdrawals/${withdrawalId}/cancel`, {})),
+    [run],
+  )
+
+  const adminApproveWithdrawal = useCallback(
+    (withdrawalId) => run(() => api.post(`/admin/withdrawals/${withdrawalId}/approve`, {})),
+    [run],
+  )
+
+  const adminRejectWithdrawal = useCallback(
+    (withdrawalId, note = '') =>
+      run(() => api.post(`/admin/withdrawals/${withdrawalId}/reject`, { note })),
+    [run],
+  )
+
   const promoteProduct = useCallback(
     (productId, method = 'wallet', promoCode = '') =>
       run(() => api.post(`/products/${productId}/promote`, { method, promoCode })),
@@ -363,6 +387,7 @@ export function StoreProvider({ children }) {
     cards: state.cards,
     transactions: state.transactions,
     walletTx: state.walletTx,
+    withdrawals: state.withdrawals,
     applications: state.applications,
     subscribers: state.subscribers,
     payments: state.payments,
@@ -405,6 +430,10 @@ export function StoreProvider({ children }) {
     updateOrderStatus,
     assignCourier,
     topUp,
+    requestWithdrawal,
+    cancelWithdrawal,
+    adminApproveWithdrawal,
+    adminRejectWithdrawal,
     promoteProduct,
     addProduct,
     updateProduct,

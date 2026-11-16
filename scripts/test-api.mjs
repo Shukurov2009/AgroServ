@@ -70,6 +70,7 @@ const deliveryEmail = `test+delivery-${suffix}@example.test`
 const password = 'TestParol#2026'
 const adminPassword = process.env.TEST_ADMIN_PASSWORD
 let promoUsesBefore = null
+let adminCookie = null
 
 async function cleanup() {
   const emails = [sellerEmail, buyerEmail, workerEmail, deliveryEmail]
@@ -80,6 +81,7 @@ async function cleanup() {
   }
   if (!ids.length) return
   await query('DELETE FROM transactions WHERE user_id = ANY($1)', [ids])
+  await query('DELETE FROM withdrawals WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM payments WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM orders WHERE buyer_id = ANY($1) OR seller_id = ANY($1) OR courier_id = ANY($1)', [ids])
   await query('DELETE FROM products WHERE seller_id = ANY($1)', [ids])
@@ -130,10 +132,27 @@ try {
       unit: 'kg',
       description: 'Test mahsulot',
       region: 'Toshkent',
+      imageUrl: 'https://example.test/pomidor.jpg',
     },
   })
   assert(product.status === 200 && product.data.product.title === 'Test pomidor', 'mahsulot yaratish', product)
   const productId = product.data.product.id
+
+  const noImageProduct = await call('POST', '/api/products', {
+    cookie: sellerCookie,
+    body: {
+      title: 'Rasmsiz mahsulot',
+      category: 'meva',
+      price: 10000,
+      stock: 1,
+      unit: 'kg',
+    },
+  })
+  assert(
+    noImageProduct.status === 400 && noImageProduct.data.code === 'BAD_IMAGE',
+    'rasmsiz mahsulot rad etiladi',
+    noImageProduct,
+  )
 
   const worker = await call('POST', '/api/auth/register', {
     body: { name: 'Test Agronom', email: workerEmail, password, role: 'agronomist', region: 'Toshkent' },
@@ -222,7 +241,7 @@ try {
       body: { email: 'admin@agroserv.uz', password: adminPassword },
     })
     assert(admin.status === 200 && admin.data.user.role === 'admin', 'admin login ishlaydi', admin)
-    const adminCookie = admin.cookie
+    adminCookie = admin.cookie
 
     const adjust = await call('POST', `/api/admin/users/${buyer.data.user.id}/wallet`, {
       cookie: adminCookie,
@@ -586,6 +605,75 @@ try {
     "AI agro bo'lmagan savolni rad etadi",
     aiOffTopic,
   )
+
+  const sellerWalletBefore = await call('GET', '/api/bootstrap', { cookie: sellerCookie })
+  const walletBefore = sellerWalletBefore.data.currentUser.wallet
+  assert(walletBefore > 0, 'sotuvchida yechish uchun balans bor', walletBefore)
+
+  const withdrawOne = await call('POST', '/api/withdrawals', {
+    cookie: sellerCookie,
+    body: { amount: 1, cardNumber: '8600 1234 5678 9012', cardHolder: 'Test Sotuvchi' },
+  })
+  assert(
+    withdrawOne.status === 200 && withdrawOne.data.withdrawal.status === 'pending',
+    "1 so'm yechish so'rovi yaratiladi",
+    withdrawOne,
+  )
+  assert(withdrawOne.data.wallet === walletBefore - 1, 'yechish summasi hamyondan ushlab turiladi', withdrawOne)
+  const withdrawalOneId = withdrawOne.data.withdrawal.id
+
+  const tooBig = await call('POST', '/api/withdrawals', {
+    cookie: sellerCookie,
+    body: { amount: 100000001, cardNumber: '8600123456789012' },
+  })
+  assert(
+    tooBig.status === 400 && tooBig.data.code === 'WITHDRAWAL_LIMIT',
+    "100 mln dan ortiq summa bitta so'rovda rad etiladi",
+    tooBig,
+  )
+
+  const cancelled = await call('POST', `/api/withdrawals/${withdrawalOneId}/cancel`, {
+    cookie: sellerCookie,
+    body: {},
+  })
+  assert(
+    cancelled.status === 200 && cancelled.data.wallet === walletBefore,
+    'yechish bekor qilinsa pul hamyonga qaytadi',
+    cancelled,
+  )
+
+  const withdrawTwo = await call('POST', '/api/withdrawals', {
+    cookie: sellerCookie,
+    body: { amount: Math.min(500, walletBefore), cardNumber: '8600123456789012', cardHolder: 'Test Sotuvchi' },
+  })
+  assert(withdrawTwo.status === 200, "qayta yechish so'rovi yaratiladi", withdrawTwo)
+  const withdrawalTwoId = withdrawTwo.data.withdrawal.id
+
+  if (adminCookie) {
+    const approved = await call('POST', `/api/admin/withdrawals/${withdrawalTwoId}/approve`, {
+      cookie: adminCookie,
+      body: {},
+    })
+    assert(
+      approved.status === 200 && approved.data.withdrawal.status === 'approved',
+      'admin yechishni tasdiqlaydi',
+      approved,
+    )
+
+    const withdrawThree = await call('POST', '/api/withdrawals', {
+      cookie: sellerCookie,
+      body: { amount: 1, cardNumber: '8600123456789012' },
+    })
+    const rejected = await call('POST', `/api/admin/withdrawals/${withdrawThree.data.withdrawal.id}/reject`, {
+      cookie: adminCookie,
+      body: { note: 'Test rad etish' },
+    })
+    assert(
+      rejected.status === 200 && rejected.data.withdrawal.status === 'rejected',
+      'admin yechishni rad etadi va pul hamyonga qaytadi',
+      rejected,
+    )
+  }
 
   console.log('\nBarcha API testlari muvaffaqiyatli o‘tdi.')
 } catch (error) {

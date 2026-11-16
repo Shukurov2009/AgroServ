@@ -1,5 +1,6 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { PLANS, SELF_ROLES, canSellProducts, canOfferServices, ROLE_DEFAULT_SERVICE_TYPE } from '../../src/lib/constants.js'
+import { getVideoEmbed } from '../../src/lib/format.js'
 import { query, withTransaction } from './db.js'
 import {
   HttpError,
@@ -33,6 +34,7 @@ import {
   toOrder,
   toTransaction,
   toPayment,
+  toWithdrawal,
   toMessage,
   toCard,
   toReview,
@@ -67,6 +69,7 @@ const DEFAULT_SETTINGS = {
 
 const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'completed', 'cancelled']
 const PRODUCT_STATUSES = ['active', 'paused', 'hidden', 'sold', 'blocked']
+const MAX_WITHDRAWAL = 100_000_000
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase()
@@ -236,11 +239,19 @@ async function bootstrap(ctx) {
   let payments = []
   let promoCodes = []
   let passwordResets = []
+  let withdrawals = []
   let aiCount = 0
 
   if (user) {
-    const [ordersResult, transactionsResult, cartResult, favoritesResult, applicationsResult, aiResult] =
-      await Promise.all([
+    const [
+      ordersResult,
+      transactionsResult,
+      cartResult,
+      favoritesResult,
+      applicationsResult,
+      aiResult,
+      withdrawalsResult,
+    ] = await Promise.all([
         admin
           ? query(
               `SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id
@@ -268,12 +279,23 @@ async function bootstrap(ctx) {
           ? query('SELECT * FROM applications ORDER BY created_at DESC')
           : query('SELECT * FROM applications WHERE user_id = $1 ORDER BY created_at DESC', [user.id]),
         query('SELECT count FROM ai_usage WHERE user_id = $1 AND day = CURRENT_DATE', [user.id]),
+        admin
+          ? query(
+              `SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id
+               ORDER BY w.created_at DESC`,
+            )
+          : query(
+              `SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id
+               WHERE w.user_id = $1 ORDER BY w.created_at DESC`,
+              [user.id],
+            ),
       ])
     orders = ordersResult.rows
     transactions = transactionsResult.rows
     cart = cartResult.rows
     favorites = favoritesResult.rows
     applications = applicationsResult.rows
+    withdrawals = withdrawalsResult.rows
     aiCount = aiResult.rows[0]?.count || 0
 
     if (admin) {
@@ -305,6 +327,8 @@ async function bootstrap(ctx) {
     'subscription',
     'feature',
     'admin_adjust',
+    'withdrawal',
+    'withdrawal_refund',
   ])
 
   return {
@@ -320,6 +344,7 @@ async function bootstrap(ctx) {
     favoriteIds: favorites.map((row) => row.product_id),
     orders: orders.map(toOrder),
     transactions: transactions.map(toTransaction),
+    withdrawals: withdrawals.map(toWithdrawal),
     walletTx: transactions
       .filter((row) => walletTypes.has(row.type))
       .map((row) => ({
@@ -1344,6 +1369,38 @@ async function aiChat(ctx) {
   }
 }
 
+function imageUrlFor(value) {
+  const imageUrl = clean(value, 2_000_000)
+  if (!imageUrl) return ''
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl
+  if (/^\/api\/products\/[^/]+\/image$/i.test(imageUrl)) return imageUrl
+  if (/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/i.test(imageUrl)) return imageUrl
+  throw new HttpError(400, "Rasm formati noto'g'ri. JPG, PNG yoki WEBP yuklang", 'BAD_IMAGE')
+}
+
+async function productImage(ctx) {
+  const { rows } = await query('SELECT image_url FROM products WHERE id = $1', [ctx.params.id])
+  const raw = rows[0]?.image_url || ''
+  if (!raw) throw new HttpError(404, 'Rasm topilmadi', 'IMAGE_NOT_FOUND')
+
+  if (/^https?:\/\//i.test(raw)) {
+    ctx.res.statusCode = 302
+    ctx.res.setHeader('Location', raw)
+    ctx.res.setHeader('Cache-Control', 'public, max-age=86400')
+    ctx.res.end()
+    return
+  }
+
+  const match = raw.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i)
+  if (!match) throw new HttpError(404, 'Rasm topilmadi', 'IMAGE_NOT_FOUND')
+  const buffer = Buffer.from(match[2], 'base64')
+  ctx.res.statusCode = 200
+  ctx.res.setHeader('Content-Type', match[1])
+  ctx.res.setHeader('Content-Length', buffer.length)
+  ctx.res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+  ctx.res.end(buffer)
+}
+
 async function createProduct(ctx) {
   const body = await readBody(ctx.req)
   if (!canSellProducts(ctx.user.role)) {
@@ -1352,8 +1409,12 @@ async function createProduct(ctx) {
   const title = clean(body.title, 150)
   const price = Math.max(0, Math.round(Number(body.price) || 0))
   const stock = Math.max(0, Math.floor(Number(body.stock) || 0))
+  const imageUrl = imageUrlFor(body.imageUrl)
   if (title.length < 3) throw new HttpError(400, 'Mahsulot nomini kiriting', 'BAD_TITLE')
   if (price <= 0) throw new HttpError(400, "Narxni to'g'ri kiriting", 'BAD_PRICE')
+  if (!imageUrl || imageUrl.startsWith('/api/')) {
+    throw new HttpError(400, 'Mahsulot rasmini yuklang yoki rasm havolasini kiriting', 'BAD_IMAGE')
+  }
 
   const { rows } = await query(
     `INSERT INTO products
@@ -1373,7 +1434,7 @@ async function createProduct(ctx) {
       clean(body.telegram, 100),
       clean(body.emoji, 16) || '🌱',
       clean(body.gradient, 120) || 'from-emerald-300 via-green-400 to-teal-600',
-      clean(body.imageUrl, 500) || null,
+      imageUrl,
       body.year ? Number(body.year) : null,
       clean(body.condition, 80),
     ],
@@ -1394,6 +1455,11 @@ async function updateProduct(ctx) {
   if (product.seller_id !== ctx.user.id && ctx.user.role !== 'admin') {
     throw new HttpError(403, "Ruxsat yo'q", 'FORBIDDEN')
   }
+  if (body.imageUrl !== undefined) {
+    const normalized = imageUrlFor(body.imageUrl)
+    if (normalized.startsWith('/api/products/')) delete body.imageUrl
+    else body.imageUrl = normalized
+  }
   const map = {
     title: ['title', (v) => clean(v, 150)],
     category: ['category', (v) => clean(v, 40)],
@@ -1406,7 +1472,7 @@ async function updateProduct(ctx) {
     telegram: ['telegram', (v) => clean(v, 100)],
     emoji: ['emoji', (v) => clean(v, 16)],
     gradient: ['gradient', (v) => clean(v, 120)],
-    imageUrl: ['image_url', (v) => clean(v, 500) || null],
+    imageUrl: ['image_url', (v) => clean(v, 2_000_000) || null],
     year: ['year', (v) => (v ? Number(v) : null)],
     condition: ['condition', (v) => clean(v, 80)],
     status: ['status', (v) => (PRODUCT_STATUSES.includes(v) ? v : 'active')],
@@ -1587,12 +1653,19 @@ async function applyToJob(ctx) {
 
 async function createVideo(ctx) {
   const body = await readBody(ctx.req)
-  const url = clean(body.url, 500)
+  const url = clean(body.url, 1000)
   const title = clean(body.title, 200)
   if (title.length < 3) throw new HttpError(400, 'Video nomini kiriting', 'BAD_TITLE')
-  if (!url) throw new HttpError(400, 'YouTube havolasini kiriting', 'BAD_URL')
-  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/)
-  const youtubeId = match ? match[1] : ''
+  if (!url) throw new HttpError(400, 'Video havolasini kiriting', 'BAD_URL')
+  const source = getVideoEmbed(url)
+  if (!source) {
+    throw new HttpError(
+      400,
+      "Bu havolani video sifatida ijro etib bo'lmaydi. YouTube, Vimeo, Instagram, TikTok, Rutube, OK.ru, Dailymotion, Google Drive yoki to'g'ridan-to'g'ri .mp4 havolasini kiriting.",
+      'BAD_VIDEO_URL',
+    )
+  }
+  const youtubeId = source.type === 'youtube' ? source.id : ''
   const { rows } = await query(
     `INSERT INTO videos (user_id, title, channel, category, emoji, gradient, youtube_id, url, description)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
@@ -1852,6 +1925,175 @@ async function adminAdjustWallet(ctx) {
       [ctx.params.id, amount, next, clean(body.note, 300) || 'Administrator tomonidan hamyon tuzatildi'],
     )
     return { user: toUser(updated.rows[0], { admin: true }) }
+  })
+}
+
+function normalizeCardNumber(value = '') {
+  return String(value || '').replace(/\D/g, '')
+}
+
+async function createWithdrawal(ctx) {
+  const body = await readBody(ctx.req)
+  const amount = Math.round(Number(body.amount) || 0)
+  const cardNumber = normalizeCardNumber(body.cardNumber)
+
+  if (amount < 1) throw new HttpError(400, "Kamida 1 so'm yechish mumkin", 'BAD_AMOUNT')
+  if (amount > MAX_WITHDRAWAL) {
+    throw new HttpError(
+      400,
+      "Bitta so'rovda maksimal 100 000 000 so'm yechish mumkin. Kattaroq summani bir necha so'rovga bo'lib yuboring.",
+      'WITHDRAWAL_LIMIT',
+    )
+  }
+  if (cardNumber.length !== 16) {
+    throw new HttpError(400, "Karta raqami 16 xonali bo'lishi kerak", 'BAD_CARD')
+  }
+
+  return withTransaction(async (client) => {
+    const userResult = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [ctx.user.id])
+    const user = userResult.rows[0]
+    if (!user) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
+    if (Number(user.wallet) < amount) {
+      throw new HttpError(400, "Hamyon balansida yetarli mablag' yo'q", 'INSUFFICIENT_WALLET')
+    }
+
+    const id = randomUUID()
+    const holder = clean(body.cardHolder, 100) || user.name
+    await client.query(
+      `INSERT INTO withdrawals (id, user_id, amount, card_number, card_holder)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [id, user.id, amount, cardNumber, holder],
+    )
+
+    const updated = await client.query(
+      `UPDATE users SET wallet = wallet - $1, updated_at = now()
+       WHERE id = $2 AND wallet >= $1 RETURNING wallet`,
+      [amount, user.id],
+    )
+    if (!updated.rows[0]) {
+      throw new HttpError(400, "Hamyon balansida yetarli mablag' yo'q", 'INSUFFICIENT_WALLET')
+    }
+
+    const balance = Number(updated.rows[0].wallet)
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+       VALUES ($1,'withdrawal',$2,$3,$4,$5,'manual','pending')`,
+      [user.id, -amount, balance, `Pul yechish so'rovi · ${cardNumber.slice(-4)}`, id],
+    )
+
+    const row = await client.query('SELECT * FROM withdrawals WHERE id = $1', [id])
+    return {
+      withdrawal: toWithdrawal({ ...row.rows[0], user_name: user.name }),
+      wallet: balance,
+    }
+  })
+}
+
+async function cancelWithdrawal(ctx) {
+  return withTransaction(async (client) => {
+    const result = await client.query(
+      'SELECT * FROM withdrawals WHERE id = $1 AND user_id = $2 FOR UPDATE',
+      [ctx.params.id, ctx.user.id],
+    )
+    const withdrawal = result.rows[0]
+    if (!withdrawal) throw new HttpError(404, "So'rov topilmadi", 'WITHDRAWAL_NOT_FOUND')
+    if (withdrawal.status !== 'pending') {
+      throw new HttpError(400, "Faqat kutilayotgan so'rovni bekor qilish mumkin", 'BAD_STATUS')
+    }
+
+    await client.query("UPDATE withdrawals SET status = 'cancelled' WHERE id = $1", [withdrawal.id])
+    const updated = await client.query(
+      'UPDATE users SET wallet = wallet + $1, updated_at = now() WHERE id = $2 RETURNING wallet',
+      [withdrawal.amount, withdrawal.user_id],
+    )
+    const balance = Number(updated.rows[0].wallet)
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+       VALUES ($1,'withdrawal_refund',$2,$3,$4,$5,'wallet','completed')`,
+      [withdrawal.user_id, withdrawal.amount, balance, 'Pul yechish so\'rovi bekor qilindi', withdrawal.id],
+    )
+    await client.query(
+      "UPDATE transactions SET status = 'cancelled' WHERE reference = $1 AND type = 'withdrawal'",
+      [withdrawal.id],
+    )
+
+    const row = await client.query(
+      'SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.id = $1',
+      [withdrawal.id],
+    )
+    return { withdrawal: toWithdrawal(row.rows[0]), wallet: balance }
+  })
+}
+
+async function adminApproveWithdrawal(ctx) {
+  return withTransaction(async (client) => {
+    const result = await client.query('SELECT * FROM withdrawals WHERE id = $1 FOR UPDATE', [ctx.params.id])
+    const withdrawal = result.rows[0]
+    if (!withdrawal) throw new HttpError(404, "So'rov topilmadi", 'WITHDRAWAL_NOT_FOUND')
+    if (withdrawal.status !== 'pending') {
+      throw new HttpError(400, "Bu so'rov allaqachon ko'rib chiqilgan", 'BAD_STATUS')
+    }
+
+    await client.query(
+      `UPDATE withdrawals SET status = 'approved', reviewed_by = $1, reviewed_at = now()
+       WHERE id = $2`,
+      [ctx.user.id, withdrawal.id],
+    )
+    await client.query(
+      "UPDATE transactions SET status = 'completed' WHERE reference = $1 AND type = 'withdrawal'",
+      [withdrawal.id],
+    )
+
+    const row = await client.query(
+      'SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.id = $1',
+      [withdrawal.id],
+    )
+    return { withdrawal: toWithdrawal(row.rows[0]) }
+  })
+}
+
+async function adminRejectWithdrawal(ctx) {
+  const body = await readBody(ctx.req)
+  return withTransaction(async (client) => {
+    const result = await client.query('SELECT * FROM withdrawals WHERE id = $1 FOR UPDATE', [ctx.params.id])
+    const withdrawal = result.rows[0]
+    if (!withdrawal) throw new HttpError(404, "So'rov topilmadi", 'WITHDRAWAL_NOT_FOUND')
+    if (withdrawal.status !== 'pending') {
+      throw new HttpError(400, "Bu so'rov allaqachon ko'rib chiqilgan", 'BAD_STATUS')
+    }
+
+    const note = clean(body.note, 300)
+    await client.query(
+      `UPDATE withdrawals SET status = 'rejected', admin_note = $1, reviewed_by = $2, reviewed_at = now()
+       WHERE id = $3`,
+      [note, ctx.user.id, withdrawal.id],
+    )
+    const updated = await client.query(
+      'UPDATE users SET wallet = wallet + $1, updated_at = now() WHERE id = $2 RETURNING wallet',
+      [withdrawal.amount, withdrawal.user_id],
+    )
+    const balance = Number(updated.rows[0].wallet)
+    await client.query(
+      `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+       VALUES ($1,'withdrawal_refund',$2,$3,$4,$5,'wallet','completed')`,
+      [
+        withdrawal.user_id,
+        withdrawal.amount,
+        balance,
+        note ? `Pul yechish rad etildi: ${note}` : 'Pul yechish so\'rovi rad etildi',
+        withdrawal.id,
+      ],
+    )
+    await client.query(
+      "UPDATE transactions SET status = 'rejected' WHERE reference = $1 AND type = 'withdrawal'",
+      [withdrawal.id],
+    )
+
+    const row = await client.query(
+      'SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.id = $1',
+      [withdrawal.id],
+    )
+    return { withdrawal: toWithdrawal(row.rows[0]), wallet: balance }
   })
 }
 
@@ -2256,6 +2498,8 @@ route('POST', '/checkout', checkout)
 route('PATCH', '/orders/:id/status', updateOrderStatus)
 route('POST', '/plans/purchase', plansRemoved)
 route('POST', '/wallet/topup', topUpWallet)
+route('POST', '/withdrawals', createWithdrawal)
+route('POST', '/withdrawals/:id/cancel', cancelWithdrawal)
 route('POST', '/products/:id/promote', promoteProduct)
 route('POST', '/ai/consume', consumeAi)
 route('POST', '/ai/chat', aiChat)
@@ -2276,6 +2520,7 @@ route('POST', '/payments/:id/cancel', async (ctx) => {
 })
 
 // Catalog
+route('GET', '/products/:id/image', productImage, { public: true })
 route('POST', '/products', createProduct)
 route('PATCH', '/products/:id', updateProduct)
 route('DELETE', '/products/:id', deleteProduct)
@@ -2293,6 +2538,8 @@ route('PATCH', '/admin/users/:id/role', adminSetRole, { admin: true })
 route('PATCH', '/admin/orders/:id/courier', adminAssignCourier, { admin: true })
 route('PATCH', '/admin/users/:id/status', adminToggleUser, { admin: true })
 route('POST', '/admin/users/:id/wallet', adminAdjustWallet, { admin: true })
+route('POST', '/admin/withdrawals/:id/approve', adminApproveWithdrawal, { admin: true })
+route('POST', '/admin/withdrawals/:id/reject', adminRejectWithdrawal, { admin: true })
 route('POST', '/admin/users/:id/password', adminSetPassword, { admin: true })
 route('POST', '/admin/payments/:id/confirm', confirmPayment, { admin: true })
 route('POST', '/admin/payments/:id/cancel', cancelPayment, { admin: true })

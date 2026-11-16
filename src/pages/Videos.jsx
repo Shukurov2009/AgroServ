@@ -3,7 +3,6 @@ import toast from 'react-hot-toast'
 import {
   Eye,
   Film,
-  Play,
   Plus,
   Search,
   Sparkles,
@@ -13,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import { VIDEO_CATEGORIES } from '../lib/constants'
-import { parseYoutubeId } from '../lib/format'
+import { getVideoEmbed } from '../lib/format'
 import PageHero from '../components/PageHero'
 import VideoCard from '../components/VideoCard'
 import Modal from '../components/Modal'
@@ -56,10 +55,17 @@ export default function Videos() {
     return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   }, [videos, category, query])
 
+  const playingSource = playing ? getVideoEmbed(playing.url) : null
+  const formSource = form.url ? getVideoEmbed(form.url) : null
+
   async function handleAdd(event) {
     event.preventDefault()
     if (!currentUser) {
       toast.error('Video qo\'shish uchun tizimga kiring')
+      return
+    }
+    if (!getVideoEmbed(form.url)) {
+      toast.error("Bu havolani video sifatida ijro etib bo'lmaydi. YouTube, Vimeo yoki .mp4 havolasini kiriting.")
       return
     }
     const result = await addVideo(form)
@@ -214,49 +220,46 @@ export default function Videos() {
       >
         {playing && (
           <div>
-            <div className={`relative flex h-56 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${playing.gradient} sm:h-72`}>
-              <div className="pattern-grid absolute inset-0 opacity-20" />
-              <span className="text-7xl drop-shadow-lg">{playing.emoji}</span>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-emerald-950/70 to-transparent p-4">
-                <div className="flex items-center justify-between text-[10px] font-bold text-white/80">
-                  <span className="flex items-center gap-1"><Eye size={12} /> {playing.views} ko'rish</span>
-                  <span className="rounded-md bg-white/20 px-1.5 py-0.5">{playing.duration}</span>
-                </div>
+            {playingSource &&
+            ['youtube', 'vimeo', 'dailymotion', 'rutube', 'okru', 'gdrive', 'instagram', 'tiktok', 'facebook'].includes(
+              playingSource.type,
+            ) ? (
+              <div className="aspect-video w-full overflow-hidden rounded-2xl bg-black">
+                <iframe
+                  src={playingSource.embedUrl}
+                  title={playing.title}
+                  className="h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
               </div>
-              <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-emerald-950/40 px-2.5 py-1 text-[9px] font-bold text-white backdrop-blur">
-                <Play size={10} className="fill-white" /> Video ko'rinishi
+            ) : playingSource?.type === 'file' ? (
+              <video
+                src={playingSource.src}
+                controls
+                autoPlay
+                playsInline
+                className="aspect-video w-full rounded-2xl bg-black"
+              />
+            ) : (
+              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-800">
+                Bu video havolasini sayt ichida ijro etib bo'lmadi. Havolani tekshiring yoki videoni qayta qo'shing.
               </div>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[10px] text-stone-400">
+              <span className="flex items-center gap-1"><Eye size={12} /> {playing.views} ko'rish</span>
+              <span>{playing.channel} · {playing.category}</span>
             </div>
 
-            <p className="mt-4 text-sm leading-relaxed text-stone-600">{playing.description}</p>
-
-            {playing.youtubeId ? (
-              <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-[11px] text-emerald-800">
-                YouTube video ID: <span className="font-bold">{playing.youtubeId}</span>. Internet mavjud bo'lsa,
-                quyidagi havola orqali videoni ochishingiz mumkin.
-              </div>
-            ) : (
-              <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-800">
-                Bu video uchun YouTube havolasi kiritilmagan. Tavsif va materiallar mavjud.
-              </div>
-            )}
-
-            {playing.url && (
-              <a
-                href={playing.url}
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-secondary mt-3 w-full"
-              >
-                <Play size={15} /> YouTube'da ochish
-              </a>
-            )}
+            <p className="mt-3 text-sm leading-relaxed text-stone-600">{playing.description}</p>
 
             {(isAdmin || playing.userId === currentUser?.id) && (
               <button
                 type="button"
                 onClick={() => handleDelete(playing)}
-                className="btn btn-danger mt-2 w-full"
+                className="btn btn-danger mt-3 w-full"
               >
                 Videoni o'chirish
               </button>
@@ -269,7 +272,7 @@ export default function Videos() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         title="Video qo'shish"
-        subtitle="YouTube havolasini kiriting yoki video tavsifini yarating."
+        subtitle="Video havolasini kiriting — video sayt ichida ijro etiladi."
         size="md"
       >
         <form onSubmit={handleAdd} className="space-y-3">
@@ -307,19 +310,29 @@ export default function Videos() {
             </div>
           </div>
           <div>
-            <label className="label">YouTube havolasi</label>
+            <label className="label">Video havolasi *</label>
             <input
               value={form.url}
               onChange={(event) => setForm({ ...form, url: event.target.value })}
               className="input"
-              placeholder="https://www.youtube.com/watch?v=..."
+              placeholder="https://www.youtube.com/watch?v=... yoki https://.../video.mp4"
               required
             />
-            {form.url && parseYoutubeId(form.url) && (
-              <p className="mt-1 text-[10px] font-semibold text-emerald-600">
-                Video ID aniqlandi: {parseYoutubeId(form.url)}
-              </p>
+            {form.url && (
+              formSource ? (
+                <p className="mt-1 text-[10px] font-semibold text-emerald-600">
+                  Video aniqlandi: {formSource.type === 'file' ? 'video fayl' : formSource.type}. Sayt ichida ijro etiladi.
+                </p>
+              ) : (
+                <p className="mt-1 text-[10px] font-semibold text-rose-500">
+                  Bu havola video formatida emas. YouTube, Vimeo, Instagram, TikTok, Rutube, OK.ru,
+                  Dailymotion, Google Drive yoki .mp4 havolasini kiriting.
+                </p>
+              )
             )}
+            <p className="mt-1 text-[10px] text-stone-400">
+              Havola sayt ichida video sifatida ochiladi — YouTube'ga o'tish shart emas.
+            </p>
           </div>
           <div>
             <label className="label">Tavsif</label>

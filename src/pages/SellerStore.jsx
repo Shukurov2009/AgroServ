@@ -7,6 +7,7 @@ import {
   Edit3,
   Eye,
   EyeOff,
+  ImagePlus,
   Package,
   Plus,
   Search,
@@ -17,6 +18,7 @@ import {
   Target,
   Trash2,
   TrendingUp,
+  Upload,
   X,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
@@ -34,6 +36,31 @@ import StatCard from '../components/StatCard'
 import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
 
+async function prepareProductImage(file) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(new Error('read'))
+    reader.readAsDataURL(file)
+  })
+
+  const img = await new Promise((resolve, reject) => {
+    const element = new Image()
+    element.onload = () => resolve(element)
+    element.onerror = () => reject(new Error('decode'))
+    element.src = dataUrl
+  })
+
+  const maxSide = 1000
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(img.width * scale))
+  canvas.height = Math.max(1, Math.round(img.height * scale))
+  const context = canvas.getContext('2d')
+  context.drawImage(img, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/jpeg', 0.82)
+}
+
 export default function SellerStore() {
   const navigate = useNavigate()
   const {
@@ -50,6 +77,7 @@ export default function SellerStore() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(makeEmptyForm(currentUser))
+  const [imageBusy, setImageBusy] = useState(false)
 
   function makeEmptyForm(user) {
     const category = ROLE_DEFAULT_CATEGORY[user?.role] || 'meva'
@@ -68,6 +96,7 @@ export default function SellerStore() {
       telegram: '',
       year: '',
       condition: '',
+      imageUrl: '',
     }
   }
 
@@ -150,12 +179,41 @@ export default function SellerStore() {
       telegram: product.sellerTelegram || '',
       year: product.year || '',
       condition: product.condition || '',
+      imageUrl: product.imageUrl || '',
     })
     setModalOpen(true)
   }
 
+  async function handleImageFile(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Faqat rasm faylini yuklang (JPG, PNG yoki WEBP)')
+      return
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      toast.error('Rasm hajmi 12 MB dan oshmasin')
+      return
+    }
+    setImageBusy(true)
+    try {
+      const dataUrl = await prepareProductImage(file)
+      setForm((previous) => ({ ...previous, imageUrl: dataUrl }))
+      toast.success('Rasm yuklandi')
+    } catch {
+      toast.error("Rasmni o'qib bo'lmadi. Boshqa fayl tanlang.")
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault()
+    if (!form.imageUrl) {
+      toast.error('Mahsulot rasmini yuklang yoki rasm havolasini kiriting')
+      return
+    }
     const payload = {
       ...form,
       year: form.year ? Number(form.year) : undefined,
@@ -373,9 +431,20 @@ export default function SellerStore() {
                 product.featured && product.featuredUntil && new Date(product.featuredUntil) > new Date()
               return (
                 <div key={product.id} className="card flex flex-col gap-3 p-3.5 lg:flex-row lg:items-center">
-                  <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${product.gradient}`}>
+                  <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br ${product.gradient}`}>
                     <div className="pattern-dots absolute inset-0 rounded-xl opacity-20" />
                     <span className="relative text-3xl drop-shadow">{product.emoji}</span>
+                    {product.imageUrl && (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.title}
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -607,6 +676,54 @@ export default function SellerStore() {
               className="input resize-none"
               placeholder="Mahsulot sifati, navi, yetkazib berish shartlari va boshqa ma'lumotlar..."
             />
+          </div>
+
+          <div>
+            <label className="label">Mahsulot rasmi *</label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+              <div className="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-xl border border-stone-200 bg-stone-50 sm:w-40">
+                {form.imageUrl ? (
+                  <img src={form.imageUrl} alt="Mahsulot rasmi" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-stone-400">
+                    <ImagePlus size={22} />
+                    <span className="text-[9px] font-semibold">Rasm yo'q</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <label
+                  className={`btn btn-secondary btn-sm cursor-pointer ${imageBusy ? 'pointer-events-none opacity-60' : ''}`}
+                >
+                  <Upload size={14} /> {imageBusy ? 'Yuklanmoqda...' : 'Rasm yuklash'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageFile}
+                    disabled={imageBusy}
+                  />
+                </label>
+                <input
+                  value={form.imageUrl.startsWith('data:') ? '' : form.imageUrl}
+                  onChange={(event) => setForm({ ...form, imageUrl: event.target.value.trim() })}
+                  className="input"
+                  placeholder="yoki rasm havolasi: https://..."
+                />
+                {form.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, imageUrl: '' })}
+                    className="text-[10px] font-bold text-rose-500 hover:underline"
+                  >
+                    Rasmni olib tashlash
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="mt-1 text-[10px] text-stone-400">
+              JPG, PNG yoki WEBP. Rasm mahsulot kartochkasi va sahifasida ko'rinadi.
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

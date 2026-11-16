@@ -38,6 +38,17 @@ export default function ProductCard({ product, compact = false }) {
           >
             {product.emoji}
           </span>
+          {product.imageUrl && (
+            <img
+              src={product.imageUrl}
+              alt={product.title}
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              onError={(event) => {
+                event.currentTarget.style.display = 'none'
+              }}
+            />
+          )}
         </Link>
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
           {product.featured && (

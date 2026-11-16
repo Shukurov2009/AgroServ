@@ -1,10 +1,13 @@
 import toast from 'react-hot-toast'
 import { Play, Trash2 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
+import { getVideoEmbed } from '../lib/format'
 
 export default function VideoCard({ video, onPlay, showDelete = false }) {
   const { currentUser, isAdmin, deleteVideo } = useStore()
   const canDelete = showDelete && (isAdmin || video.userId === currentUser?.id)
+  const source = getVideoEmbed(video.url)
+  const thumbnail = source?.thumbnail || (video.youtubeId ? `https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg` : '')
 
   async function handleDelete() {
     const result = await deleteVideo(video.id)
@@ -21,6 +24,17 @@ export default function VideoCard({ video, onPlay, showDelete = false }) {
         <span className="absolute inset-0 flex items-center justify-center text-6xl drop-shadow-lg transition-transform duration-500 group-hover:scale-110">
           {video.emoji}
         </span>
+        {thumbnail && (
+          <img
+            src={thumbnail}
+            alt={video.title}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            onError={(event) => {
+              event.currentTarget.style.display = 'none'
+            }}
+          />
+        )}
         <span className="absolute left-3 top-3 rounded-full bg-emerald-950/35 px-2 py-0.5 text-[9px] font-bold text-white backdrop-blur">
           {video.category}
         </span>

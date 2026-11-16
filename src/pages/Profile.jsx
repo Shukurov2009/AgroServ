@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
+  ArrowDownToLine,
   ArrowRight,
   BadgeCheck,
   Bot,
+  CreditCard,
   KeyRound,
   Lock,
   Mail,
@@ -32,6 +34,23 @@ const WALLET_LABELS = {
   refund: 'Qaytarish',
   refund_deduction: 'Qaytarish ayirmasi',
   admin_adjust: 'Admin tuzatishi',
+  withdrawal: 'Pul yechish',
+  withdrawal_refund: 'Yechish qaytarildi',
+}
+
+const WITHDRAWAL_STATUS = {
+  pending: { label: "Ko'rib chiqilmoqda", className: 'bg-amber-50 text-amber-700' },
+  approved: { label: "To'langan", className: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: 'Rad etilgan', className: 'bg-rose-50 text-rose-600' },
+  cancelled: { label: 'Bekor qilingan', className: 'bg-stone-100 text-stone-500' },
+}
+
+function formatCardInput(value = '') {
+  return String(value)
+    .replace(/\D/g, '')
+    .slice(0, 16)
+    .replace(/(.{4})/g, '$1 ')
+    .trim()
 }
 
 export default function Profile() {
@@ -41,7 +60,10 @@ export default function Profile() {
     changePassword,
     setSelfRole,
     walletTx,
+    withdrawals,
     transactions,
+    requestWithdrawal,
+    cancelWithdrawal,
     usedToday,
     aiRemaining,
   } = useStore()
@@ -56,9 +78,16 @@ export default function Profile() {
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
   const [role, setRole] = useState(currentUser.role)
   const [tab, setTab] = useState('profile')
+  const [withdrawForm, setWithdrawForm] = useState({
+    amount: '',
+    cardNumber: '',
+    cardHolder: currentUser.name,
+  })
+  const [withdrawing, setWithdrawing] = useState(false)
 
   const myWalletTx = walletTx.filter((entry) => entry.userId === currentUser.id)
   const myTransactions = transactions.filter((entry) => entry.userId === currentUser.id)
+  const myWithdrawals = withdrawals.filter((entry) => entry.userId === currentUser.id)
 
   async function saveProfile(event) {
     event.preventDefault()
@@ -85,6 +114,44 @@ export default function Profile() {
   async function saveRole() {
     const result = await setSelfRole(role)
     if (result.ok) toast.success(`Rol «${ROLES[role].label}» ga o'zgartirildi`)
+    else toast.error(result.error)
+  }
+
+  async function requestPayout(event) {
+    event.preventDefault()
+    const amount = Math.floor(Number(withdrawForm.amount) || 0)
+    if (amount < 1) {
+      toast.error("Kamida 1 so'm yechish mumkin")
+      return
+    }
+    if (amount > 100000000) {
+      toast.error("Bitta so'rovda maksimal 100 000 000 so'm. Kattaroq summani bo'lib yuboring.")
+      return
+    }
+    if (amount > (currentUser.wallet || 0)) {
+      toast.error("Hamyon balansida yetarli mablag' yo'q")
+      return
+    }
+    const digits = withdrawForm.cardNumber.replace(/\D/g, '')
+    if (digits.length !== 16) {
+      toast.error("Karta raqami 16 xonali bo'lishi kerak")
+      return
+    }
+    setWithdrawing(true)
+    const result = await requestWithdrawal(amount, digits, withdrawForm.cardHolder)
+    setWithdrawing(false)
+    if (result.ok) {
+      toast.success("Pul yechish so'rovi yuborildi. Admin tasdiqlagach kartangizga o'tkaziladi.")
+      setWithdrawForm({ amount: '', cardNumber: '', cardHolder: currentUser.name })
+    } else {
+      toast.error(result.error)
+    }
+  }
+
+  async function cancelPayout(withdrawal) {
+    if (!window.confirm(`${formatSom(withdrawal.amount)} yechish so'rovini bekor qilasizmi?`)) return
+    const result = await cancelWithdrawal(withdrawal.id)
+    if (result.ok) toast.success("So'rov bekor qilindi va pul hamyoningizga qaytarildi")
     else toast.error(result.error)
   }
 
@@ -321,6 +388,138 @@ export default function Profile() {
                       </p>
                     </div>
                   ))}
+                </div>
+
+                <div className="card p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
+                        <ArrowDownToLine size={16} className="text-emerald-600" /> Pul yechish
+                      </h2>
+                      <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-stone-500">
+                        1 so'mdan boshlab yechish mumkin. Bitta so'rovda maksimal 100 000 000 so'm.
+                        Kattaroq summani bir necha so'rovga bo'lib yuboring.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                      Mavjud: {formatSom(currentUser.wallet || 0)}
+                    </span>
+                  </div>
+
+                  <form onSubmit={requestPayout} className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="label">Summa (so'm) *</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100000000}
+                        value={withdrawForm.amount}
+                        onChange={(event) => setWithdrawForm({ ...withdrawForm, amount: event.target.value })}
+                        className="input"
+                        placeholder="100000"
+                        required
+                      />
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {[100000, 500000, 1000000].map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setWithdrawForm({ ...withdrawForm, amount: String(value) })}
+                            className="rounded-lg bg-stone-100 px-2 py-1 text-[9px] font-bold text-stone-600 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          >
+                            {formatSom(value)}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setWithdrawForm({
+                              ...withdrawForm,
+                              amount: String(Math.min(currentUser.wallet || 0, 100000000)),
+                            })
+                          }
+                          className="rounded-lg bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          Hammasi
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Karta raqami *</label>
+                      <div className="relative">
+                        <CreditCard size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <input
+                          inputMode="numeric"
+                          value={withdrawForm.cardNumber}
+                          onChange={(event) =>
+                            setWithdrawForm({ ...withdrawForm, cardNumber: formatCardInput(event.target.value) })
+                          }
+                          className="input pl-10"
+                          placeholder="8600 1234 5678 9012"
+                          maxLength={19}
+                          required
+                        />
+                      </div>
+                      <label className="label mt-2">Karta egasi</label>
+                      <input
+                        value={withdrawForm.cardHolder}
+                        onChange={(event) => setWithdrawForm({ ...withdrawForm, cardHolder: event.target.value })}
+                        className="input"
+                        placeholder="F.I.Sh."
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <button type="submit" className="btn btn-primary w-full" disabled={withdrawing}>
+                        <ArrowDownToLine size={15} />
+                        {withdrawing ? 'Yuborilmoqda...' : "Pul yechish so'rovini yuborish"}
+                      </button>
+                      <p className="mt-2 text-[10px] leading-relaxed text-stone-400">
+                        So'rov yuborilganda summa hamyondan ushlab turiladi. Admin tasdiqlagach kartangizga
+                        o'tkaziladi; rad etilsa summa hamyoningizga qaytariladi.
+                      </p>
+                    </div>
+                  </form>
+
+                  {myWithdrawals.length > 0 && (
+                    <div className="mt-4 border-t border-stone-100 pt-4">
+                      <h3 className="text-xs font-black text-emerald-950">Yechish so'rovlari</h3>
+                      <div className="mt-2 space-y-1.5">
+                        {myWithdrawals.map((entry) => {
+                          const status = WITHDRAWAL_STATUS[entry.status] || WITHDRAWAL_STATUS.pending
+                          return (
+                            <div
+                              key={entry.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-100 p-2.5"
+                            >
+                              <div>
+                                <p className="text-[11px] font-black text-emerald-950">{formatSom(entry.amount)}</p>
+                                <p className="text-[9px] text-stone-400">
+                                  •••• {String(entry.cardNumber).slice(-4)} · {formatDateTime(entry.createdAt)}
+                                </p>
+                                {entry.adminNote && (
+                                  <p className="mt-0.5 text-[9px] font-semibold text-rose-500">{entry.adminNote}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
+                                  {status.label}
+                                </span>
+                                {entry.status === 'pending' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => cancelPayout(entry)}
+                                    className="rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-600 hover:bg-rose-100"
+                                  >
+                                    Bekor qilish
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="card p-5">
