@@ -31,6 +31,21 @@ html {
   scroll-behavior: smooth;
 }
 
+html,
+body {
+  max-width: 100%;
+  /* Sahifa chetidan gorizontal siljishni butunlay yopadi (mobil overflow 0). */
+  overflow-x: clip;
+}
+
+/* Eski brauzerlar uchun zaxira: `clip` qo'llab-quvvatlanmasa hidden ishlatiladi. */
+@supports not (overflow: clip) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -40,6 +55,11 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-width: 0;
+  max-width: 100%;
 }
 
 ::selection {
@@ -63,7 +83,8 @@ a {
   text-decoration: none;
 }
 
-img {
+img,
+video {
   max-width: 100%;
 }
 
