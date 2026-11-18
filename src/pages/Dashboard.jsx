@@ -24,6 +24,7 @@ import { useStore } from '../context/StoreContext'
 import { ORDER_STATUS, ROLES, canSellProducts, canOfferServices } from '../lib/constants'
 import { formatDate, formatNumber, formatSom, initials } from '../lib/format'
 import StatCard from '../components/StatCard'
+import CourierPanel from '../components/CourierPanel'
 
 export default function Dashboard() {
   const {
@@ -186,6 +187,12 @@ export default function Dashboard() {
             <Link to="/buyurtmalar" className="text-[10px] font-black text-amber-800 underline">
               Savdolarni ko'rish →
             </Link>
+          </div>
+        )}
+
+        {currentUser.role === 'delivery' && (
+          <div className="mt-4">
+            <CourierPanel />
           </div>
         )}
 

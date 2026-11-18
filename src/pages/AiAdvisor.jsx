@@ -35,7 +35,9 @@ const ENGINE_NAMES = {
   openrouter: 'OpenRouter',
   openai: 'OpenAI',
   llm7: 'LLM7',
+  ovh: 'OVHcloud',
   pollinations: 'Pollinations',
+  cache: 'Tezkor javob',
 }
 
 function MessageText({ text, contactAdmin }) {

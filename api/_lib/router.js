@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { PLANS, SELF_ROLES, canSellProducts, canOfferServices, ROLE_DEFAULT_SERVICE_TYPE } from '../../src/lib/constants.js'
+import { PLANS, SELF_ROLES, canSellProducts, canOfferServices, ROLE_DEFAULT_SERVICE_TYPE, regionDistanceKm } from '../../src/lib/constants.js'
 import { getVideoEmbed } from '../../src/lib/format.js'
 import { query, withTransaction } from './db.js'
 import {
@@ -38,6 +38,7 @@ import {
   toMessage,
   toCard,
   toReview,
+  toBatch,
   settingsFromRows,
 } from './serialize.js'
 import {
@@ -45,6 +46,7 @@ import {
   consumePromo,
   releasePromo,
   creditOrderSellers,
+  completeOrderPaymentEffects,
   groupBySeller,
   sellerIncome,
   sellerFee,
@@ -52,19 +54,37 @@ import {
 } from './payments.js'
 import { emailConfigured, sendEmail, passwordResetEmail } from './email.js'
 import { generateAiReply, AI_UNAVAILABLE } from './ai.js'
+import { issueOtp, consumeOtp, testModeActive } from './otp.js'
+import { normalizePhone, isValidUzPhone, smsConfigured } from './sms.js'
+import {
+  assignOrderToCourier,
+  assignPendingOrders,
+  markBatchFull,
+  markBatchDelivered,
+  payBatch,
+  recalcBatch,
+  orderPayout,
+} from './couriers.js'
 
 const DEFAULT_SETTINGS = {
   siteName: 'AgroServ',
   supportPhone: '+998 71 200 00 00',
   supportEmail: 'salom@agroserv.uz',
   telegram: '@agroserv_uz',
+  adminTelegram: '@utkrvc09',
   commissionRate: 5,
   featuredPrice: 25000,
   deliveryFee: 20000,
   freeDeliveryFrom: 1000000,
+  deliveryBasePay: 10000,
+  deliveryRatePerKm: 1500,
   workingHours: 'Dushanba-Shanba, 09:00-19:00',
   manualPaymentNote:
     "To'lovni quyidagi kartaga o'tkazing va to'lov cheki/izohini buyurtma raqami bilan yuboring. Admin tasdiqlagach buyurtma faollashadi.",
+  smsEmail: '',
+  smsPassword: '',
+  smsFrom: '4546',
+  smsTestMode: true,
 }
 
 const ORDER_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'completed', 'cancelled']
@@ -88,8 +108,21 @@ function planForRow() {
 }
 
 function publicSettings(settings) {
-  const { aiApiKey, ...rest } = settings
-  return { ...rest, aiKeyConfigured: Boolean(aiApiKey) }
+  const { aiApiKey, smsPassword: _smsPassword, ...rest } = settings
+  return {
+    ...rest,
+    aiKeyConfigured: Boolean(aiApiKey),
+    aiEnvConfigured: Boolean(
+      process.env.GEMINI_API_KEY ||
+        process.env.GROQ_API_KEY ||
+        process.env.OPENROUTER_API_KEY ||
+        process.env.OPENAI_API_KEY ||
+        process.env.LLM7_API_KEY ||
+        process.env.POLLINATIONS_API_KEY,
+    ),
+    smsConfigured: smsConfigured(settings),
+    smsTestModeActive: testModeActive(settings),
+  }
 }
 
 async function loadSettings(client = null, { withSecrets = false } = {}) {
@@ -229,6 +262,11 @@ async function bootstrap(ctx) {
       (SELECT coalesce(sum(commission_amount),0) FROM orders WHERE status <> 'cancelled')::bigint AS commission`),
   ])
 
+  if (user && (admin || user.role === 'delivery')) {
+    const liveSettings = { ...DEFAULT_SETTINGS, ...settingsFromRows(settingsRows.rows) }
+    await withTransaction((client) => assignPendingOrders(client, liveSettings))
+  }
+
   let orders = []
   let transactions = []
   let cart = []
@@ -240,6 +278,7 @@ async function bootstrap(ctx) {
   let promoCodes = []
   let passwordResets = []
   let withdrawals = []
+  let courierBatches = []
   let aiCount = 0
 
   if (user) {
@@ -251,6 +290,7 @@ async function bootstrap(ctx) {
       applicationsResult,
       aiResult,
       withdrawalsResult,
+      courierBatchesResult,
     ] = await Promise.all([
         admin
           ? query(
@@ -289,6 +329,19 @@ async function bootstrap(ctx) {
                WHERE w.user_id = $1 ORDER BY w.created_at DESC`,
               [user.id],
             ),
+        admin
+          ? query(
+              `SELECT b.*, u.name AS courier_name FROM courier_batches b
+               JOIN users u ON u.id = b.courier_id ORDER BY b.created_at DESC`,
+            )
+          : user.role === 'delivery'
+            ? query(
+                `SELECT b.*, u.name AS courier_name FROM courier_batches b
+                 JOIN users u ON u.id = b.courier_id
+                 WHERE b.courier_id = $1 ORDER BY b.created_at DESC`,
+                [user.id],
+              )
+            : Promise.resolve({ rows: [] }),
       ])
     orders = ordersResult.rows
     transactions = transactionsResult.rows
@@ -296,6 +349,7 @@ async function bootstrap(ctx) {
     favorites = favoritesResult.rows
     applications = applicationsResult.rows
     withdrawals = withdrawalsResult.rows
+    courierBatches = courierBatchesResult.rows
     aiCount = aiResult.rows[0]?.count || 0
 
     if (admin) {
@@ -329,6 +383,9 @@ async function bootstrap(ctx) {
     'admin_adjust',
     'withdrawal',
     'withdrawal_refund',
+    'withdrawal_commission',
+    'delivery_payout',
+    'commission_deduction',
   ])
 
   return {
@@ -345,6 +402,7 @@ async function bootstrap(ctx) {
     orders: orders.map(toOrder),
     transactions: transactions.map(toTransaction),
     withdrawals: withdrawals.map(toWithdrawal),
+    courierBatches: courierBatches.map(toBatch),
     walletTx: transactions
       .filter((row) => walletTypes.has(row.type))
       .map((row) => ({
@@ -778,6 +836,7 @@ async function checkout(ctx) {
           price: Number(product.price),
           qty,
           unit: product.unit,
+          region: product.region || '',
           sellerId: product.seller_id,
           sellerName: product.seller_name,
           commissionRate: rate,
@@ -807,6 +866,7 @@ async function checkout(ctx) {
           price: Number(service.price),
           qty,
           unit: service.unit,
+          region: service.region || '',
           sellerId: service.user_id,
           sellerName: service.name,
           commissionRate: rate,
@@ -834,12 +894,27 @@ async function checkout(ctx) {
     const sellerIds = [...new Set(built.map((item) => item.sellerId).filter(Boolean))]
     const walletPaid = method === 'wallet'
 
+    const firstProduct = built.find((item) => item.type === 'product')
+    const pickupRegion = clean(info.pickupRegion || firstProduct?.region || '', 80)
+    const deliveryRegion = clean(info.region || info.deliveryRegion || userRow.region || '', 80)
+    const distanceKm = hasProducts ? regionDistanceKm(pickupRegion, deliveryRegion) : 0
+
     if (walletPaid && Number(userRow.wallet) < total) {
       throw new HttpError(
         400,
         "Hamyonda mablag' yetarli emas. Hamyonni to'ldiring yoki boshqa usulni tanlang.",
         'INSUFFICIENT_WALLET',
       )
+    }
+
+    const cardMethods = ['manual', 'payme', 'click']
+    if (cardMethods.includes(method) && userRow.card_number && userRow.card_phone) {
+      await consumeOtp(client, {
+        userId: userRow.id,
+        purpose: 'checkout',
+        otpId: body.otpId,
+        code: body.otpCode || body.code,
+      })
     }
 
     const number = await nextOrderNumber(client)
@@ -849,8 +924,9 @@ async function checkout(ctx) {
       `INSERT INTO orders
         (number, buyer_id, seller_id, seller_ids, type, status, payment_method, payment_status,
          subtotal, delivery_fee, discount, total, commission_rate, commission_amount,
+         pickup_region, delivery_region, distance_km,
          address, phone, note, items, promo_code, credited)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21::jsonb,$22,$23)
        RETURNING *`,
       [
         number,
@@ -867,6 +943,9 @@ async function checkout(ctx) {
         total,
         built[0]?.commissionRate || 0,
         commissionAmount,
+        pickupRegion || null,
+        deliveryRegion || null,
+        distanceKm,
         clean(info.address, 300),
         clean(info.phone, 40) || userRow.phone || '',
         clean(info.note, 500),
@@ -894,6 +973,10 @@ async function checkout(ctx) {
     }
 
     if (appliedPromo) await consumePromo(client, appliedPromo)
+
+    if (hasProducts && (walletPaid || method === 'cash')) {
+      await assignOrderToCourier(client, order.id, settings)
+    }
 
     let payment = null
     if (walletPaid) {
@@ -978,65 +1061,7 @@ async function updateOrderStatus(ctx) {
     const paymentMethod = order.payment_method
 
     if (status === 'completed') {
-      if (!order.credited) {
-        if (paymentMethod === 'cash') {
-          const groups = groupBySeller(items)
-          for (const [sellerId, sellerItems] of groups) {
-            const fee = sellerFee(sellerItems)
-            if (fee <= 0) continue
-            const updated = await client.query(
-              'UPDATE users SET wallet = wallet - $1, updated_at = now() WHERE id = $2 RETURNING wallet',
-              [fee, sellerId],
-            )
-            await client.query(
-              `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-               VALUES ($1,'commission_deduction',$2,$3,$4,$5,'cash','completed')`,
-              [
-                sellerId,
-                -fee,
-                Number(updated.rows[0]?.wallet || 0),
-                `${order.number} naqd savdo komissiyasi`,
-                order.id,
-              ],
-            )
-          }
-          if (Number(order.commission_amount || 0) > 0) {
-            await client.query(
-              `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-               VALUES ($1,'commission',$2,NULL,$3,$4,'cash','completed')`,
-              [
-                order.buyer_id,
-                Number(order.commission_amount || 0),
-                `${order.number} buyurtmasi bo'yicha komissiya`,
-                order.id,
-              ],
-            )
-          }
-          await client.query('UPDATE orders SET credited = true WHERE id = $1', [order.id])
-        } else {
-          await creditOrderSellers(client, order)
-        }
-      }
-      if (paymentMethod === 'cash' && order.payment_status !== 'paid') {
-        const existingPurchase = await client.query(
-          "SELECT 1 FROM transactions WHERE reference = $1 AND type = 'purchase' LIMIT 1",
-          [order.id],
-        )
-        if (existingPurchase.rowCount === 0) {
-          const buyer = await client.query('SELECT wallet FROM users WHERE id = $1', [order.buyer_id])
-          await client.query(
-            `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-             VALUES ($1,'purchase',$2,$3,$4,$5,'cash','completed')`,
-            [
-              order.buyer_id,
-              -Number(order.total),
-              Number(buyer.rows[0]?.wallet || 0),
-              `${order.number} naqd buyurtma to'lovi`,
-              order.id,
-            ],
-          )
-        }
-      }
+      await completeOrderPaymentEffects(client, order)
     }
 
     if (status === 'cancelled') {
@@ -1310,6 +1335,29 @@ async function consumeAi(ctx) {
   return consumeAiQuota(user)
 }
 
+async function peekAiQuota(user) {
+  const plan = planForRow(user)
+  if (plan.ai === Infinity) return { remaining: Infinity, limit: Infinity, used: 0 }
+  const { rows } = await query(
+    'SELECT count FROM ai_usage WHERE user_id = $1 AND day = CURRENT_DATE',
+    [user.id],
+  )
+  const used = rows[0]?.count || 0
+  return { remaining: Math.max(0, plan.ai - used), limit: plan.ai, used }
+}
+
+// Bir xil savol qayta kelganda provayder limitini sarflamaslik uchun kalit.
+function aiCacheKey(message) {
+  const normalized = String(message || '')
+    .toLowerCase()
+    .replace(/[‘’ʻ`´]/g, "'")
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (normalized.length < 8) return ''
+  return createHash('sha256').update(`v1:${normalized}`).digest('hex')
+}
+
 async function aiChat(ctx) {
   rateLimit(`ai-chat:${ctx.user.id}`, 12, 60_000)
 
@@ -1334,6 +1382,30 @@ async function aiChat(ctx) {
   const settings = await loadSettings(null, { withSecrets: true })
   const apiKey = settings.aiApiKey || ''
 
+  const hasHistory = Array.isArray(body.history) && body.history.length > 0
+  const cacheKey = !imageDataUrl && !hasHistory ? aiCacheKey(message) : ''
+
+  if (cacheKey) {
+    const cached = await query(
+      `UPDATE ai_cache SET hits = hits + 1, last_used_at = now()
+       WHERE cache_key = $1 AND created_at > now() - interval '60 days'
+       RETURNING *`,
+      [cacheKey],
+    )
+    if (cached.rows[0]) {
+      const quota = await peekAiQuota(user)
+      return {
+        reply: cached.rows[0].reply,
+        offTopic: false,
+        source: 'cache',
+        model: cached.rows[0].model || '',
+        provider: 'cache',
+        remaining: quota.remaining,
+        used: quota.used,
+      }
+    }
+  }
+
   const quota = await consumeAiQuota(user)
   let result
   try {
@@ -1354,12 +1426,25 @@ async function aiChat(ctx) {
     throw new HttpError(503, AI_UNAVAILABLE, 'AI_UNAVAILABLE')
   }
 
+  if (cacheKey && !result.offTopic && result.source !== 'guard') {
+    await query(
+      `INSERT INTO ai_cache (cache_key, question, reply, provider, model)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (cache_key) DO UPDATE
+         SET reply = EXCLUDED.reply,
+             provider = EXCLUDED.provider,
+             model = EXCLUDED.model,
+             last_used_at = now()`,
+      [cacheKey, message.slice(0, 500), result.reply, result.source, result.model || ''],
+    ).catch((error) => console.error('[ai] kesh yozilmadi:', error.message))
+  }
+
   return {
     reply: result.reply,
     offTopic: Boolean(result.offTopic),
     source: result.source,
     model: result.model || '',
-    provider: ['gemini', 'groq', 'openrouter', 'openai', 'llm7', 'pollinations'].includes(
+    provider: ['gemini', 'groq', 'openrouter', 'openai', 'llm7', 'ovh', 'pollinations', 'cache'].includes(
       result.source,
     )
       ? result.source
@@ -1810,18 +1895,34 @@ async function updateSettings(ctx) {
     'supportPhone',
     'supportEmail',
     'telegram',
+    'adminTelegram',
     'commissionRate',
     'featuredPrice',
     'deliveryFee',
     'freeDeliveryFrom',
+    'deliveryBasePay',
+    'deliveryRatePerKm',
     'workingHours',
     'manualPaymentNote',
     'aiApiKey',
+    'smsEmail',
+    'smsPassword',
+    'smsFrom',
+    'smsTestMode',
   ]
-  const numeric = new Set(['commissionRate', 'featuredPrice', 'deliveryFee', 'freeDeliveryFrom'])
+  const numeric = new Set([
+    'commissionRate',
+    'featuredPrice',
+    'deliveryFee',
+    'freeDeliveryFrom',
+    'deliveryBasePay',
+    'deliveryRatePerKm',
+  ])
+  const secrets = new Set(['aiApiKey', 'smsPassword'])
+  const booleans = new Set(['smsTestMode'])
   for (const key of allowed) {
     if (body[key] === undefined) continue
-    if (key === 'aiApiKey') {
+    if (secrets.has(key)) {
       const value = clean(body[key], 300)
       if (value) {
         await query(
@@ -1834,7 +1935,12 @@ async function updateSettings(ctx) {
       }
       continue
     }
-    const value = numeric.has(key) ? Math.max(0, Number(body[key]) || 0) : clean(body[key], 500)
+    let value
+    if (booleans.has(key)) {
+      value = body[key] === true || body[key] === 'true' || body[key] === 1 || body[key] === '1'
+    } else {
+      value = numeric.has(key) ? Math.max(0, Number(body[key]) || 0) : clean(body[key], 500)
+    }
     await query(
       `INSERT INTO settings (key, value) VALUES ($1, $2::jsonb)
        ON CONFLICT (key) DO UPDATE SET value = $2::jsonb`,
@@ -1869,25 +1975,79 @@ async function adminSetRole(ctx) {
 async function adminAssignCourier(ctx) {
   const body = await readBody(ctx.req)
   const courierId = body.courierId ? String(body.courierId) : null
-  if (courierId) {
-    const courier = await query(
-      "SELECT id FROM users WHERE id = $1 AND role = 'delivery' AND status = 'active'",
-      [courierId],
-    )
-    if (!courier.rows[0]) {
-      throw new HttpError(400, "Yetkazib beruvchi topilmadi yoki bloklangan", 'COURIER_NOT_FOUND')
+  const settings = await loadSettings(null, { withSecrets: true })
+
+  return withTransaction(async (client) => {
+    const orderResult = await client.query('SELECT * FROM orders WHERE id = $1 FOR UPDATE', [ctx.params.id])
+    const order = orderResult.rows[0]
+    if (!order) throw new HttpError(404, 'Buyurtma topilmadi', 'ORDER_NOT_FOUND')
+    if (order.type !== 'product') {
+      throw new HttpError(400, "Xizmat buyurtmasiga haydovchi biriktirilmaydi", 'NOT_DELIVERABLE')
     }
-  }
-  const { rows } = await query(
-    'UPDATE orders SET courier_id = $1, updated_at = now() WHERE id = $2 RETURNING id',
-    [courierId, ctx.params.id],
-  )
-  if (!rows[0]) throw new HttpError(404, 'Buyurtma topilmadi', 'ORDER_NOT_FOUND')
-  const full = await query(
-    'SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id WHERE o.id = $1',
-    [ctx.params.id],
-  )
-  return { order: toOrder(full.rows[0]) }
+
+    const oldBatchId = order.courier_batch_id
+
+    if (!courierId) {
+      await client.query(
+        `UPDATE orders SET courier_id = NULL, courier_batch_id = NULL, courier_payout = 0, updated_at = now()
+         WHERE id = $1`,
+        [order.id],
+      )
+      if (oldBatchId) await recalcBatch(client, oldBatchId)
+    } else {
+      const courierResult = await client.query(
+        "SELECT * FROM users WHERE id = $1 AND role = 'delivery' AND status = 'active' FOR UPDATE",
+        [courierId],
+      )
+      const courier = courierResult.rows[0]
+      if (!courier) {
+        throw new HttpError(400, "Yetkazib beruvchi topilmadi yoki bloklangan", 'COURIER_NOT_FOUND')
+      }
+      if (courier.delivery_status === 'delivering') {
+        throw new HttpError(
+          400,
+          "Haydovchi hozir yo'lda. Boshqa haydovchi tanlang yoki yetkazish tugashini kuting.",
+          'COURIER_DELIVERING',
+        )
+      }
+
+      let batchResult = await client.query(
+        `SELECT * FROM courier_batches
+         WHERE courier_id = $1 AND status = 'loading'
+         ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        [courierId],
+      )
+      let batch = batchResult.rows[0]
+      if (!batch) {
+        const created = await client.query(
+          'INSERT INTO courier_batches (courier_id) VALUES ($1) RETURNING *',
+          [courierId],
+        )
+        batch = created.rows[0]
+      }
+      if (courier.delivery_status !== 'loading') {
+        await client.query(
+          "UPDATE users SET delivery_status = 'loading', delivery_queue_at = now(), updated_at = now() WHERE id = $1",
+          [courierId],
+        )
+      }
+
+      await client.query(
+        `UPDATE orders
+         SET courier_id = $1, courier_batch_id = $2, courier_payout = $3, updated_at = now()
+         WHERE id = $4`,
+        [courierId, batch.id, orderPayout(settings, order.distance_km), order.id],
+      )
+      await recalcBatch(client, batch.id)
+      if (oldBatchId && oldBatchId !== batch.id) await recalcBatch(client, oldBatchId)
+    }
+
+    const full = await client.query(
+      'SELECT o.*, b.name AS buyer_name FROM orders o JOIN users b ON b.id = o.buyer_id WHERE o.id = $1',
+      [ctx.params.id],
+    )
+    return { order: toOrder(full.rows[0]) }
+  })
 }
 
 async function adminToggleUser(ctx) {
@@ -1932,10 +2092,100 @@ function normalizeCardNumber(value = '') {
   return String(value || '').replace(/\D/g, '')
 }
 
+const WITHDRAWAL_COMMISSION_RATE = 5
+const OTP_PURPOSES = new Set(['card_link', 'card_unlink', 'withdrawal', 'checkout'])
+
+async function sendOtp(ctx) {
+  const body = await readBody(ctx.req)
+  const purpose = clean(body.purpose, 40)
+  if (!OTP_PURPOSES.has(purpose)) {
+    throw new HttpError(400, "Tasdiqlash maqsadi noto'g'ri", 'BAD_PURPOSE')
+  }
+  rateLimit(`otp:${ctx.user.id}`, 20, 60 * 60 * 1000)
+
+  let phone = ''
+  if (purpose === 'card_link') {
+    phone = normalizePhone(body.phone)
+    if (!isValidUzPhone(phone)) {
+      throw new HttpError(400, "Telefon raqami noto'g'ri. Masalan: +998 90 123 45 67", 'BAD_PHONE')
+    }
+  } else {
+    if (!ctx.user.card_phone) {
+      throw new HttpError(400, "Avval kartani ulang va SMS bilan tasdiqlang", 'CARD_NOT_LINKED')
+    }
+    phone = normalizePhone(ctx.user.card_phone)
+  }
+
+  const settings = await loadSettings(null, { withSecrets: true })
+  const result = await issueOtp(
+    { query },
+    { userId: ctx.user.id, purpose, phone, settings },
+  )
+  return { ...result, phoneLast4: phone.slice(-4) }
+}
+
+async function linkCard(ctx) {
+  const body = await readBody(ctx.req)
+  const cardNumber = normalizeCardNumber(body.cardNumber)
+  const holder = clean(body.cardHolder, 100)
+  const phone = normalizePhone(body.phone)
+  if (cardNumber.length !== 16) {
+    throw new HttpError(400, "Karta raqami 16 xonali bo'lishi kerak", 'BAD_CARD')
+  }
+  if (holder.length < 3) {
+    throw new HttpError(400, "Karta egasining ismini kiriting", 'BAD_HOLDER')
+  }
+  if (!isValidUzPhone(phone)) {
+    throw new HttpError(400, "Kartaga ulangan telefon raqamini to'g'ri kiriting", 'BAD_PHONE')
+  }
+
+  return withTransaction(async (client) => {
+    const otp = await consumeOtp(client, {
+      userId: ctx.user.id,
+      purpose: 'card_link',
+      otpId: body.otpId,
+      code: body.code,
+    })
+    if (normalizePhone(otp.phone) !== phone) {
+      throw new HttpError(400, "Kod boshqa telefon raqamiga yuborilgan", 'OTP_PHONE_MISMATCH')
+    }
+    const { rows } = await client.query(
+      `UPDATE users
+       SET card_number = $1, card_holder = $2, card_phone = $3,
+           card_linked_at = now(), updated_at = now()
+       WHERE id = $4 RETURNING *`,
+      [cardNumber, holder, phone, ctx.user.id],
+    )
+    return { user: toUser(rows[0], { self: true }) }
+  })
+}
+
+async function unlinkCard(ctx) {
+  const body = await readBody(ctx.req)
+  return withTransaction(async (client) => {
+    if (!ctx.user.card_phone) {
+      throw new HttpError(400, 'Ulangan karta yo‘q', 'CARD_NOT_LINKED')
+    }
+    await consumeOtp(client, {
+      userId: ctx.user.id,
+      purpose: 'card_unlink',
+      otpId: body.otpId,
+      code: body.code,
+    })
+    const { rows } = await client.query(
+      `UPDATE users
+       SET card_number = NULL, card_holder = NULL, card_phone = NULL,
+           card_linked_at = NULL, updated_at = now()
+       WHERE id = $1 RETURNING *`,
+      [ctx.user.id],
+    )
+    return { user: toUser(rows[0], { self: true }) }
+  })
+}
+
 async function createWithdrawal(ctx) {
   const body = await readBody(ctx.req)
   const amount = Math.round(Number(body.amount) || 0)
-  const cardNumber = normalizeCardNumber(body.cardNumber)
 
   if (amount < 1) throw new HttpError(400, "Kamida 1 so'm yechish mumkin", 'BAD_AMOUNT')
   if (amount > MAX_WITHDRAWAL) {
@@ -1945,24 +2195,44 @@ async function createWithdrawal(ctx) {
       'WITHDRAWAL_LIMIT',
     )
   }
-  if (cardNumber.length !== 16) {
-    throw new HttpError(400, "Karta raqami 16 xonali bo'lishi kerak", 'BAD_CARD')
-  }
 
   return withTransaction(async (client) => {
     const userResult = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [ctx.user.id])
     const user = userResult.rows[0]
     if (!user) throw new HttpError(404, 'Foydalanuvchi topilmadi', 'USER_NOT_FOUND')
+    if (!user.card_number || !user.card_phone) {
+      throw new HttpError(400, "Avval kartani ulang va SMS bilan tasdiqlang", 'CARD_NOT_LINKED')
+    }
     if (Number(user.wallet) < amount) {
       throw new HttpError(400, "Hamyon balansida yetarli mablag' yo'q", 'INSUFFICIENT_WALLET')
     }
 
+    await consumeOtp(client, {
+      userId: user.id,
+      purpose: 'withdrawal',
+      otpId: body.otpId,
+      code: body.code,
+    })
+
+    const commission = Math.round((amount * WITHDRAWAL_COMMISSION_RATE) / 100)
+    const netAmount = amount - commission
     const id = randomUUID()
-    const holder = clean(body.cardHolder, 100) || user.name
+
     await client.query(
-      `INSERT INTO withdrawals (id, user_id, amount, card_number, card_holder)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [id, user.id, amount, cardNumber, holder],
+      `INSERT INTO withdrawals
+        (id, user_id, amount, commission, net_amount, phone, card_number, card_holder,
+         status, auto_approved, reviewed_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'approved',true,now())`,
+      [
+        id,
+        user.id,
+        amount,
+        commission,
+        netAmount,
+        user.card_phone,
+        user.card_number,
+        user.card_holder || user.name,
+      ],
     )
 
     const updated = await client.query(
@@ -1977,123 +2247,52 @@ async function createWithdrawal(ctx) {
     const balance = Number(updated.rows[0].wallet)
     await client.query(
       `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-       VALUES ($1,'withdrawal',$2,$3,$4,$5,'manual','pending')`,
-      [user.id, -amount, balance, `Pul yechish so'rovi · ${cardNumber.slice(-4)}`, id],
-    )
-
-    const row = await client.query('SELECT * FROM withdrawals WHERE id = $1', [id])
-    return {
-      withdrawal: toWithdrawal({ ...row.rows[0], user_name: user.name }),
-      wallet: balance,
-    }
-  })
-}
-
-async function cancelWithdrawal(ctx) {
-  return withTransaction(async (client) => {
-    const result = await client.query(
-      'SELECT * FROM withdrawals WHERE id = $1 AND user_id = $2 FOR UPDATE',
-      [ctx.params.id, ctx.user.id],
-    )
-    const withdrawal = result.rows[0]
-    if (!withdrawal) throw new HttpError(404, "So'rov topilmadi", 'WITHDRAWAL_NOT_FOUND')
-    if (withdrawal.status !== 'pending') {
-      throw new HttpError(400, "Faqat kutilayotgan so'rovni bekor qilish mumkin", 'BAD_STATUS')
-    }
-
-    await client.query("UPDATE withdrawals SET status = 'cancelled' WHERE id = $1", [withdrawal.id])
-    const updated = await client.query(
-      'UPDATE users SET wallet = wallet + $1, updated_at = now() WHERE id = $2 RETURNING wallet',
-      [withdrawal.amount, withdrawal.user_id],
-    )
-    const balance = Number(updated.rows[0].wallet)
-    await client.query(
-      `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-       VALUES ($1,'withdrawal_refund',$2,$3,$4,$5,'wallet','completed')`,
-      [withdrawal.user_id, withdrawal.amount, balance, 'Pul yechish so\'rovi bekor qilindi', withdrawal.id],
-    )
-    await client.query(
-      "UPDATE transactions SET status = 'cancelled' WHERE reference = $1 AND type = 'withdrawal'",
-      [withdrawal.id],
-    )
-
-    const row = await client.query(
-      'SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.id = $1',
-      [withdrawal.id],
-    )
-    return { withdrawal: toWithdrawal(row.rows[0]), wallet: balance }
-  })
-}
-
-async function adminApproveWithdrawal(ctx) {
-  return withTransaction(async (client) => {
-    const result = await client.query('SELECT * FROM withdrawals WHERE id = $1 FOR UPDATE', [ctx.params.id])
-    const withdrawal = result.rows[0]
-    if (!withdrawal) throw new HttpError(404, "So'rov topilmadi", 'WITHDRAWAL_NOT_FOUND')
-    if (withdrawal.status !== 'pending') {
-      throw new HttpError(400, "Bu so'rov allaqachon ko'rib chiqilgan", 'BAD_STATUS')
-    }
-
-    await client.query(
-      `UPDATE withdrawals SET status = 'approved', reviewed_by = $1, reviewed_at = now()
-       WHERE id = $2`,
-      [ctx.user.id, withdrawal.id],
-    )
-    await client.query(
-      "UPDATE transactions SET status = 'completed' WHERE reference = $1 AND type = 'withdrawal'",
-      [withdrawal.id],
-    )
-
-    const row = await client.query(
-      'SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.id = $1',
-      [withdrawal.id],
-    )
-    return { withdrawal: toWithdrawal(row.rows[0]) }
-  })
-}
-
-async function adminRejectWithdrawal(ctx) {
-  const body = await readBody(ctx.req)
-  return withTransaction(async (client) => {
-    const result = await client.query('SELECT * FROM withdrawals WHERE id = $1 FOR UPDATE', [ctx.params.id])
-    const withdrawal = result.rows[0]
-    if (!withdrawal) throw new HttpError(404, "So'rov topilmadi", 'WITHDRAWAL_NOT_FOUND')
-    if (withdrawal.status !== 'pending') {
-      throw new HttpError(400, "Bu so'rov allaqachon ko'rib chiqilgan", 'BAD_STATUS')
-    }
-
-    const note = clean(body.note, 300)
-    await client.query(
-      `UPDATE withdrawals SET status = 'rejected', admin_note = $1, reviewed_by = $2, reviewed_at = now()
-       WHERE id = $3`,
-      [note, ctx.user.id, withdrawal.id],
-    )
-    const updated = await client.query(
-      'UPDATE users SET wallet = wallet + $1, updated_at = now() WHERE id = $2 RETURNING wallet',
-      [withdrawal.amount, withdrawal.user_id],
-    )
-    const balance = Number(updated.rows[0].wallet)
-    await client.query(
-      `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
-       VALUES ($1,'withdrawal_refund',$2,$3,$4,$5,'wallet','completed')`,
+       VALUES ($1,'withdrawal',$2,$3,$4,$5,'auto','completed')`,
       [
-        withdrawal.user_id,
-        withdrawal.amount,
+        user.id,
+        -amount,
         balance,
-        note ? `Pul yechish rad etildi: ${note}` : 'Pul yechish so\'rovi rad etildi',
-        withdrawal.id,
+        `Pul yechish · •••• ${String(user.card_number).slice(-4)} · komissiya ${commission} so'm`,
+        id,
       ],
     )
-    await client.query(
-      "UPDATE transactions SET status = 'rejected' WHERE reference = $1 AND type = 'withdrawal'",
-      [withdrawal.id],
-    )
+
+    if (commission > 0) {
+      const adminResult = await client.query(
+        `SELECT id FROM users
+         WHERE role = 'admin' AND status = 'active'
+         ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+      )
+      const admin = adminResult.rows[0]
+      if (admin) {
+        const adminUpdated = await client.query(
+          'UPDATE users SET wallet = wallet + $1, updated_at = now() WHERE id = $2 RETURNING wallet',
+          [commission, admin.id],
+        )
+        await client.query(
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+           VALUES ($1,'withdrawal_commission',$2,$3,$4,$5,'system','completed')`,
+          [
+            admin.id,
+            commission,
+            Number(adminUpdated.rows[0]?.wallet || 0),
+            `Pul yechish komissiyasi (${amount} so'mdan 5%)`,
+            id,
+          ],
+        )
+      }
+    }
 
     const row = await client.query(
       'SELECT w.*, u.name AS user_name FROM withdrawals w JOIN users u ON u.id = w.user_id WHERE w.id = $1',
-      [withdrawal.id],
+      [id],
     )
-    return { withdrawal: toWithdrawal(row.rows[0]), wallet: balance }
+    return {
+      withdrawal: toWithdrawal(row.rows[0]),
+      wallet: balance,
+      commission,
+      netAmount,
+    }
   })
 }
 
@@ -2113,11 +2312,30 @@ async function adminSetPassword(ctx) {
 }
 
 async function confirmPayment(ctx) {
+  const settings = await loadSettings(null, { withSecrets: true })
   const result = await withTransaction(async (client) => {
     const payment = await applyPaidPayment(client, ctx.params.id, 'admin')
+    await assignPendingOrders(client, settings)
     return { payment: toPayment(payment) }
   })
   return result
+}
+
+async function courierMarkFull(ctx) {
+  const settings = await loadSettings(null, { withSecrets: true })
+  const result = await withTransaction((client) => markBatchFull(client, ctx.user.id, settings))
+  return { ...result, batch: toBatch(result.batch) }
+}
+
+async function courierMarkDelivered(ctx) {
+  const settings = await loadSettings(null, { withSecrets: true })
+  const result = await withTransaction((client) => markBatchDelivered(client, ctx.user.id, settings))
+  return { ...result, batch: toBatch(result.batch) }
+}
+
+async function adminPayBatch(ctx) {
+  const batch = await withTransaction((client) => payBatch(client, ctx.params.id))
+  return { batch: toBatch(batch) }
 }
 
 async function cancelPayment(ctx) {
@@ -2263,7 +2481,9 @@ async function paymeWebhook(ctx) {
           params.id,
         ])
         if (!payment.rows[0]) return paymeError(res, id, -31001, 'Transaction not found')
+        const settings = await loadSettings(client, { withSecrets: true })
         const paid = await applyPaidPayment(client, payment.rows[0].id, params.id)
+        await assignPendingOrders(client, settings)
         return send(res, 200, {
           jsonrpc: '2.0',
           id,
@@ -2401,6 +2621,8 @@ async function clickWebhook(ctx, action) {
           return reply(-9, 'Cancelled by Click')
         }
         await applyPaidPayment(client, paymentId, body.click_trans_id)
+        const settings = await loadSettings(client, { withSecrets: true })
+        await assignPendingOrders(client, settings)
         return reply(0, 'Success', {
           merchant_trans_id: paymentId,
           click_trans_id: body.click_trans_id,
@@ -2478,6 +2700,9 @@ route('POST', '/auth/password-reset/confirm', confirmPasswordReset, { public: tr
 route('POST', '/auth/change-password', changePassword)
 route('PATCH', '/profile', updateProfile)
 route('POST', '/profile/role', setSelfRole)
+route('POST', '/profile/card', linkCard)
+route('POST', '/profile/card/unlink', unlinkCard)
+route('POST', '/otp/send', sendOtp)
 
 // User
 route('POST', '/cart', addToCart)
@@ -2499,7 +2724,8 @@ route('PATCH', '/orders/:id/status', updateOrderStatus)
 route('POST', '/plans/purchase', plansRemoved)
 route('POST', '/wallet/topup', topUpWallet)
 route('POST', '/withdrawals', createWithdrawal)
-route('POST', '/withdrawals/:id/cancel', cancelWithdrawal)
+route('POST', '/courier/batch/full', courierMarkFull)
+route('POST', '/courier/batch/delivered', courierMarkDelivered)
 route('POST', '/products/:id/promote', promoteProduct)
 route('POST', '/ai/consume', consumeAi)
 route('POST', '/ai/chat', aiChat)
@@ -2538,8 +2764,7 @@ route('PATCH', '/admin/users/:id/role', adminSetRole, { admin: true })
 route('PATCH', '/admin/orders/:id/courier', adminAssignCourier, { admin: true })
 route('PATCH', '/admin/users/:id/status', adminToggleUser, { admin: true })
 route('POST', '/admin/users/:id/wallet', adminAdjustWallet, { admin: true })
-route('POST', '/admin/withdrawals/:id/approve', adminApproveWithdrawal, { admin: true })
-route('POST', '/admin/withdrawals/:id/reject', adminRejectWithdrawal, { admin: true })
+route('POST', '/admin/courier-batches/:id/pay', adminPayBatch, { admin: true })
 route('POST', '/admin/users/:id/password', adminSetPassword, { admin: true })
 route('POST', '/admin/payments/:id/confirm', confirmPayment, { admin: true })
 route('POST', '/admin/payments/:id/cancel', cancelPayment, { admin: true })

@@ -22,6 +22,7 @@ import { useStore } from '../context/StoreContext'
 import { REGIONS } from '../lib/constants'
 import { formatNumber, formatSom, maskCard } from '../lib/format'
 import EmptyState from '../components/EmptyState'
+import OtpModal from '../components/OtpModal'
 
 const TOPUP_AMOUNTS = [50000, 100000, 250000, 500000, 1000000]
 
@@ -68,6 +69,8 @@ export default function Checkout() {
   const [topupAmount, setTopupAmount] = useState(Number(config.amount) || 100000)
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(null)
+  const [otpOpen, setOtpOpen] = useState(false)
+  const [pendingPayload, setPendingPayload] = useState(null)
 
   const directProduct = useMemo(() => {
     if (type !== 'direct' || !config.item) return null
@@ -151,6 +154,8 @@ export default function Checkout() {
   const insufficientWallet = method === 'wallet' && walletBalance < total
   const isOrder = ['cart', 'direct', 'service'].includes(type)
   const activeCards = cards.filter((card) => card.active)
+  const needsCheckoutOtp =
+    isOrder && ['manual', 'payme', 'click'].includes(method) && Boolean(currentUser?.hasCard)
 
   async function handlePromo(event) {
     event.preventDefault()
@@ -188,6 +193,51 @@ export default function Checkout() {
     return rows
   }
 
+  function applyOrderSuccess(result) {
+    const order = result.order
+    const pending = order?.paymentStatus === 'pending'
+    setSuccess({
+      kind: 'order',
+      pending,
+      title: pending ? 'Buyurtma qabul qilindi' : 'Buyurtma rasmiylashtirildi!',
+      message:
+        method === 'cash'
+          ? "Buyurtma yaratildi. To'lov yetkazib berishda naqd amalga oshiriladi."
+          : method === 'manual'
+            ? "Buyurtma yaratildi. Quyidagi kartaga to'lov qiling — admin tasdiqlagach buyurtma faollashadi."
+            : "To'lov muvaffaqiyatli amalga oshirildi. Sotuvchi tez orada bog'lanadi.",
+      rows: [
+        ['Buyurtma raqami', order.number],
+        ['Mahsulotlar', `${orderLines.length} xil tur`],
+        ['Jami summa', formatSom(order.total)],
+        ['To\'lov usuli', PAYMENT_LABELS[method]],
+        ...(pending && method === 'manual'
+          ? [['To\'lov izohi', `Buyurtma: ${order.number}`], ['Holat', 'Admin tasdig‘i kutilmoqda']]
+          : []),
+      ],
+    })
+  }
+
+  async function confirmCheckout(code, otpId) {
+    if (!pendingPayload) return { ok: false, error: 'Buyurtma ma’lumotlari topilmadi' }
+    setSubmitting(true)
+    const result = await checkout({ ...pendingPayload, otpId, otpCode: code })
+    setSubmitting(false)
+    if (!result.ok) {
+      toast.error(result.error || 'To‘lovni amalga oshirib bo‘lmadi')
+      return result
+    }
+    const payment = result.payment
+    if (payment?.redirectUrl) {
+      window.location.assign(payment.redirectUrl)
+      return result
+    }
+    setOtpOpen(false)
+    setPendingPayload(null)
+    applyOrderSuccess(result)
+    return result
+  }
+
   async function handleSubmit(event) {
     event.preventDefault()
 
@@ -210,17 +260,27 @@ export default function Checkout() {
       return
     }
 
-    setSubmitting(true)
-    let result
-    try {
-      if (isOrder) {
-        result = await checkout({
+    const payload = isOrder
+      ? {
           items: orderLines.map((line) => ({ type: line.type, refId: line.refId, qty: line.qty })),
           info,
           method,
           promoCode: promoInfo?.code || '',
           clearCartAfter: type === 'cart',
-        })
+        }
+      : null
+
+    if (needsCheckoutOtp) {
+      setPendingPayload(payload)
+      setOtpOpen(true)
+      return
+    }
+
+    setSubmitting(true)
+    let result
+    try {
+      if (isOrder) {
+        result = await checkout(payload)
       } else if (type === 'topup') {
         result = await topUp(topupAmount, method)
       } else if (type === 'feature') {
@@ -288,28 +348,7 @@ export default function Checkout() {
       return
     }
 
-    const order = result.order
-    const pending = order?.paymentStatus === 'pending'
-    setSuccess({
-      kind: 'order',
-      pending,
-      title: pending ? 'Buyurtma qabul qilindi' : 'Buyurtma rasmiylashtirildi!',
-      message:
-        method === 'cash'
-          ? "Buyurtma yaratildi. To'lov yetkazib berishda naqd amalga oshiriladi."
-          : method === 'manual'
-            ? "Buyurtma yaratildi. Quyidagi kartaga to'lov qiling — admin tasdiqlagach buyurtma faollashadi."
-            : "To'lov muvaffaqiyatli amalga oshirildi. Sotuvchi tez orada bog'lanadi.",
-      rows: [
-        ['Buyurtma raqami', order.number],
-        ['Mahsulotlar', `${orderLines.length} xil tur`],
-        ['Jami summa', formatSom(order.total)],
-        ['To\'lov usuli', PAYMENT_LABELS[method]],
-        ...(pending && method === 'manual'
-          ? [['To\'lov izohi', `Buyurtma: ${order.number}`], ['Holat', 'Admin tasdig‘i kutilmoqda']]
-          : []),
-      ],
-    })
+    applyOrderSuccess(result)
   }
 
   if (success) {
@@ -621,6 +660,17 @@ export default function Checkout() {
                 })}
               </div>
 
+              {needsCheckoutOtp && (
+                <div className="mt-4 flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-[11px] leading-relaxed text-emerald-800">
+                  <ShieldCheck size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    To'lovni tasdiqlash uchun kartaga ulangan{' '}
+                    <span className="font-black">{currentUser?.cardPhoneMasked || 'telefon'}</span> raqamiga
+                    6 xonali SMS kod yuboriladi.
+                  </span>
+                </div>
+              )}
+
               {method === 'manual' && (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                   <p className="flex items-center gap-1.5 text-[11px] font-black text-amber-900">
@@ -820,7 +870,7 @@ export default function Checkout() {
                   </>
                 ) : (
                   <>
-                    <Lock size={15} /> To'lovni tasdiqlash
+                    <Lock size={15} /> {needsCheckoutOtp ? 'SMS kod bilan tasdiqlash' : "To'lovni tasdiqlash"}
                   </>
                 )}
               </button>
@@ -848,6 +898,19 @@ export default function Checkout() {
           </div>
         </form>
       </div>
+
+      <OtpModal
+        open={otpOpen}
+        onClose={() => {
+          setOtpOpen(false)
+          setPendingPayload(null)
+        }}
+        purpose="checkout"
+        title="To'lovni SMS bilan tasdiqlash"
+        subtitle={`Kartaga ulangan ${currentUser?.cardPhoneMasked || 'telefon'} raqamiga 6 xonali kod yuborildi.`}
+        confirmLabel="To'lovni tasdiqlash"
+        onConfirm={confirmCheckout}
+      />
     </div>
   )
 }

@@ -190,6 +190,78 @@ CREATE TABLE IF NOT EXISTS withdrawals (
 CREATE INDEX IF NOT EXISTS withdrawals_user_idx ON withdrawals(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS withdrawals_status_idx ON withdrawals(status, created_at DESC);
 
+-- To'lov kartasi bir marta ulanadi va pul shu kartaga tushadi.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS card_number text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS card_holder text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS card_phone text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS card_linked_at timestamptz;
+
+-- Yetkazib beruvchilar navbati.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS delivery_status text NOT NULL DEFAULT 'idle';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS delivery_queue_at timestamptz NOT NULL DEFAULT now();
+
+-- Buyurtma marshruti va kuryer hisob-kitobi.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS pickup_region text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_region text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS distance_km numeric(10,2);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_batch_id uuid;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_payout bigint NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at timestamptz;
+
+-- Har bir yuklash sikli (mashina to'ldi -> topshirildi) alohida partiya.
+CREATE TABLE IF NOT EXISTS courier_batches (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  courier_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'loading' CHECK (status IN ('loading','delivering','delivered','cancelled')),
+  order_count integer NOT NULL DEFAULT 0,
+  total_amount bigint NOT NULL DEFAULT 0,
+  total_distance numeric(10,2) NOT NULL DEFAULT 0,
+  payout bigint NOT NULL DEFAULT 0,
+  paid boolean NOT NULL DEFAULT false,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  full_at timestamptz,
+  delivered_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS courier_batches_courier_idx ON courier_batches(courier_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS courier_batches_status_idx ON courier_batches(status, created_at DESC);
+
+-- SMS orqali tasdiqlash kodlari.
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  purpose text NOT NULL,
+  phone text NOT NULL,
+  code_hash text NOT NULL,
+  attempts integer NOT NULL DEFAULT 0,
+  consumed_at timestamptz,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS otp_codes_user_idx ON otp_codes(user_id, purpose, created_at DESC);
+
+-- Takroriy AI savollari uchun javob keshi (provayder limitini tejaydi).
+CREATE TABLE IF NOT EXISTS ai_cache (
+  cache_key text PRIMARY KEY,
+  question text NOT NULL,
+  reply text NOT NULL,
+  provider text,
+  model text,
+  hits integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_used_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ai_cache_last_used_idx ON ai_cache(last_used_at DESC);
+
+ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS commission bigint NOT NULL DEFAULT 0;
+ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS net_amount bigint;
+ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS auto_approved boolean NOT NULL DEFAULT false;
+
+
 CREATE TABLE IF NOT EXISTS payments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,

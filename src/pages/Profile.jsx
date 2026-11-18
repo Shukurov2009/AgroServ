@@ -11,6 +11,7 @@ import {
   Lock,
   Mail,
   MapPin,
+  Pencil,
   Phone,
   Save,
   ShieldCheck,
@@ -22,6 +23,7 @@ import { useStore } from '../context/StoreContext'
 import { REGIONS, ROLES, ROLE_GROUPS, LEGACY_ROLES } from '../lib/constants'
 import { formatDateTime, formatSom } from '../lib/format'
 import { RoleBadge } from '../components/Badges'
+import OtpModal from '../components/OtpModal'
 
 const AVATARS = ['🌱', '🌾', '🚜', '🍎', '🧪', '🌿', '🐄', '👨‍🌾', '👩‍🌾', '🛡️', '🍇', '🔧']
 
@@ -36,14 +38,19 @@ const WALLET_LABELS = {
   admin_adjust: 'Admin tuzatishi',
   withdrawal: 'Pul yechish',
   withdrawal_refund: 'Yechish qaytarildi',
+  withdrawal_commission: 'Yechish komissiyasi',
+  delivery_payout: 'Yetkazish haqi',
+  commission_deduction: 'Naqd savdo komissiyasi',
 }
 
 const WITHDRAWAL_STATUS = {
   pending: { label: "Ko'rib chiqilmoqda", className: 'bg-amber-50 text-amber-700' },
-  approved: { label: "To'langan", className: 'bg-emerald-50 text-emerald-700' },
+  approved: { label: 'Tasdiqlangan', className: 'bg-emerald-50 text-emerald-700' },
   rejected: { label: 'Rad etilgan', className: 'bg-rose-50 text-rose-600' },
   cancelled: { label: 'Bekor qilingan', className: 'bg-stone-100 text-stone-500' },
 }
+
+const WITHDRAWAL_COMMISSION_RATE = 5
 
 function formatCardInput(value = '') {
   return String(value)
@@ -51,6 +58,14 @@ function formatCardInput(value = '') {
     .slice(0, 16)
     .replace(/(.{4})/g, '$1 ')
     .trim()
+}
+
+function normalizePhoneInput(value = '') {
+  let digits = String(value || '').replace(/\D/g, '')
+  if (digits.length === 9) digits = `998${digits}`
+  if (digits.length === 10 && digits.startsWith('8')) digits = `998${digits.slice(1)}`
+  if (digits.length > 12 && digits.startsWith('998')) digits = digits.slice(0, 12)
+  return digits ? `+${digits}` : ''
 }
 
 export default function Profile() {
@@ -63,7 +78,7 @@ export default function Profile() {
     withdrawals,
     transactions,
     requestWithdrawal,
-    cancelWithdrawal,
+    linkCard,
     usedToday,
     aiRemaining,
   } = useStore()
@@ -78,12 +93,17 @@ export default function Profile() {
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
   const [role, setRole] = useState(currentUser.role)
   const [tab, setTab] = useState('profile')
-  const [withdrawForm, setWithdrawForm] = useState({
-    amount: '',
-    cardNumber: '',
-    cardHolder: currentUser.name,
-  })
+  const [withdrawForm, setWithdrawForm] = useState({ amount: '' })
   const [withdrawing, setWithdrawing] = useState(false)
+  const [withdrawPreview, setWithdrawPreview] = useState(null)
+  const [withdrawOtpOpen, setWithdrawOtpOpen] = useState(false)
+  const [cardForm, setCardForm] = useState({
+    cardNumber: '',
+    cardHolder: currentUser.cardHolder || currentUser.name,
+    phone: normalizePhoneInput(currentUser.phone || ''),
+  })
+  const [editingCard, setEditingCard] = useState(!currentUser.hasCard)
+  const [cardOtpOpen, setCardOtpOpen] = useState(false)
 
   const myWalletTx = walletTx.filter((entry) => entry.userId === currentUser.id)
   const myTransactions = transactions.filter((entry) => entry.userId === currentUser.id)
@@ -117,7 +137,48 @@ export default function Profile() {
     else toast.error(result.error)
   }
 
-  async function requestPayout(event) {
+  function prepareCardLink(event) {
+    event.preventDefault()
+    const digits = cardForm.cardNumber.replace(/\D/g, '')
+    if (digits.length !== 16) {
+      toast.error("Karta raqami 16 xonali bo'lishi kerak")
+      return
+    }
+    if (cardForm.cardHolder.trim().length < 3) {
+      toast.error('Karta egasining ismini kiriting')
+      return
+    }
+    if (!/^998\d{9}$/.test(cardForm.phone.replace(/\D/g, ''))) {
+      toast.error("Kartaga ulangan telefon raqamini to'g'ri kiriting")
+      return
+    }
+    setCardOtpOpen(true)
+  }
+
+  async function confirmCardLink(code, otpId) {
+    const digits = cardForm.cardNumber.replace(/\D/g, '')
+    const result = await linkCard({
+      cardNumber: digits,
+      cardHolder: cardForm.cardHolder.trim(),
+      phone: cardForm.phone,
+      otpId,
+      code,
+    })
+    if (result.ok) {
+      toast.success('Karta SMS kod bilan tasdiqlandi va ulandi')
+      setEditingCard(false)
+      setCardForm({
+        cardNumber: '',
+        cardHolder: currentUser.name,
+        phone: normalizePhoneInput(currentUser.phone || ''),
+      })
+    } else {
+      toast.error(result.error)
+    }
+    return result
+  }
+
+  function prepareWithdraw(event) {
     event.preventDefault()
     const amount = Math.floor(Number(withdrawForm.amount) || 0)
     if (amount < 1) {
@@ -132,27 +193,31 @@ export default function Profile() {
       toast.error("Hamyon balansida yetarli mablag' yo'q")
       return
     }
-    const digits = withdrawForm.cardNumber.replace(/\D/g, '')
-    if (digits.length !== 16) {
-      toast.error("Karta raqami 16 xonali bo'lishi kerak")
+    if (!currentUser.hasCard) {
+      toast.error('Avval kartani ulang va SMS bilan tasdiqlang')
+      setEditingCard(true)
       return
     }
+    const commission = Math.round((amount * WITHDRAWAL_COMMISSION_RATE) / 100)
+    setWithdrawPreview({ amount, commission, netAmount: amount - commission })
+    setWithdrawOtpOpen(true)
+  }
+
+  async function confirmWithdraw(code, otpId) {
+    if (!withdrawPreview) return { ok: false, error: 'Summani qayta kiriting' }
     setWithdrawing(true)
-    const result = await requestWithdrawal(amount, digits, withdrawForm.cardHolder)
+    const result = await requestWithdrawal({ amount: withdrawPreview.amount, otpId, code })
     setWithdrawing(false)
     if (result.ok) {
-      toast.success("Pul yechish so'rovi yuborildi. Admin tasdiqlagach kartangizga o'tkaziladi.")
-      setWithdrawForm({ amount: '', cardNumber: '', cardHolder: currentUser.name })
+      toast.success(
+        `Tasdiqlandi. ${formatSom(result.netAmount)} kartangizga o'tkaziladi (komissiya ${formatSom(result.commission)}).`,
+      )
+      setWithdrawForm({ amount: '' })
+      setWithdrawPreview(null)
     } else {
       toast.error(result.error)
     }
-  }
-
-  async function cancelPayout(withdrawal) {
-    if (!window.confirm(`${formatSom(withdrawal.amount)} yechish so'rovini bekor qilasizmi?`)) return
-    const result = await cancelWithdrawal(withdrawal.id)
-    if (result.ok) toast.success("So'rov bekor qilindi va pul hamyoningizga qaytarildi")
-    else toast.error(result.error)
+    return result
   }
 
   const isAdmin = currentUser.role === 'admin'
@@ -394,11 +459,118 @@ export default function Profile() {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
+                        <CreditCard size={16} className="text-emerald-600" /> To'lov kartasi
+                      </h2>
+                      <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-stone-500">
+                        Karta bir marta SMS kod bilan tasdiqlanadi va pul yechish shu kartaga tushadi.
+                        O'zgartirish uchun yangi karta va telefon raqamini qayta tasdiqlang.
+                      </p>
+                    </div>
+                    {currentUser.hasCard && !editingCard && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingCard(true)}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        <Pencil size={13} /> O'zgartirish
+                      </button>
+                    )}
+                  </div>
+
+                  {currentUser.hasCard && !editingCard ? (
+                    <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black tracking-[0.18em] text-emerald-950">
+                            {currentUser.cardMasked || '•••• •••• •••• ••••'}
+                          </p>
+                          <p className="mt-1 text-[11px] font-semibold text-stone-600">{currentUser.cardHolder}</p>
+                          <p className="text-[10px] text-stone-500">
+                            Telefon: {currentUser.cardPhoneMasked || '—'}
+                          </p>
+                        </div>
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
+                          <BadgeCheck size={11} /> SMS bilan tasdiqlangan
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={prepareCardLink} className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="label">Karta raqami *</label>
+                        <div className="relative">
+                          <CreditCard
+                            size={15}
+                            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                          />
+                          <input
+                            inputMode="numeric"
+                            value={cardForm.cardNumber}
+                            onChange={(event) =>
+                              setCardForm({ ...cardForm, cardNumber: formatCardInput(event.target.value) })
+                            }
+                            className="input pl-10"
+                            placeholder="8600 1234 5678 9012"
+                            maxLength={19}
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="label">Karta egasi *</label>
+                        <input
+                          value={cardForm.cardHolder}
+                          onChange={(event) => setCardForm({ ...cardForm, cardHolder: event.target.value })}
+                          className="input"
+                          placeholder="F.I.Sh."
+                          required
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="label">Kartaga ulangan telefon raqami *</label>
+                        <div className="relative">
+                          <Phone
+                            size={15}
+                            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
+                          />
+                          <input
+                            inputMode="tel"
+                            value={cardForm.phone}
+                            onChange={(event) =>
+                              setCardForm({ ...cardForm, phone: normalizePhoneInput(event.target.value) })
+                            }
+                            className="input pl-10"
+                            placeholder="+998 90 123 45 67"
+                            required
+                          />
+                        </div>
+                        <p className="mt-1 text-[10px] text-stone-400">
+                          Tasdiqlash kodi shu raqamga yuboriladi. Kod kelmasa, operatoringizni tekshiring.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 sm:col-span-2">
+                        <button type="submit" className="btn btn-primary">
+                          <ShieldCheck size={15} /> SMS kod olish va kartani ulash
+                        </button>
+                        {currentUser.hasCard && (
+                          <button type="button" onClick={() => setEditingCard(false)} className="btn btn-secondary">
+                            Bekor qilish
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  )}
+                </div>
+
+                <div className="card p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
                         <ArrowDownToLine size={16} className="text-emerald-600" /> Pul yechish
                       </h2>
                       <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-stone-500">
                         1 so'mdan boshlab yechish mumkin. Bitta so'rovda maksimal 100 000 000 so'm.
-                        Kattaroq summani bir necha so'rovga bo'lib yuboring.
+                        So'rov SMS kod bilan tasdiqlanadi va avtomatik qabul qilinadi.
                       </p>
                     </div>
                     <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
@@ -406,7 +578,13 @@ export default function Profile() {
                     </span>
                   </div>
 
-                  <form onSubmit={requestPayout} className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {!currentUser.hasCard && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-semibold text-amber-800">
+                      Pul yechish uchun avval yuqorida kartani ulang va SMS kod bilan tasdiqlang.
+                    </div>
+                  )}
+
+                  <form onSubmit={prepareWithdraw} className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="label">Summa (so'm) *</label>
                       <input
@@ -414,7 +592,7 @@ export default function Profile() {
                         min={1}
                         max={100000000}
                         value={withdrawForm.amount}
-                        onChange={(event) => setWithdrawForm({ ...withdrawForm, amount: event.target.value })}
+                        onChange={(event) => setWithdrawForm({ amount: event.target.value })}
                         className="input"
                         placeholder="100000"
                         required
@@ -424,7 +602,7 @@ export default function Profile() {
                           <button
                             key={value}
                             type="button"
-                            onClick={() => setWithdrawForm({ ...withdrawForm, amount: String(value) })}
+                            onClick={() => setWithdrawForm({ amount: String(value) })}
                             className="rounded-lg bg-stone-100 px-2 py-1 text-[9px] font-bold text-stone-600 transition hover:bg-emerald-50 hover:text-emerald-700"
                           >
                             {formatSom(value)}
@@ -434,7 +612,6 @@ export default function Profile() {
                           type="button"
                           onClick={() =>
                             setWithdrawForm({
-                              ...withdrawForm,
                               amount: String(Math.min(currentUser.wallet || 0, 100000000)),
                             })
                           }
@@ -444,76 +621,79 @@ export default function Profile() {
                         </button>
                       </div>
                     </div>
-                    <div>
-                      <label className="label">Karta raqami *</label>
-                      <div className="relative">
-                        <CreditCard size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                        <input
-                          inputMode="numeric"
-                          value={withdrawForm.cardNumber}
-                          onChange={(event) =>
-                            setWithdrawForm({ ...withdrawForm, cardNumber: formatCardInput(event.target.value) })
-                          }
-                          className="input pl-10"
-                          placeholder="8600 1234 5678 9012"
-                          maxLength={19}
-                          required
-                        />
+                    <div className="rounded-xl bg-stone-50 p-3">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">Hisob-kitob</p>
+                      <div className="mt-1.5 space-y-1 text-[11px]">
+                        <div className="flex justify-between gap-2">
+                          <span className="text-stone-500">Yechish summasi</span>
+                          <span className="font-bold text-emerald-950">
+                            {formatSom(Math.floor(Number(withdrawForm.amount) || 0))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-stone-500">Komissiya (5%)</span>
+                          <span className="font-bold text-rose-600">
+                            −{formatSom(Math.round((Math.floor(Number(withdrawForm.amount) || 0) * 5) / 100))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-2 border-t border-stone-200 pt-1">
+                          <span className="font-bold text-emerald-950">Kartaga tushadi</span>
+                          <span className="font-black text-emerald-700">
+                            {formatSom(
+                              Math.floor(Number(withdrawForm.amount) || 0) -
+                                Math.round((Math.floor(Number(withdrawForm.amount) || 0) * 5) / 100),
+                            )}
+                          </span>
+                        </div>
                       </div>
-                      <label className="label mt-2">Karta egasi</label>
-                      <input
-                        value={withdrawForm.cardHolder}
-                        onChange={(event) => setWithdrawForm({ ...withdrawForm, cardHolder: event.target.value })}
-                        className="input"
-                        placeholder="F.I.Sh."
-                      />
                     </div>
                     <div className="sm:col-span-2">
-                      <button type="submit" className="btn btn-primary w-full" disabled={withdrawing}>
-                        <ArrowDownToLine size={15} />
-                        {withdrawing ? 'Yuborilmoqda...' : "Pul yechish so'rovini yuborish"}
+                      <button
+                        type="submit"
+                        className="btn btn-primary w-full"
+                        disabled={withdrawing || !currentUser.hasCard}
+                      >
+                        <ShieldCheck size={15} />
+                        {withdrawing ? 'Tasdiqlanmoqda...' : 'SMS kod bilan tasdiqlash'}
                       </button>
                       <p className="mt-2 text-[10px] leading-relaxed text-stone-400">
-                        So'rov yuborilganda summa hamyondan ushlab turiladi. Admin tasdiqlagach kartangizga
-                        o'tkaziladi; rad etilsa summa hamyoningizga qaytariladi.
+                        Tasdiqlash kodi kartaga ulangan telefon raqamiga yuboriladi. 5% komissiya
+                        platforma hamyoniga o'tadi, qolgan summa kartangizga o'tkaziladi.
                       </p>
                     </div>
                   </form>
 
                   {myWithdrawals.length > 0 && (
                     <div className="mt-4 border-t border-stone-100 pt-4">
-                      <h3 className="text-xs font-black text-emerald-950">Yechish so'rovlari</h3>
+                      <h3 className="text-xs font-black text-emerald-950">Yechish tarixi</h3>
                       <div className="mt-2 space-y-1.5">
                         {myWithdrawals.map((entry) => {
-                          const status = WITHDRAWAL_STATUS[entry.status] || WITHDRAWAL_STATUS.pending
+                          const status = WITHDRAWAL_STATUS[entry.status] || WITHDRAWAL_STATUS.approved
                           return (
                             <div
                               key={entry.id}
                               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-100 p-2.5"
                             >
                               <div>
-                                <p className="text-[11px] font-black text-emerald-950">{formatSom(entry.amount)}</p>
+                                <p className="text-[11px] font-black text-emerald-950">
+                                  {formatSom(entry.amount)}
+                                  {entry.netAmount != null && (
+                                    <span className="ml-1 text-[10px] font-semibold text-stone-400">
+                                      → {formatSom(entry.netAmount)} kartaga
+                                    </span>
+                                  )}
+                                </p>
                                 <p className="text-[9px] text-stone-400">
-                                  •••• {String(entry.cardNumber).slice(-4)} · {formatDateTime(entry.createdAt)}
+                                  •••• {String(entry.cardNumber).slice(-4)} · komissiya{' '}
+                                  {formatSom(entry.commission || 0)} · {formatDateTime(entry.createdAt)}
                                 </p>
                                 {entry.adminNote && (
                                   <p className="mt-0.5 text-[9px] font-semibold text-rose-500">{entry.adminNote}</p>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
-                                  {status.label}
-                                </span>
-                                {entry.status === 'pending' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => cancelPayout(entry)}
-                                    className="rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-600 hover:bg-rose-100"
-                                  >
-                                    Bekor qilish
-                                  </button>
-                                )}
-                              </div>
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
+                                {entry.autoApproved ? 'Avtomatik tasdiqlangan' : status.label}
+                              </span>
                             </div>
                           )
                         })}
@@ -746,6 +926,34 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      <OtpModal
+        open={cardOtpOpen}
+        onClose={() => setCardOtpOpen(false)}
+        purpose="card_link"
+        phone={cardForm.phone}
+        title="Kartani SMS bilan tasdiqlash"
+        subtitle="Kartaga ulangan telefon raqamiga 6 xonali kod yuborildi."
+        confirmLabel="Kartani ulash"
+        onConfirm={confirmCardLink}
+      />
+
+      <OtpModal
+        open={withdrawOtpOpen}
+        onClose={() => {
+          setWithdrawOtpOpen(false)
+          setWithdrawPreview(null)
+        }}
+        purpose="withdrawal"
+        title="Pul yechishni tasdiqlash"
+        subtitle={
+          withdrawPreview
+            ? `${formatSom(withdrawPreview.netAmount)} kartaga o'tkaziladi. Komissiya ${formatSom(withdrawPreview.commission)}.`
+            : 'Kartaga ulangan telefon raqamiga kod yuboriladi.'
+        }
+        confirmLabel="Yechishni tasdiqlash"
+        onConfirm={confirmWithdraw}
+      />
     </div>
   )
 }

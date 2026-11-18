@@ -72,18 +72,14 @@ const adminPassword = process.env.TEST_ADMIN_PASSWORD
 let promoUsesBefore = null
 let adminCookie = null
 
-async function cleanup() {
-  const emails = [sellerEmail, buyerEmail, workerEmail, deliveryEmail]
-  const users = await query('SELECT id FROM users WHERE email = ANY($1)', [emails])
-  const ids = users.rows.map((row) => row.id)
-  if (promoUsesBefore !== null) {
-    await query('UPDATE promo_codes SET uses = $1 WHERE code = $2', [promoUsesBefore, 'AGRO10'])
-  }
+async function deleteTestUsers(ids) {
   if (!ids.length) return
   await query('DELETE FROM transactions WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM withdrawals WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM payments WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM orders WHERE buyer_id = ANY($1) OR seller_id = ANY($1) OR courier_id = ANY($1)', [ids])
+  await query('DELETE FROM courier_batches WHERE courier_id = ANY($1)', [ids])
+  await query('DELETE FROM otp_codes WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM products WHERE seller_id = ANY($1)', [ids])
   await query('DELETE FROM services WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM reviews WHERE user_id = ANY($1)', [ids])
@@ -96,7 +92,23 @@ async function cleanup() {
   await query('DELETE FROM users WHERE id = ANY($1)', [ids])
 }
 
+async function cleanup() {
+  const emails = [sellerEmail, buyerEmail, workerEmail, deliveryEmail]
+  const users = await query('SELECT id FROM users WHERE email = ANY($1)', [emails])
+  if (promoUsesBefore !== null) {
+    await query('UPDATE promo_codes SET uses = $1 WHERE code = $2', [promoUsesBefore, 'AGRO10'])
+  }
+  await deleteTestUsers(users.rows.map((row) => row.id))
+}
+
+// Oldingi uzilgan testlardan qolgan hisoblarni tozalaymiz — navbat testi izolyatsiyasi uchun.
+async function cleanupStaleTestUsers() {
+  const users = await query("SELECT id FROM users WHERE email LIKE 'test+%@example.test'")
+  await deleteTestUsers(users.rows.map((row) => row.id))
+}
+
 try {
+  await cleanupStaleTestUsers()
   const promoBefore = await query('SELECT uses FROM promo_codes WHERE code = $1', ['AGRO10'])
   promoUsesBefore = promoBefore.rows[0]?.uses ?? null
 
@@ -271,6 +283,11 @@ try {
       'checkout wallet ishlaydi',
       checkout,
     )
+    assert(
+      checkout.data.order.courierId === delivery.data.user.id,
+      'buyurtma avtomatik navbatdagi kuryerga biriktirildi',
+      checkout.data.order,
+    )
 
     const courierAssign = await call('PATCH', `/api/admin/orders/${checkout.data.order.id}/courier`, {
       cookie: adminCookie,
@@ -289,15 +306,26 @@ try {
       'kuryer biriktirilgan buyurtmani ko‘radi',
       courierBootstrap.data.orders,
     )
+    assert(
+      courierBootstrap.data.currentUser.deliveryStatus === 'loading' &&
+        courierBootstrap.data.courierBatches.some((batch) => batch.status === 'loading'),
+      'kuryer yuk yig‘ish holatida va faol partiya bor',
+      {
+        status: courierBootstrap.data.currentUser.deliveryStatus,
+        batches: courierBootstrap.data.courierBatches,
+      },
+    )
 
-    const courierShipped = await call('PATCH', `/api/orders/${checkout.data.order.id}/status`, {
+    const markFull = await call('POST', '/api/courier/batch/full', {
       cookie: deliveryCookie,
-      body: { status: 'shipped' },
+      body: {},
     })
     assert(
-      courierShipped.status === 200 && courierShipped.data.order.status === 'shipped',
-      'kuryer buyurtmani yo‘lga chiqardi',
-      courierShipped,
+      markFull.status === 200 &&
+        markFull.data.batch.status === 'delivering' &&
+        markFull.data.batch.orderCount >= 1,
+      '«Mashina to‘ldi» partiyani yo‘lga chiqaradi',
+      markFull,
     )
 
     const courierComplete = await call('PATCH', `/api/orders/${checkout.data.order.id}/status`, {
@@ -308,6 +336,53 @@ try {
       courierComplete.status === 403 && courierComplete.data.code === 'FORBIDDEN',
       'kuryer buyurtmani yakunlay olmaydi',
       courierComplete,
+    )
+
+    const markDelivered = await call('POST', '/api/courier/batch/delivered', {
+      cookie: deliveryCookie,
+      body: {},
+    })
+    assert(
+      markDelivered.status === 200 &&
+        markDelivered.data.batch.status === 'delivered' &&
+        markDelivered.data.deliveredCount >= 1,
+      '«Buyurtmalar topshirildi» partiyani yakunlaydi',
+      markDelivered,
+    )
+
+    const courierAfterDelivered = await call('GET', '/api/bootstrap', { cookie: deliveryCookie })
+    const deliveredOrder = courierAfterDelivered.data.orders.find(
+      (order) => order.id === checkout.data.order.id,
+    )
+    assert(
+      ['idle', 'loading'].includes(courierAfterDelivered.data.currentUser.deliveryStatus) &&
+        deliveredOrder?.status === 'completed',
+      'yetkazgandan keyin kuryer bo‘shaydi va buyurtma yakunlanadi',
+      {
+        status: courierAfterDelivered.data.currentUser.deliveryStatus,
+        order: deliveredOrder,
+      },
+    )
+
+    const payBatchResult = await call(
+      'POST',
+      `/api/admin/courier-batches/${markDelivered.data.batch.id}/pay`,
+      { cookie: adminCookie, body: {} },
+    )
+    assert(
+      payBatchResult.status === 200 && payBatchResult.data.batch.paid,
+      'admin kuryer haqini hamyoniga o‘tkazadi',
+      payBatchResult,
+    )
+
+    const courierPaid = await call('GET', '/api/bootstrap', { cookie: deliveryCookie })
+    assert(
+      courierPaid.data.currentUser.wallet === markDelivered.data.batch.payout,
+      'kuryer haqi hamyon balansiga qo‘shildi',
+      {
+        wallet: courierPaid.data.currentUser.wallet,
+        payout: markDelivered.data.batch.payout,
+      },
     )
 
     const sellerBootstrap = await call('GET', '/api/bootstrap', { cookie: sellerCookie })
@@ -606,25 +681,118 @@ try {
     aiOffTopic,
   )
 
+  const cardOtp = await call('POST', '/api/otp/send', {
+    cookie: sellerCookie,
+    body: { purpose: 'card_link', phone: '+998901234567' },
+  })
+  assert(
+    cardOtp.status === 200 && Boolean(cardOtp.data.otpId) && Boolean(cardOtp.data.testCode),
+    'karta ulash uchun SMS kod (test rejimi) beriladi',
+    cardOtp,
+  )
+
+  const badCardOtp = await call('POST', '/api/profile/card', {
+    cookie: sellerCookie,
+    body: {
+      cardNumber: '8600123456789012',
+      cardHolder: 'Test Sotuvchi',
+      phone: '+998901234567',
+      otpId: cardOtp.data.otpId,
+      code: '000000',
+    },
+  })
+  assert(
+    badCardOtp.status === 400 && badCardOtp.data.code === 'OTP_INVALID',
+    "noto'g'ri SMS kod bilan karta ulanmaydi",
+    badCardOtp,
+  )
+
+  const linkCard = await call('POST', '/api/profile/card', {
+    cookie: sellerCookie,
+    body: {
+      cardNumber: '8600123456789012',
+      cardHolder: 'Test Sotuvchi',
+      phone: '+998901234567',
+      otpId: cardOtp.data.otpId,
+      code: cardOtp.data.testCode,
+    },
+  })
+  assert(
+    linkCard.status === 200 && linkCard.data.user.hasCard,
+    'karta SMS kod bilan ulanadi',
+    linkCard,
+  )
+
+  const cardWithoutOtp = await call('POST', '/api/profile/card', {
+    cookie: sellerCookie,
+    body: { cardNumber: '8600123456789999', cardHolder: 'Test Sotuvchi', phone: '+998901234567' },
+  })
+  assert(
+    cardWithoutOtp.status === 400 && cardWithoutOtp.data.code === 'OTP_REQUIRED',
+    "OTP siz kartani o'zgartirib bo'lmaydi",
+    cardWithoutOtp,
+  )
+
   const sellerWalletBefore = await call('GET', '/api/bootstrap', { cookie: sellerCookie })
   const walletBefore = sellerWalletBefore.data.currentUser.wallet
-  assert(walletBefore > 0, 'sotuvchida yechish uchun balans bor', walletBefore)
+  assert(walletBefore > 1000, 'sotuvchida yechish uchun balans bor', walletBefore)
+
+  const withdrawOtp = await call('POST', '/api/otp/send', {
+    cookie: sellerCookie,
+    body: { purpose: 'withdrawal' },
+  })
+  assert(
+    withdrawOtp.status === 200 && Boolean(withdrawOtp.data.testCode),
+    'pul yechish uchun kartaga ulangan raqamga kod yuboriladi',
+    withdrawOtp,
+  )
+
+  const withdrawNoOtp = await call('POST', '/api/withdrawals', {
+    cookie: sellerCookie,
+    body: { amount: 1 },
+  })
+  assert(
+    withdrawNoOtp.status === 400 && withdrawNoOtp.data.code === 'OTP_REQUIRED',
+    "OTP siz pul yechib bo'lmaydi",
+    withdrawNoOtp,
+  )
 
   const withdrawOne = await call('POST', '/api/withdrawals', {
     cookie: sellerCookie,
-    body: { amount: 1, cardNumber: '8600 1234 5678 9012', cardHolder: 'Test Sotuvchi' },
+    body: { amount: 1000, otpId: withdrawOtp.data.otpId, code: withdrawOtp.data.testCode },
   })
   assert(
-    withdrawOne.status === 200 && withdrawOne.data.withdrawal.status === 'pending',
-    "1 so'm yechish so'rovi yaratiladi",
+    withdrawOne.status === 200 &&
+      withdrawOne.data.withdrawal.status === 'approved' &&
+      withdrawOne.data.withdrawal.autoApproved,
+    "pul yechish admin tasdig'isiz avtomatik tasdiqlanadi",
     withdrawOne,
   )
-  assert(withdrawOne.data.wallet === walletBefore - 1, 'yechish summasi hamyondan ushlab turiladi', withdrawOne)
-  const withdrawalOneId = withdrawOne.data.withdrawal.id
+  assert(
+    withdrawOne.data.withdrawal.commission === 50 &&
+      withdrawOne.data.withdrawal.netAmount === 950,
+    '5% komissiya va net summa to‘g‘ri hisoblanadi',
+    withdrawOne.data.withdrawal,
+  )
+  assert(
+    withdrawOne.data.wallet === walletBefore - 1000,
+    'yechish summasi hamyondan ushlanadi',
+    withdrawOne,
+  )
+
+  const commissionTx = await query(
+    "SELECT * FROM transactions WHERE type = 'withdrawal_commission' AND reference = $1",
+    [withdrawOne.data.withdrawal.id],
+  )
+  assert(
+    commissionTx.rows.length === 1 && Number(commissionTx.rows[0].amount) === 50,
+    "5% komissiya admin hamyoniga tranzaksiya bo'lib yoziladi",
+    commissionTx.rows,
+  )
 
   const tooBig = await call('POST', '/api/withdrawals', {
     cookie: sellerCookie,
-    body: { amount: 100000001, cardNumber: '8600123456789012' },
+    body: { amount: 100000001 },
   })
   assert(
     tooBig.status === 400 && tooBig.data.code === 'WITHDRAWAL_LIMIT',
@@ -632,48 +800,16 @@ try {
     tooBig,
   )
 
-  const cancelled = await call('POST', `/api/withdrawals/${withdrawalOneId}/cancel`, {
-    cookie: sellerCookie,
-    body: {},
-  })
-  assert(
-    cancelled.status === 200 && cancelled.data.wallet === walletBefore,
-    'yechish bekor qilinsa pul hamyonga qaytadi',
-    cancelled,
+  const oldApprove = await call(
+    'POST',
+    `/api/admin/withdrawals/${withdrawOne.data.withdrawal.id}/approve`,
+    { cookie: adminCookie || '', body: {} },
   )
-
-  const withdrawTwo = await call('POST', '/api/withdrawals', {
-    cookie: sellerCookie,
-    body: { amount: Math.min(500, walletBefore), cardNumber: '8600123456789012', cardHolder: 'Test Sotuvchi' },
-  })
-  assert(withdrawTwo.status === 200, "qayta yechish so'rovi yaratiladi", withdrawTwo)
-  const withdrawalTwoId = withdrawTwo.data.withdrawal.id
-
-  if (adminCookie) {
-    const approved = await call('POST', `/api/admin/withdrawals/${withdrawalTwoId}/approve`, {
-      cookie: adminCookie,
-      body: {},
-    })
-    assert(
-      approved.status === 200 && approved.data.withdrawal.status === 'approved',
-      'admin yechishni tasdiqlaydi',
-      approved,
-    )
-
-    const withdrawThree = await call('POST', '/api/withdrawals', {
-      cookie: sellerCookie,
-      body: { amount: 1, cardNumber: '8600123456789012' },
-    })
-    const rejected = await call('POST', `/api/admin/withdrawals/${withdrawThree.data.withdrawal.id}/reject`, {
-      cookie: adminCookie,
-      body: { note: 'Test rad etish' },
-    })
-    assert(
-      rejected.status === 200 && rejected.data.withdrawal.status === 'rejected',
-      'admin yechishni rad etadi va pul hamyonga qaytadi',
-      rejected,
-    )
-  }
+  assert(
+    [401, 403, 404].includes(oldApprove.status),
+    'eski admin tasdiqlash endpointi olib tashlangan',
+    oldApprove,
+  )
 
   console.log('\nBarcha API testlari muvaffaqiyatli o‘tdi.')
 } catch (error) {

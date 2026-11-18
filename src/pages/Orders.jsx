@@ -16,6 +16,7 @@ import { ORDER_STATUS, canSellProducts } from '../lib/constants'
 import { formatDateTime, formatNumber, formatSom } from '../lib/format'
 import EmptyState from '../components/EmptyState'
 import Modal from '../components/Modal'
+import CourierPanel from '../components/CourierPanel'
 import { StatusBadge } from '../components/Badges'
 
 const FILTERS = [
@@ -184,6 +185,12 @@ export default function Orders() {
                 <Truck size={14} /> Yetkazishlarim ({deliveryOrders.length})
               </button>
             )}
+          </div>
+        )}
+
+        {isDelivery && scope === 'delivery' && (
+          <div className="mt-4">
+            <CourierPanel />
           </div>
         )}
 

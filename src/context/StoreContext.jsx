@@ -9,13 +9,18 @@ const DEFAULT_SETTINGS = {
   supportPhone: '+998 71 200 00 00',
   supportEmail: 'salom@agroserv.uz',
   telegram: '@agroserv_uz',
+  adminTelegram: '@utkrvc09',
   commissionRate: 5,
   featuredPrice: 25000,
   deliveryFee: 20000,
   freeDeliveryFrom: 1000000,
+  deliveryBasePay: 10000,
+  deliveryRatePerKm: 1500,
   workingHours: 'Dushanba-Shanba, 09:00-19:00',
   manualPaymentNote:
     "To'lovni quyidagi kartaga o'tkazing va to'lov cheki/izohini buyurtma raqami bilan yuboring. Admin tasdiqlagach buyurtma faollashadi.",
+  smsConfigured: false,
+  smsTestModeActive: true,
 }
 
 const EMPTY_STATE = {
@@ -30,6 +35,7 @@ const EMPTY_STATE = {
   transactions: [],
   walletTx: [],
   withdrawals: [],
+  courierBatches: [],
   applications: [],
   messages: [],
   cards: [],
@@ -76,6 +82,7 @@ export function StoreProvider({ children }) {
         transactions: data.transactions || [],
         walletTx: data.walletTx || [],
         withdrawals: data.withdrawals || [],
+        courierBatches: data.courierBatches || [],
         applications: data.applications || [],
         messages: data.messages || [],
         cards: data.cards || [],
@@ -246,25 +253,26 @@ export function StoreProvider({ children }) {
     [run],
   )
 
-  const requestWithdrawal = useCallback(
-    (amount, cardNumber, cardHolder) =>
-      run(() => api.post('/withdrawals', { amount, cardNumber, cardHolder })),
+  const requestWithdrawal = useCallback((payload) => run(() => api.post('/withdrawals', payload)), [run])
+
+  const sendOtp = useCallback(
+    (purpose, phone = '') => run(() => api.post('/otp/send', { purpose, phone }), { refreshAfter: false }),
     [run],
   )
 
-  const cancelWithdrawal = useCallback(
-    (withdrawalId) => run(() => api.post(`/withdrawals/${withdrawalId}/cancel`, {})),
+  const linkCard = useCallback((payload) => run(() => api.post('/profile/card', payload)), [run])
+
+  const unlinkCard = useCallback((payload) => run(() => api.post('/profile/card/unlink', payload)), [run])
+
+  const courierMarkFull = useCallback(() => run(() => api.post('/courier/batch/full', {})), [run])
+
+  const courierMarkDelivered = useCallback(
+    () => run(() => api.post('/courier/batch/delivered', {})),
     [run],
   )
 
-  const adminApproveWithdrawal = useCallback(
-    (withdrawalId) => run(() => api.post(`/admin/withdrawals/${withdrawalId}/approve`, {})),
-    [run],
-  )
-
-  const adminRejectWithdrawal = useCallback(
-    (withdrawalId, note = '') =>
-      run(() => api.post(`/admin/withdrawals/${withdrawalId}/reject`, { note })),
+  const adminPayBatch = useCallback(
+    (batchId) => run(() => api.post(`/admin/courier-batches/${batchId}/pay`, {})),
     [run],
   )
 
@@ -388,6 +396,7 @@ export function StoreProvider({ children }) {
     transactions: state.transactions,
     walletTx: state.walletTx,
     withdrawals: state.withdrawals,
+    courierBatches: state.courierBatches,
     applications: state.applications,
     subscribers: state.subscribers,
     payments: state.payments,
@@ -431,9 +440,12 @@ export function StoreProvider({ children }) {
     assignCourier,
     topUp,
     requestWithdrawal,
-    cancelWithdrawal,
-    adminApproveWithdrawal,
-    adminRejectWithdrawal,
+    sendOtp,
+    linkCard,
+    unlinkCard,
+    courierMarkFull,
+    courierMarkDelivered,
+    adminPayBatch,
     promoteProduct,
     addProduct,
     updateProduct,

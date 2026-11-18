@@ -25,6 +25,7 @@ import {
   Store,
   Trash2,
   TrendingUp,
+  Truck,
   UserCog,
   Users,
   Wallet,
@@ -32,7 +33,9 @@ import {
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
 import {
+  BATCH_STATUS,
   CATEGORIES,
+  COURIER_STATUS,
   ORDER_STATUS,
   ROLES,
   ROLE_GROUPS,
@@ -60,6 +63,7 @@ const TABS = [
   { id: 'users', label: 'Foydalanuvchilar', icon: Users },
   { id: 'products', label: 'Mahsulotlar', icon: Package },
   { id: 'orders', label: 'Buyurtmalar', icon: ShoppingBag },
+  { id: 'delivery', label: 'Yetkazib berish', icon: Truck },
   { id: 'payments', label: "To'lovlar", icon: Receipt },
   { id: 'withdrawals', label: 'Pul yechish', icon: Banknote },
   { id: 'messages', label: 'Xabarlar', icon: MessageSquare },
@@ -117,6 +121,7 @@ export default function Admin() {
     promoCodes,
     passwordResets,
     withdrawals,
+    courierBatches,
     providers,
     integrations,
     adminSetRole,
@@ -124,8 +129,7 @@ export default function Admin() {
     adminAdjustWallet,
     adminConfirmPayment,
     adminCancelPayment,
-    adminApproveWithdrawal,
-    adminRejectWithdrawal,
+    adminPayBatch,
     adminResolvePasswordReset,
     adminRejectPasswordReset,
     updateOrderStatus,
@@ -157,7 +161,23 @@ export default function Admin() {
   const unread = messages.filter((message) => !message.read).length
   const pendingPayments = payments.filter((payment) => payment.status === 'pending')
   const pendingResets = passwordResets.filter((reset) => reset.status === 'pending')
-  const pendingWithdrawals = withdrawals.filter((entry) => entry.status === 'pending')
+  const approvedWithdrawals = withdrawals.filter((entry) => entry.status === 'approved')
+  const withdrawalGross = approvedWithdrawals.reduce((sum, entry) => sum + entry.amount, 0)
+  const withdrawalNet = approvedWithdrawals.reduce(
+    (sum, entry) => sum + (entry.netAmount ?? entry.amount),
+    0,
+  )
+  const withdrawalCommission = approvedWithdrawals.reduce(
+    (sum, entry) => sum + (entry.commission || 0),
+    0,
+  )
+  const activeBatches = courierBatches.filter((batch) =>
+    ['loading', 'delivering'].includes(batch.status),
+  )
+  const deliveredBatches = courierBatches.filter((batch) => batch.status === 'delivered')
+  const unpaidBatches = deliveredBatches.filter((batch) => !batch.paid)
+  const unpaidBatchTotal = unpaidBatches.reduce((sum, batch) => sum + batch.payout, 0)
+  const totalCourierPayout = deliveredBatches.reduce((sum, batch) => sum + batch.payout, 0)
 
   const stats = useMemo(() => {
     const grossSales = orders
@@ -188,6 +208,15 @@ export default function Admin() {
   const deliveryUsers = useMemo(
     () => users.filter((user) => user.role === 'delivery' && user.status === 'active'),
     [users],
+  )
+
+  const courierQueue = useMemo(
+    () =>
+      [...deliveryUsers].sort(
+        (a, b) =>
+          new Date(a.deliveryQueueAt || 0).getTime() - new Date(b.deliveryQueueAt || 0).getTime(),
+      ),
+    [deliveryUsers],
   )
 
   const roleCounts = useMemo(
@@ -335,13 +364,18 @@ export default function Admin() {
       featuredPrice: Number(settingsForm.featuredPrice) || 0,
       deliveryFee: Number(settingsForm.deliveryFee) || 0,
       freeDeliveryFrom: Number(settingsForm.freeDeliveryFrom) || 0,
+      deliveryBasePay: Math.max(0, Number(settingsForm.deliveryBasePay) || 0),
+      deliveryRatePerKm: Math.max(0, Number(settingsForm.deliveryRatePerKm) || 0),
+      smsTestMode: Boolean(settingsForm.smsTestMode),
     }
     const keyTyped = String(settingsForm.aiApiKey || '').trim()
     if (!keyTyped) delete payload.aiApiKey
+    const smsPasswordTyped = String(settingsForm.smsPassword || '').trim()
+    if (!smsPasswordTyped) delete payload.smsPassword
     const result = await updateSettings(payload)
     if (result.ok) {
-      if (keyTyped) setSettingsForm((prev) => ({ ...prev, aiApiKey: '' }))
-      toast.success(keyTyped ? 'Sozlamalar va AI kaliti saqlandi' : 'Platforma sozlamalari saqlandi')
+      setSettingsForm((prev) => ({ ...prev, aiApiKey: '', smsPassword: '' }))
+      toast.success('Platforma sozlamalari saqlandi')
     } else {
       toast.error(result.error)
     }
@@ -414,24 +448,16 @@ export default function Admin() {
     else toast.error(result.error)
   }
 
-  async function approveWithdrawal(entry) {
+  async function payBatch(batch) {
     if (
       !window.confirm(
-        `${entry.userName || 'Foydalanuvchi'} uchun ${formatSom(entry.amount)} yechishni tasdiqlaysizmi?\nKarta: ${entry.cardNumber}`,
+        `${batch.courierName || 'Kuryer'} ga ${formatSom(batch.payout)} yetkazish haqini hamyoniga o'tkazasizmi?`,
       )
     ) {
       return
     }
-    const result = await adminApproveWithdrawal(entry.id)
-    if (result.ok) toast.success("Pul yechish tasdiqlandi. Endi kartaga o'tkazma qiling.")
-    else toast.error(result.error)
-  }
-
-  async function rejectWithdrawal(entry) {
-    const note = window.prompt('Rad etish sababi (ixtiyoriy):', '')
-    if (note === null) return
-    const result = await adminRejectWithdrawal(entry.id, note)
-    if (result.ok) toast.success("So'rov rad etildi va pul hamyonga qaytarildi")
+    const result = await adminPayBatch(batch.id)
+    if (result.ok) toast.success("Yetkazish haqi kuryer hamyoniga o'tkazildi")
     else toast.error(result.error)
   }
 
@@ -650,16 +676,18 @@ export default function Admin() {
                       Barchasi →
                     </button>
                   </div>
-                  <p className="mt-2 text-2xl font-black text-emerald-950">{pendingWithdrawals.length} ta</p>
+                  <p className="mt-2 text-2xl font-black text-emerald-950">
+                    {approvedWithdrawals.length} ta
+                  </p>
                   <p className="text-[10px] text-stone-500">
-                    {formatSom(pendingWithdrawals.reduce((sum, entry) => sum + entry.amount, 0))} tasdiq kutmoqda
+                    {formatSom(withdrawalGross)} yechilgan · komissiya {formatSom(withdrawalCommission)}
                   </p>
                   <button
                     type="button"
                     onClick={() => setTab('withdrawals')}
                     className="btn btn-secondary btn-sm mt-3 w-full"
                   >
-                    So'rovlarni ko'rish
+                    Tarixni ko'rish
                   </button>
                 </div>
 
@@ -1235,37 +1263,33 @@ export default function Admin() {
             <div className="grid gap-3 sm:grid-cols-3">
               <StatCard
                 icon={<Banknote size={18} />}
-                label="Kutilayotgan so'rovlar"
-                value={`${pendingWithdrawals.length} ta`}
-                hint={formatSom(pendingWithdrawals.reduce((sum, entry) => sum + entry.amount, 0))}
-                tone="amber"
-              />
-              <StatCard
-                icon={<CheckCircle2 size={18} />}
-                label="Tasdiqlangan summa"
-                value={formatSom(
-                  withdrawals
-                    .filter((entry) => entry.status === 'approved')
-                    .reduce((sum, entry) => sum + entry.amount, 0),
-                )}
-                hint={`${withdrawals.filter((entry) => entry.status === 'approved').length} ta so'rov`}
+                label="Yechilgan summa"
+                value={formatSom(withdrawalGross)}
+                hint={`${approvedWithdrawals.length} ta avtomatik so'rov`}
                 tone="emerald"
               />
               <StatCard
                 icon={<Wallet size={18} />}
-                label="Jami so'rovlar"
-                value={`${formatNumber(withdrawals.length)} ta`}
-                hint="Barcha vaqt"
+                label="Kartalarga o'tkazilgan"
+                value={formatSom(withdrawalNet)}
+                hint="Net summa (komissiyadan keyin)"
                 tone="sky"
+              />
+              <StatCard
+                icon={<TrendingUp size={18} />}
+                label="Platforma komissiyasi"
+                value={formatSom(withdrawalCommission)}
+                hint="Har bir yechishdan 5%"
+                tone="amber"
               />
             </div>
 
             <div className="card overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
                 <div>
-                  <h2 className="text-sm font-black text-emerald-950">Pul yechish so'rovlari</h2>
+                  <h2 className="text-sm font-black text-emerald-950">Pul yechish tarixi</h2>
                   <p className="text-[10px] text-stone-500">
-                    Tasdiqlangach kartaga o'tkazma qiling. Rad etilsa summa avtomatik hamyonga qaytadi.
+                    So'rovlar SMS kod bilan tasdiqlanib avtomatik qabul qilinadi — admin tasdig'i talab qilinmaydi.
                   </p>
                 </div>
                 <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
@@ -1279,16 +1303,17 @@ export default function Admin() {
                       <th>Sana</th>
                       <th>Foydalanuvchi</th>
                       <th>Summa</th>
-                      <th>Karta</th>
+                      <th>Komissiya</th>
+                      <th>Kartaga</th>
+                      <th>Karta / telefon</th>
                       <th>Holat</th>
-                      <th>Amallar</th>
                     </tr>
                   </thead>
                   <tbody>
                     {[...withdrawals]
                       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                       .map((entry) => {
-                        const status = WITHDRAWAL_STATUS[entry.status] || WITHDRAWAL_STATUS.pending
+                        const status = WITHDRAWAL_STATUS[entry.status] || WITHDRAWAL_STATUS.approved
                         return (
                           <tr key={entry.id}>
                             <td className="whitespace-nowrap text-[10px] text-stone-500">
@@ -1303,37 +1328,24 @@ export default function Admin() {
                             <td className="whitespace-nowrap font-bold text-emerald-800">
                               {formatSom(entry.amount)}
                             </td>
-                            <td className="whitespace-nowrap font-mono text-[10px] text-stone-600">
-                              {entry.cardNumber}
+                            <td className="whitespace-nowrap text-[10px] font-bold text-rose-600">
+                              −{formatSom(entry.commission || 0)}
+                            </td>
+                            <td className="whitespace-nowrap font-black text-emerald-700">
+                              {formatSom(entry.netAmount ?? entry.amount)}
+                            </td>
+                            <td>
+                              <p className="whitespace-nowrap font-mono text-[10px] text-stone-600">
+                                {entry.cardNumber}
+                              </p>
+                              <p className="text-[9px] text-stone-400">{entry.phone || '—'}</p>
                             </td>
                             <td>
                               <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${status.className}`}>
-                                {status.label}
+                                {entry.autoApproved ? 'Avtomatik tasdiqlangan' : status.label}
                               </span>
                               {entry.adminNote && (
                                 <p className="mt-1 max-w-[160px] text-[9px] text-rose-500">{entry.adminNote}</p>
-                              )}
-                            </td>
-                            <td>
-                              {entry.status === 'pending' ? (
-                                <div className="flex gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => approveWithdrawal(entry)}
-                                    className="rounded-lg bg-emerald-600 px-2 py-1 text-[9px] font-bold text-white hover:bg-emerald-700"
-                                  >
-                                    Tasdiqlash
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => rejectWithdrawal(entry)}
-                                    className="rounded-lg bg-rose-50 px-2 py-1 text-[9px] font-bold text-rose-600 hover:bg-rose-100"
-                                  >
-                                    Rad etish
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-[9px] text-stone-400">—</span>
                               )}
                             </td>
                           </tr>
@@ -1346,8 +1358,8 @@ export default function Admin() {
                 <div className="p-4">
                   <EmptyState
                     icon="💸"
-                    title="Pul yechish so'rovlari yo'q"
-                    description="Foydalanuvchilar pul yechish so'rovini yuborganda shu yerda ko'rinadi."
+                    title="Pul yechish yozuvlari yo'q"
+                    description="Foydalanuvchilar SMS kod bilan pul yechganda shu yerda ko'rinadi."
                   />
                 </div>
               )}
@@ -1358,12 +1370,183 @@ export default function Admin() {
                 <Banknote size={16} className="text-emerald-600" /> Qoidalar
               </h2>
               <ul className="mt-2 space-y-1 text-[11px] leading-relaxed text-stone-600">
-                <li>• Minimal summa — 1 so'm. Minimal limit yo'q.</li>
-                <li>• Bitta so'rovda maksimal 100 000 000 so'm yechish mumkin.</li>
-                <li>• 100 mln so'mdan katta summani foydalanuvchi bir necha so'rovga bo'lib yuboradi.</li>
-                <li>• So'rov yuborilganda summa hamyondan ushlab turiladi.</li>
-                <li>• Tasdiqlangach kartaga o'tkazma qiling; rad etilsa summa hamyonga qaytadi.</li>
+                <li>• Karta bir marta SMS kod bilan ulanadi; o'zgartirilguncha pul shu kartaga tushadi.</li>
+                <li>• Minimal summa — 1 so'm, bitta so'rovda maksimal 100 000 000 so'm.</li>
+                <li>• Har bir yechishda 5% komissiya platforma hamyoniga avtomatik tushadi.</li>
+                <li>• Admin tasdig'i talab qilinmaydi — so'rov darhol «Tasdiqlangan» holatida yaratiladi.</li>
+                <li>• Kartaga o'tkazma bank orqali amalga oshiriladi; net summa jadvalda ko'rsatilgan.</li>
               </ul>
+            </div>
+          </div>
+        )}
+
+        {tab === 'delivery' && (
+          <div className="mt-4 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <StatCard
+                icon={<Truck size={18} />}
+                label="Faol partiyalar"
+                value={`${activeBatches.length} ta`}
+                hint={`${courierQueue.filter((courier) => courier.deliveryStatus === 'loading').length} yuk yig'ish · ${courierQueue.filter((courier) => courier.deliveryStatus === 'delivering').length} yo'lda`}
+                tone="sky"
+              />
+              <StatCard
+                icon={<Banknote size={18} />}
+                label="To'lanmagan haq"
+                value={formatSom(unpaidBatchTotal)}
+                hint={`${unpaidBatches.length} ta topshirilgan partiya`}
+                tone="amber"
+              />
+              <StatCard
+                icon={<CheckCircle2 size={18} />}
+                label="Jami kuryer haqi"
+                value={formatSom(totalCourierPayout)}
+                hint={`${deliveredBatches.length} ta topshirilgan partiya`}
+                tone="emerald"
+              />
+            </div>
+
+            <div className="card p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="flex items-center gap-1.5 text-sm font-black text-emerald-950">
+                    <Truck size={15} className="text-emerald-600" /> Kuryerlar navbati
+                  </h2>
+                  <p className="mt-0.5 text-[10px] text-stone-500">
+                    Bir vaqtda bitta haydovchi yuk yig'adi. «Mashina to'ldi» bosilganda navbat keyingi haydovchiga o'tadi.
+                  </p>
+                </div>
+                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
+                  {courierQueue.length} ta haydovchi
+                </span>
+              </div>
+              {courierQueue.length === 0 ? (
+                <p className="mt-3 rounded-xl bg-stone-50 p-3 text-[10px] text-stone-500">
+                  Faol yetkazib beruvchi yo'q. Foydalanuvchilar bo'limida rolni «Yetkazib beruvchi» ga o'zgartiring.
+                </p>
+              ) : (
+                <div className="mt-3 space-y-1.5">
+                  {courierQueue.map((courier, index) => {
+                    const info = COURIER_STATUS[courier.deliveryStatus || 'idle'] || COURIER_STATUS.idle
+                    const batch = activeBatches.find((item) => item.courierId === courier.id)
+                    return (
+                      <div
+                        key={courier.id}
+                        className="flex flex-wrap items-center gap-2.5 rounded-xl border border-stone-100 p-2.5"
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[10px] font-black text-emerald-700">
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[11px] font-bold text-emerald-950">{courier.name}</p>
+                          <p className="truncate text-[9px] text-stone-400">
+                            {courier.phone || 'Telefon yo‘q'} · {courier.region || 'Viloyat yo‘q'}
+                          </p>
+                        </div>
+                        {batch && (
+                          <span className="text-[9px] font-semibold text-stone-500">
+                            {batch.orderCount} ta buyurtma · {formatSom(batch.payout)}
+                          </span>
+                        )}
+                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${info.className}`}>
+                          {info.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="card overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-black text-emerald-950">Yetkazish partiyalari</h2>
+                  <p className="text-[10px] text-stone-500">
+                    Har bir yuk uchun summa, masofa va haydovchi maoshi. To'lovni tasdiqlaganda summa kuryer hamyoniga o'tadi.
+                  </p>
+                </div>
+                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
+                  {courierBatches.length} ta partiya
+                </span>
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Partiya</th>
+                      <th>Kuryer</th>
+                      <th>Buyurtma</th>
+                      <th>Yuk summasi</th>
+                      <th>Masofa</th>
+                      <th>Haydovchi haqi</th>
+                      <th>Holat</th>
+                      <th>To'lov</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...courierBatches]
+                      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                      .map((batch) => {
+                        const info = BATCH_STATUS[batch.status] || BATCH_STATUS.loading
+                        return (
+                          <tr key={batch.id}>
+                            <td>
+                              <p className="font-mono text-[10px] font-bold text-emerald-950">
+                                #{batch.id.slice(0, 8)}
+                              </p>
+                              <p className="text-[9px] text-stone-400">{formatDateTime(batch.createdAt)}</p>
+                            </td>
+                            <td className="text-[11px] font-semibold text-stone-600">
+                              {batch.courierName || '—'}
+                            </td>
+                            <td className="text-[11px] font-bold text-emerald-950">{batch.orderCount} ta</td>
+                            <td className="whitespace-nowrap font-bold text-emerald-800">
+                              {formatSom(batch.totalAmount)}
+                            </td>
+                            <td className="whitespace-nowrap text-[10px] text-stone-600">
+                              {formatNumber(Math.round(batch.totalDistance || 0))} km
+                            </td>
+                            <td className="whitespace-nowrap font-black text-emerald-700">
+                              {formatSom(batch.payout)}
+                            </td>
+                            <td>
+                              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${info.className}`}>
+                                {info.label}
+                              </span>
+                            </td>
+                            <td>
+                              {batch.paid ? (
+                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                                  To'langan
+                                </span>
+                              ) : batch.status === 'delivered' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => payBatch(batch)}
+                                  className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[9px] font-bold text-white hover:bg-emerald-700"
+                                >
+                                  Haqni to'lash
+                                </button>
+                              ) : (
+                                <span className="text-[9px] text-stone-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              </div>
+              {courierBatches.length === 0 && (
+                <div className="p-4">
+                  <EmptyState
+                    icon="🚚"
+                    title="Partiyalar yo'q"
+                    description="Buyurtmalar kuryerlarga biriktirilganda partiyalar shu yerda paydo bo'ladi."
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1699,6 +1882,94 @@ export default function Admin() {
                     className="input"
                   />
                 </div>
+                <div>
+                  <label className="label">Yetkazish bazaviy haqi (so'm)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={settingsForm.deliveryBasePay ?? 10000}
+                    onChange={(event) => setSettingsForm({ ...settingsForm, deliveryBasePay: event.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="label">Har km uchun haq (so'm)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={settingsForm.deliveryRatePerKm ?? 1500}
+                    onChange={(event) => setSettingsForm({ ...settingsForm, deliveryRatePerKm: event.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="label">Admin Telegram</label>
+                  <input
+                    value={settingsForm.adminTelegram || ''}
+                    onChange={(event) => setSettingsForm({ ...settingsForm, adminTelegram: event.target.value })}
+                    className="input"
+                    placeholder="@utkrvc09"
+                  />
+                  <p className="mt-1 text-[10px] text-stone-400">
+                    AI ishlamaganda foydalanuvchi shu manzilga murojaat qiladi.
+                  </p>
+                </div>
+                <div className="sm:col-span-2 rounded-xl border border-sky-100 bg-sky-50/60 p-3">
+                  <p className="text-xs font-black text-emerald-950">SMS provayderi (Eskiz.uz)</p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-sky-900/80">
+                    {settings.smsConfigured
+                      ? '✅ SMS provayderi ulangan — tasdiqlash kodlari haqiqiy raqamga yuboriladi.'
+                      : "Provayder sozlanmagan — kod test rejimida API javobida va modalda ko'rsatiladi."}
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="label">Eskiz email</label>
+                      <input
+                        type="email"
+                        value={settingsForm.smsEmail || ''}
+                        onChange={(event) => setSettingsForm({ ...settingsForm, smsEmail: event.target.value })}
+                        className="input"
+                        placeholder="hisob@example.com"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Eskiz paroli</label>
+                      <input
+                        type="password"
+                        value={settingsForm.smsPassword || ''}
+                        onChange={(event) => setSettingsForm({ ...settingsForm, smsPassword: event.target.value })}
+                        className="input"
+                        placeholder={settings.smsConfigured ? "O'zgartirmaslik uchun bo'sh qoldiring" : 'Eskiz kabinet paroli'}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">SMS jo'natuvchi nomi</label>
+                      <input
+                        value={settingsForm.smsFrom || ''}
+                        onChange={(event) => setSettingsForm({ ...settingsForm, smsFrom: event.target.value })}
+                        className="input"
+                        placeholder="4546"
+                      />
+                    </div>
+                    <label className="flex items-start gap-2 rounded-xl border border-sky-200 bg-white p-3 text-[10px] leading-relaxed text-stone-600">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(settingsForm.smsTestMode)}
+                        onChange={(event) =>
+                          setSettingsForm({ ...settingsForm, smsTestMode: event.target.checked })
+                        }
+                        className="mt-0.5 h-3.5 w-3.5 accent-emerald-600"
+                      />
+                      <span>
+                        <span className="block font-bold text-emerald-950">Test rejimi</span>
+                        Yoqilganda provayder sozlanmagan bo'lsa ham kod javobda qaytadi. Haqiqiy SMS
+                        yuborish uchun o'chiring.
+                      </span>
+                    </label>
+                  </div>
+                </div>
                 <div className="sm:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
                   <label className="label">AI API kaliti — Gemini yoki Groq</label>
                   <input
@@ -1714,32 +1985,60 @@ export default function Admin() {
                     autoComplete="off"
                     spellCheck={false}
                   />
-                  <p className="mt-2 text-[10px] leading-relaxed text-emerald-800/80">
-                    {settings.aiKeyConfigured
-                      ? "✅ AI kaliti ulangan. Kalit bazada saqlanadi va sayt foydalanuvchilariga ko'rinmaydi."
-                      : "Kalit kiritilmasa AI bepul zaxira provayderda ishlaydi (sekinroq). Bepul kalitlar: "}
-                    {!settings.aiKeyConfigured && (
+                  <div
+                    className={`mt-2 rounded-xl border p-3 text-[10px] leading-relaxed ${
+                      settings.aiKeyConfigured || settings.aiEnvConfigured
+                        ? 'border-emerald-200 bg-white text-emerald-800'
+                        : 'border-amber-200 bg-amber-50 text-amber-900'
+                    }`}
+                  >
+                    {settings.aiKeyConfigured || settings.aiEnvConfigured ? (
+                      <p>
+                        ✅ AI kaliti ulangan. Kalit bazada yoki Vercel muhitida saqlanadi va sayt
+                        foydalanuvchilariga ko'rinmaydi.
+                      </p>
+                    ) : (
                       <>
-                        <a
-                          href="https://console.groq.com/keys"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-bold underline"
-                        >
-                          Groq (gsk_...)
-                        </a>
-                        {' · '}
-                        <a
-                          href="https://aistudio.google.com/apikey"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-bold underline"
-                        >
-                          Gemini (AIza...)
-                        </a>
+                        <p className="font-black">ℹ️ AI kalitsiz bepul rejimda ishlayapti (OVHcloud)</p>
+                        <p className="mt-1">
+                          Kalit ulansa javoblar tezroq va barqarorroq bo'ladi, kunlik limit ham
+                          oshadi. Bepul kalit oling:
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <a
+                            href="https://console.groq.com/keys"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg bg-emerald-700 px-2.5 py-1 font-bold text-white hover:bg-emerald-800"
+                          >
+                            Groq kaliti (gsk_...)
+                          </a>
+                          <a
+                            href="https://aistudio.google.com/apikey"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg bg-sky-700 px-2.5 py-1 font-bold text-white hover:bg-sky-800"
+                          >
+                            Gemini kaliti (AIza...)
+                          </a>
+                          <a
+                            href="https://dash.llm7.io/#/api-keys"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg bg-violet-700 px-2.5 py-1 font-bold text-white hover:bg-violet-800"
+                          >
+                            LLM7 kaliti
+                          </a>
+                        </div>
+                        <p className="mt-2">
+                          Kalitni shu maydonga kiriting yoki Vercel Environment Variables ga{' '}
+                          <code className="font-mono">GROQ_API_KEY</code> /{' '}
+                          <code className="font-mono">GEMINI_API_KEY</code> /{' '}
+                          <code className="font-mono">LLM7_API_KEY</code> qo'shing.
+                        </p>
                       </>
                     )}
-                  </p>
+                  </div>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
@@ -1826,8 +2125,14 @@ export default function Admin() {
                   />
                   <IntegrationRow
                     label="AI maslahatchi"
-                    ready={Boolean(settings.aiKeyConfigured)}
-                    hint={settings.aiKeyConfigured ? 'AI kaliti ulangan' : 'Gemini yoki Groq kaliti'}
+                    ready
+                    hint={
+                      settings.aiKeyConfigured
+                        ? 'Panel kaliti ulangan'
+                        : settings.aiEnvConfigured
+                          ? 'Vercel env kaliti ulangan'
+                          : 'OVHcloud kalitsiz rejim'
+                    }
                   />
                 </div>
                 <p className="mt-3 rounded-lg bg-stone-50 px-2.5 py-2 text-[9px] leading-relaxed text-stone-500">

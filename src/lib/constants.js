@@ -15,6 +15,54 @@ export const REGIONS = [
   "Qoraqalpog'iston",
 ]
 
+// Viloyat markazlarining taxminiy koordinatalari — yuk masofasini hisoblash uchun.
+export const REGION_COORDS = {
+  Toshkent: [41.2995, 69.2401],
+  'Toshkent viloyati': [41.05, 69.35],
+  Samarqand: [39.6542, 66.9597],
+  Buxoro: [39.7681, 64.4213],
+  "Farg'ona": [40.3864, 71.7864],
+  Andijon: [40.7829, 72.3442],
+  Namangan: [41.0011, 71.6673],
+  Qashqadaryo: [38.8606, 65.7891],
+  Surxondaryo: [37.2242, 67.2783],
+  Jizzax: [40.1158, 67.8422],
+  Sirdaryo: [40.4897, 68.7842],
+  Navoiy: [40.0844, 65.3792],
+  Xorazm: [41.55, 60.6333],
+  "Qoraqalpog'iston": [42.4531, 59.6103],
+}
+
+function normalizeRegionName(value = '') {
+  return String(value)
+    .toLowerCase()
+    .replace(/[ʻʼ‘’`']/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const REGION_LOOKUP = new Map(
+  Object.entries(REGION_COORDS).map(([name, coords]) => [normalizeRegionName(name), coords]),
+)
+
+// Ikki viloyat markazi orasidagi yo'l masofasi (km, taxminiy).
+export function regionDistanceKm(from = '', to = '') {
+  const a = REGION_LOOKUP.get(normalizeRegionName(from))
+  const b = REGION_LOOKUP.get(normalizeRegionName(to))
+  if (!a || !b) return 0
+  const toRad = (value) => (value * Math.PI) / 180
+  const [lat1, lon1] = a
+  const [lat2, lon2] = b
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  const straight = 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+  // Yo'l chizig'i to'g'ri chiziqdan uzunroq bo'ladi.
+  return Math.max(0, Math.round(straight * 1.2 * 10) / 10)
+}
+
 export const CATEGORIES = [
   {
     id: 'texnika',
@@ -300,6 +348,19 @@ export const ORDER_STATUS = {
   processing: { label: 'Jarayonda', className: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
   shipped: { label: 'Yo\'lda', className: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
   completed: { label: 'Yakunlangan', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  cancelled: { label: 'Bekor qilingan', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+}
+
+export const COURIER_STATUS = {
+  idle: { label: 'Navbatda', className: 'bg-stone-100 text-stone-600 border-stone-200' },
+  loading: { label: 'Yuk yig‘ilmoqda', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  delivering: { label: 'Yo‘lda', className: 'bg-sky-50 text-sky-700 border-sky-200' },
+}
+
+export const BATCH_STATUS = {
+  loading: { label: 'Yuk yig‘ilmoqda', className: 'bg-amber-50 text-amber-700 border-amber-200' },
+  delivering: { label: 'Yo‘lda', className: 'bg-sky-50 text-sky-700 border-sky-200' },
+  delivered: { label: 'Topshirilgan', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   cancelled: { label: 'Bekor qilingan', className: 'bg-rose-50 text-rose-700 border-rose-200' },
 }
 

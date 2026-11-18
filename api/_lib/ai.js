@@ -14,9 +14,9 @@ const SYSTEM_PROMPT = `Sen "AgroServ AI" agronom maslahatchisisan. Sening yagona
 Qoidalar:
 1. Agar savol ANIQ agro sohaga oid bo'lmasa (dasturlash, IT, siyosat, sport, o'yin, inson tibbiyoti, moliya, kripto, umumiy ta'lim, huquq, sayohat, moda, shaxsiy munosabatlar), faqat "OFF_TOPIC" so'zini qaytar.
 2. Agar savol agroga oid bo'lsa — ekin, tuproq, o'g'it, sug'orish, kasallik, zararkunanda, chorva, bog', texnika, hosil, agro bozor yoki fermer xo'jaligi haqida bo'lsa — hech qachon "OFF_TOPIC" yozma, har doim javob ber. Agro va boshqa mavzu aralash bo'lsa, faqat agro qismiga javob ber.
-3. Agro savolga to'liq, erkin va amaliy javob ber. Tayyor shablon yoki oldindan yozilgan javobdan foydalanma — savolni tahlil qil va aynan shu savolga javob ber.
-4. Savolda bir nechta usul yoki variant so'ralsa, barchasini sanab o't va qaysi holatda qaysi biri mosligini tushuntir.
-5. Javobni o'zbek tilida (lotin yozuvida), aniq va bosqichma-bosqich yoz. Kerak bo'lsa ro'yxat ishlat. Yozishdan oldin imlo va grammatikani tekshir; "bog'", "purkash", "kasallik", "o'g'it", "sug'orish" kabi so'zlarni to'g'ri yoz.
+3. Agro savolga to'liq, erkin va amaliy javob ber. Tayyor shablon yoki oldindan yozilgan javobdan foydalanma — savolni tahlil qil va aynan shu savolga javob ber. Javobni 3-8 jumla yoki 3-6 bandli ro'yxat bilan yoz; umumiy kirish va takror gaplardan voz kech.
+4. Savolda bir nechta usul yoki variant so'ralsa, asosiylarini sanab o't va qaysi holatda qaysi biri mosligini tushuntir. Barcha mayda variantlarni sanash shart emas.
+5. Javobni o'zbek tilida (lotin yozuvida), sodda va aniq yoz. Kerak bo'lsa ro'yxat ishlat. Yozishdan oldin imlo va grammatikani tekshir; "bog'", "purkash", "kasallik", "o'g'it", "sug'orish" kabi so'zlarni to'g'ri yoz. Inglizcha atamalarni faqat ilmiy nom sifatida qavs ichida yoz.
 6. Ma'lumot yetishmasa, taxmin qilib yozma — ekin nomi, viloyat, tuproq, belgilar yoki qaysi bosqich ekanini so'ra.
 7. Dozalar, preparatlar va kimyoviy ishlovlar haqida ehtiyotkor bo'l: preparat nomini aytishing mumkin, lekin aniq doza yoki konsentratsiyani raqam bilan yozma — doza va qo'llash muddatini preparat yo'riqnomasi hamda mahalliy agronom bilan aniqlash kerakligini eslat. Taqiqlangan yoki xavfli moddalarni tavsiya qilma.
 8. O'simlik kasalligi yoki zararkunandasi haqida gapirganda belgilarni sanab o't va birinchi yordam choralarini ayt; aniq tashxis uchun agronom yoki laboratoriya kerakligini eslat.
@@ -56,13 +56,23 @@ const PROVIDER_SETTINGS = {
     vision: false,
     timeout: 22_000,
     keyless: true,
+    maxTokens: 800,
+  },
+  ovh: {
+    url: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions',
+    model: () => process.env.OVH_MODEL || 'DeepSeek-V4.1-Flash-1017',
+    vision: false,
+    timeout: 30_000,
+    keyless: true,
+    maxTokens: 1200,
   },
   pollinations: {
     url: 'https://text.pollinations.ai/openai',
     model: () => process.env.POLLINATIONS_MODEL || 'openai',
     vision: false,
-    timeout: 30_000,
+    timeout: 25_000,
     keyless: true,
+    maxTokens: 700,
   },
 }
 
@@ -77,18 +87,39 @@ function detectProvider(key = '') {
 }
 
 const LLM7_MODELS = [
-  { model: 'glm-5.3-flash', timeout: 20_000 },
-  { model: 'gpt-oss:20b', timeout: 10_000 },
-  { model: 'minimax-m2.7', timeout: 18_000 },
+  { model: 'DeepSeek-V4-Flash-0731', timeout: 22_000 },
+  { model: 'glm-5.3-flash', timeout: 14_000 },
+]
+
+// OVHcloud anonim tier: kalitsiz, har model uchun 2 so'rov/daqiqa. Sifatli ochiq modellar.
+const OVH_MODELS = [
+  { model: 'DeepSeek-V4.1-Flash-1017', timeout: 30_000 },
+  { model: 'Qwen3.8-27B', timeout: 30_000 },
+  { model: 'gpt-oss-120b', timeout: 25_000 },
+  { model: 'Qwen3.6-27B', timeout: 25_000 },
+  { model: 'Mistral-Small-3.2-24B-Instruct-2506', timeout: 22_000 },
 ]
 
 // Model ba'zan o'zbek matniga boshqa til harflari yoki mojibake aralashtiradi.
-const GLITCH_PATTERN =
-  /[\u00C0-\u00C5\u00C8-\u00CB\u00CC-\u00CF\u00D2-\u00D6\u00D9-\u00DC\u00E0-\u00E5\u00E8-\u00EB\u00EC-\u00EF\u00F2-\u00F6\u00F9-\u00FC\u00FF\uFFFD]|\b(?:darling|the|and|with|from|this|that|your)\b/i
+const SCRIPT_GLITCH_PATTERN =
+  /[\u00C0-\u00FF\u0100-\u024F\u0250-\u02BA\u02C0-\u02FF\u0370-\u03FF\u0400-\u04FF\u0600-\u06FF\u3000-\u9FFF\uFFFD]/
+
+const ENGLISH_WORDS =
+  /\b(?:the|and|with|from|this|that|your|you|are|was|were|will|would|can|could|should|must|may|might|have|has|had|not|but|for|its|their|there|then|than|when|where|which|what|who|how|why|all|any|also|more|less|very|good|best|better|use|using|used|apply|avoid|ensure|check|remove|treat|treatment|spray|fertilizer|compost|mulch|rotate|resistant|variety|symptom|symptoms|cause|causes|solution|recommendation|organic|chemical|stage|growth|soil|water|plant|plants|leaf|leaves|fruit|root|roots|seed|seeds|harvest|yield|nutrient|nutrients|deficiency|potassium|nitrogen|phosphorus|calcium|magnesium|sulfur|disease|diseases|pest|pests|watering|temperature|humidity|infected|healthy|wilting|chlorosis|greening|spots|fungus)\b/gi
+
+const UZBEK_MARKERS =
+  /\b(?:va|bilan|uchun|kerak|bo'ladi|qilish|qiling|qilinadi|sug'orish|barg|barglari|tuproq|o'simlik|kasallik|o'g'it|ekin|hosil|suv|kun|yil|ham|agar|lekin|yoki|shu|juda|yaxshi|zarar|davolash|ekish|parvarish|namlik|harorat|urug'|ko'chat|zararkunanda|preparat|hosilni)\b/i
+
+const SUSPICIOUS_WORDS =
+  /\b(?:jiggari|hoq|suyalti|shimadgan|xuddisidan|pangsimon|toshqichlashib|folyalar|yingilikt|sovg'a|anomal|xora|o'rganilayotgan|tomirhelda)\b/i
 
 const TYPO_FIXES = [
   [/\bkech p[üu]sk[üu]rme\b/gi, 'kech chirish'],
   [/\bsiyratroq\b/gi, 'siyrakroq'],
+  [/\bjiggari\b/gi, 'jigarrang'],
+  [/\bhoq qilmaslik\b/gi, "ho'l qilmaslik"],
+  [/\bsuyalti o'tlar\b/gi, "begona o'tlar"],
+  [/\bqurish\b/gi, 'qurib qolish'],
 ]
 
 function normalizeReply(text) {
@@ -98,14 +129,46 @@ function normalizeReply(text) {
   } catch {
     // normalizatsiya qo'llab-quvvatlanmasa, matnni o'zgartirmaymiz
   }
+  value = value
+    .replace(/[‘’ʻ`´]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/```[a-z]*\n?/gi, '')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
   for (const [pattern, replacement] of TYPO_FIXES) {
     value = value.replace(pattern, replacement)
   }
-  return value.replace(/\uFFFD/g, '').replace(/[ \t]{2,}/g, ' ').trim()
+  return value
+    .replace(/\uFFFD/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function trimIncomplete(text) {
+  const value = String(text || '').trim()
+  if (!value) return value
+  if (/[.!?…)\]]$/.test(value)) return value
+  const lastStop = Math.max(
+    value.lastIndexOf('.'),
+    value.lastIndexOf('!'),
+    value.lastIndexOf('?'),
+    value.lastIndexOf('\n'),
+  )
+  if (lastStop > value.length * 0.55) return value.slice(0, lastStop + 1).trim()
+  return value
 }
 
 function looksGlitched(text) {
-  return GLITCH_PATTERN.test(text)
+  const value = String(text || '')
+  if (SCRIPT_GLITCH_PATTERN.test(value)) return true
+  if (SUSPICIOUS_WORDS.test(value)) return true
+  const englishWords = value.match(ENGLISH_WORDS) || []
+  if (englishWords.length >= 2) return true
+  // Uzun javobda o'zbekcha tayanch so'z bo'lmasa, model boshqa tilda yozgan bo'ladi.
+  if (value.length > 140 && !UZBEK_MARKERS.test(value)) return true
+  return false
 }
 
 function makeProvider(name, key = '', override = {}) {
@@ -121,6 +184,7 @@ function makeProvider(name, key = '', override = {}) {
     vision: settings.vision,
     timeout: override.timeout || settings.timeout,
     keyless: Boolean(settings.keyless),
+    maxTokens: override.maxTokens || settings.maxTokens || (settings.keyless ? 900 : 1400),
   }
 }
 
@@ -143,9 +207,14 @@ function providerCandidates(dbKey = '') {
   if (process.env.OPENROUTER_API_KEY) add('openrouter', process.env.OPENROUTER_API_KEY)
   if (process.env.OPENAI_API_KEY) add('openai', process.env.OPENAI_API_KEY)
 
-  // Kalitsiz zaxira: LLM7 (bepul, kunlik limit) va Pollinations (30 sekundda 1 ta)
-  for (const model of LLM7_MODELS) add('llm7', '', model)
-  add('pollinations')
+  // Kalitsiz zaxira: OVHcloud (sifatli, 2 so'rov/daqiqa), LLM7 (kunlik limit) va Pollinations.
+  // Kalit berilgan bo'lsa, u birinchi navbatda ishlatiladi (limit oshadi).
+  const ovhKey = String(process.env.OVH_API_KEY || '').trim()
+  for (const model of OVH_MODELS) add('ovh', ovhKey, model)
+
+  const llm7Key = String(process.env.LLM7_API_KEY || '').trim()
+  for (const model of LLM7_MODELS) add('llm7', llm7Key, model)
+  add('pollinations', String(process.env.POLLINATIONS_API_KEY || '').trim())
 
   return candidates
 }
@@ -197,7 +266,8 @@ async function callProvider(provider, { message, history, imageDataUrl, timeoutM
         { role: 'user', content: userContent },
       ],
       temperature: 0.5,
-      max_tokens: 1600,
+      // Kalitsiz bepul provayderlarda kunlik token limitini tejash uchun qisqaroq javob.
+      max_tokens: provider.maxTokens,
     }),
     signal: AbortSignal.timeout(Math.max(5_000, Math.min(provider.timeout, timeoutMs))),
   })
@@ -212,14 +282,22 @@ async function callProvider(provider, { message, history, imageDataUrl, timeoutM
 
   if (!response.ok) {
     const detail = data?.error?.message || raw.slice(0, 200)
-    throw new Error(`${provider.provider} ${response.status}: ${detail}`)
+    const error = new Error(`${provider.provider} ${response.status}: ${detail}`)
+    const retryAfter = Number(
+      data?.error?.retry_after ?? data?.retry_after ?? response.headers.get('retry-after'),
+    )
+    if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter
+    throw error
   }
 
   const content = data?.choices?.[0]?.message?.content
   if (!content || typeof content !== 'string') {
     throw new Error(`${provider.provider}: bo'sh javob`)
   }
-  return content.trim()
+  return {
+    content: content.trim(),
+    finishReason: data?.choices?.[0]?.finish_reason || '',
+  }
 }
 
 export async function generateAiReply({ message, history, imageDataUrl, apiKey }) {
@@ -248,54 +326,65 @@ export async function generateAiReply({ message, history, imageDataUrl, apiKey }
 
   const deadline = Date.now() + TOTAL_BUDGET_MS
   let lastError = null
-  let bestEffort = null
 
   for (const provider of candidates) {
-    const remaining = deadline - Date.now()
-    if (remaining < 5_000) break
+    // 429 javobida qisqa `retry_after` bo'lsa, o'sha provayderni bir marta qayta sinaymiz.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const remaining = deadline - Date.now()
+      if (remaining < 5_000) break
 
-    try {
-      const content = await callProvider(provider, {
-        message: cleanMessage || 'Yuklangan rasmni tahlil qil.',
-        history,
-        imageDataUrl,
-        timeoutMs: remaining,
-      })
+      try {
+        const response = await callProvider(provider, {
+          message: cleanMessage || 'Yuklangan rasmni tahlil qil.',
+          history,
+          imageDataUrl,
+          timeoutMs: remaining,
+        })
+        const content = response.content
 
-      if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
+        if (/\bOFF[\s_-]*TOPIC\b/i.test(content)) {
+          return {
+            reply: AGRO_REFUSAL,
+            offTopic: true,
+            source: provider.provider,
+            model: provider.model,
+          }
+        }
+
+        let cleaned = normalizeReply(content)
+        if (!cleaned) throw new Error(`${provider.provider}: bo'sh javob`)
+        if (response.finishReason === 'length') cleaned = trimIncomplete(cleaned)
+
+        if (looksGlitched(cleaned)) {
+          console.warn(`[ai] ${provider.provider} sifatsiz javob qaytardi, keyingi provayder sinaladi`)
+          lastError = new Error(`${provider.provider}: sifatsiz javob`)
+          break
+        }
+
         return {
-          reply: AGRO_REFUSAL,
-          offTopic: true,
+          reply: cleaned,
+          offTopic: false,
           source: provider.provider,
           model: provider.model,
         }
-      }
+      } catch (error) {
+        lastError = error
+        console.error(`[ai] ${provider.provider} ishlamadi:`, error.message)
 
-      const cleaned = normalizeReply(content)
-      if (!cleaned) throw new Error(`${provider.provider}: bo'sh javob`)
+        const waitSeconds = Number(error.retryAfter)
+        const canRetry =
+          attempt === 0 &&
+          Number.isFinite(waitSeconds) &&
+          waitSeconds > 0 &&
+          waitSeconds <= 8 &&
+          deadline - Date.now() > waitSeconds * 1000 + 10_000
 
-      if (looksGlitched(cleaned)) {
-        console.warn(`[ai] ${provider.provider} sifatsiz javob qaytardi, keyingi provayder sinaladi`)
-        if (!bestEffort) bestEffort = cleaned
-        lastError = new Error(`${provider.provider}: sifatsiz javob`)
-        continue
-      }
+        if (!canRetry) break
 
-      return {
-        reply: cleaned,
-        offTopic: false,
-        source: provider.provider,
-        model: provider.model,
+        console.warn(`[ai] ${provider.provider} ${waitSeconds}s kutib qayta urinadi`)
+        await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000))
       }
-    } catch (error) {
-      lastError = error
-      console.error(`[ai] ${provider.provider} ishlamadi:`, error.message)
     }
-  }
-
-  // Barcha provayderlar sifatsiz javob qaytargan bo'lsa, hech bo'lmasa tozalangan matnni beramiz.
-  if (bestEffort) {
-    return { reply: bestEffort, offTopic: false, source: 'fallback' }
   }
 
   throw lastError || new Error('Barcha AI provayderlari ishlamadi')

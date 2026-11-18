@@ -93,6 +93,74 @@ export async function creditOrderSellers(client, order) {
   await client.query('UPDATE orders SET credited = true, updated_at = now() WHERE id = $1', [order.id])
 }
 
+// Buyurtma yakunlanganda sotuvchiga tushum, naqd komissiya va xarid yozuvini bajaradi.
+export async function completeOrderPaymentEffects(client, order) {
+  const items = Array.isArray(order.items) ? order.items : []
+  const paymentMethod = order.payment_method
+
+  if (!order.credited) {
+    if (paymentMethod === 'cash') {
+      const groups = groupBySeller(items)
+      for (const [sellerId, sellerItems] of groups) {
+        const fee = sellerFee(sellerItems)
+        if (fee <= 0) continue
+        const updated = await client.query(
+          'UPDATE users SET wallet = wallet - $1, updated_at = now() WHERE id = $2 RETURNING wallet',
+          [fee, sellerId],
+        )
+        await client.query(
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+           VALUES ($1,'commission_deduction',$2,$3,$4,$5,'cash','completed')`,
+          [
+            sellerId,
+            -fee,
+            Number(updated.rows[0]?.wallet || 0),
+            `${order.number} naqd savdo komissiyasi`,
+            order.id,
+          ],
+        )
+      }
+      if (Number(order.commission_amount || 0) > 0) {
+        await client.query(
+          `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+           VALUES ($1,'commission',$2,NULL,$3,$4,'cash','completed')`,
+          [
+            order.buyer_id,
+            Number(order.commission_amount || 0),
+            `${order.number} buyurtmasi bo'yicha komissiya`,
+            order.id,
+          ],
+        )
+      }
+      await client.query('UPDATE orders SET credited = true WHERE id = $1', [order.id])
+    } else {
+      await creditOrderSellers(client, order)
+    }
+  }
+
+  if (paymentMethod === 'cash' && order.payment_status !== 'paid') {
+    const existingPurchase = await client.query(
+      "SELECT 1 FROM transactions WHERE reference = $1 AND type = 'purchase' LIMIT 1",
+      [order.id],
+    )
+    if (existingPurchase.rowCount === 0) {
+      const buyer = await client.query('SELECT wallet FROM users WHERE id = $1', [order.buyer_id])
+      await client.query(
+        `INSERT INTO transactions (user_id, type, amount, balance_after, description, reference, provider, status)
+         VALUES ($1,'purchase',$2,$3,$4,$5,'cash','completed')`,
+        [
+          order.buyer_id,
+          -Number(order.total),
+          Number(buyer.rows[0]?.wallet || 0),
+          `${order.number} naqd buyurtma to'lovi`,
+          order.id,
+        ],
+      )
+    }
+    await client.query("UPDATE orders SET payment_status = 'paid', updated_at = now() WHERE id = $1", [order.id])
+  }
+}
+
 export async function applyPaidPayment(client, paymentId, providerTxId = null) {
   const paymentResult = await client.query('SELECT * FROM payments WHERE id = $1 FOR UPDATE', [paymentId])
   const payment = paymentResult.rows[0]

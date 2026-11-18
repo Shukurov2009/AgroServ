@@ -23,8 +23,22 @@ export function toUser(row, { self = false, admin = false } = {}) {
     googleLinked: Boolean(row.google_id),
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
   }
-  if (self || admin) user.email = row.email
+  if (self || admin) {
+    user.email = row.email
+    user.cardMasked = row.card_number ? `•••• ${String(row.card_number).slice(-4)}` : ''
+    user.cardHolder = row.card_holder || ''
+    user.cardPhoneMasked = row.card_phone ? maskPhone(row.card_phone) : ''
+    user.hasCard = Boolean(row.card_number)
+    user.deliveryStatus = row.delivery_status || 'idle'
+    user.deliveryQueueAt = row.delivery_queue_at ? new Date(row.delivery_queue_at).toISOString() : null
+  }
   return user
+}
+
+function maskPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (digits.length < 4) return ''
+  return `••• •• ${digits.slice(-3)}`
 }
 
 export function toPublicUser(row) {
@@ -176,9 +190,16 @@ export function toOrder(row) {
     commissionRate: Number(row.commission_rate || 0),
     promoCode: row.promo_code || '',
     items: Array.isArray(row.items) ? row.items : [],
+    pickupRegion: row.pickup_region || '',
+    deliveryRegion: row.delivery_region || '',
+    distanceKm: row.distance_km == null ? null : Number(row.distance_km),
+    courierBatchId: row.courier_batch_id || null,
+    courierPayout: num(row.courier_payout),
+    deliveredAt: row.delivered_at ? new Date(row.delivered_at).toISOString() : null,
     info: {
       name: row.buyer_name || '',
       phone: row.phone || '',
+      region: row.delivery_region || '',
       address: row.address || '',
       note: row.note || '',
     },
@@ -227,9 +248,13 @@ export function toWithdrawal(row) {
     userId: row.user_id,
     userName: row.user_name || '',
     amount: num(row.amount),
+    commission: num(row.commission),
+    netAmount: row.net_amount == null ? num(row.amount) - num(row.commission) : num(row.net_amount),
+    phone: row.phone ? maskPhone(row.phone) : '',
     cardNumber: row.card_number || '',
     cardHolder: row.card_holder || '',
     status: row.status,
+    autoApproved: Boolean(row.auto_approved),
     adminNote: row.admin_note || '',
     reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
@@ -245,6 +270,24 @@ export function toMessage(row) {
     subject: row.subject || 'Umumiy savol',
     message: row.message,
     read: Boolean(row.read),
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
+  }
+}
+
+export function toBatch(row) {
+  return {
+    id: row.id,
+    courierId: row.courier_id,
+    courierName: row.courier_name || '',
+    status: row.status,
+    orderCount: num(row.order_count),
+    totalAmount: num(row.total_amount),
+    totalDistance: Number(row.total_distance || 0),
+    payout: num(row.payout),
+    paid: Boolean(row.paid),
+    startedAt: row.started_at ? new Date(row.started_at).toISOString() : null,
+    fullAt: row.full_at ? new Date(row.full_at).toISOString() : null,
+    deliveredAt: row.delivered_at ? new Date(row.delivered_at).toISOString() : null,
     createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
   }
 }
