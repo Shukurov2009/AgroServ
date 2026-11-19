@@ -381,15 +381,8 @@ export default function MyServices() {
                   : "Qidiruv yoki filtrni o'zgartirib qayta urinib ko'ring."
               }
               action={myServices.length === 0 ? "Xizmat qo'shish" : undefined}
-              actionTo={myServices.length === 0 ? '/xizmatlarim' : undefined}
+              onAction={myServices.length === 0 ? openCreate : undefined}
             />
-            {myServices.length === 0 && (
-              <div className="mt-3 text-center">
-                <button type="button" onClick={openCreate} className="btn btn-primary btn-sm">
-                  <Plus size={14} /> Xizmat qo'shish
-                </button>
-              </div>
-            )}
           </div>
         ) : (
           <div className="mt-4 space-y-2.5">
@@ -412,7 +405,7 @@ export default function MyServices() {
                       </Link>
                       {service.verified && <BadgeCheck size={13} className="text-emerald-500" />}
                       <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-bold ${
-                        isWorker ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                        isWorker ? 'bg-lime-50 text-lime-800' : 'bg-emerald-50 text-emerald-700'
                       }`}>
                         {isWorker ? 'Texnika ustasi' : 'Agronom'}
                       </span>

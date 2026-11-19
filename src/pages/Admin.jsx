@@ -504,7 +504,7 @@ export default function Admin() {
         actions={
           <>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="flex items-center gap-1.5 rounded-full border border-purple-300/25 bg-purple-300/10 px-3 py-1 text-[11px] font-bold text-purple-200">
+              <span className="flex items-center gap-1.5 rounded-full border border-lime-300/25 bg-lime-300/10 px-3 py-1 text-[11px] font-bold text-lime-200">
                 <ShieldCheck size={12} /> Administrator
               </span>
               <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold text-emerald-100/70">

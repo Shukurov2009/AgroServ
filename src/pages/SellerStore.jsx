@@ -413,15 +413,8 @@ export default function SellerStore() {
                   : "Qidiruv yoki filtrni o'zgartirib qayta urinib ko'ring."
               }
               action={myProducts.length === 0 ? "Mahsulot qo'shish" : undefined}
-              actionTo={myProducts.length === 0 ? '/dokon' : undefined}
+              onAction={myProducts.length === 0 ? openCreate : undefined}
             />
-            {myProducts.length === 0 && (
-              <div className="mt-3 text-center">
-                <button type="button" onClick={openCreate} className="btn btn-primary btn-sm">
-                  <Plus size={14} /> Mahsulot qo'shish
-                </button>
-              </div>
-            )}
           </div>
         ) : (
           <div className="mt-4 space-y-2.5">

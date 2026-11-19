@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
-  MapPin,
   Package,
   Search,
   ShieldCheck,
@@ -46,9 +45,16 @@ const STEPS = [
 
 const TRUST = [
   { icon: ShieldCheck, title: 'Tekshirilgan sotuvchilar', text: "Har bir sotuvchi profili va mahsuloti moderatsiyadan o'tadi." },
-  { icon: CircleDollarSign, title: 'Xavfsiz to\'lov', text: "Karta, hamyon yoki naqd — barcha to'lovlar tarixi saqlanadi." },
-  { icon: Bot, title: 'AI agronom maslahati', text: "Kuniga 50 ta bepul savol — obuna talab qilinmaydi." },
+  { icon: CircleDollarSign, title: "Xavfsiz to'lov", text: "Karta, hamyon yoki naqd — barcha to'lovlar tarixi saqlanadi." },
+  { icon: Bot, title: 'AI agronom maslahati', text: 'Kuniga 50 ta bepul savol — obuna talab qilinmaydi.' },
   { icon: Truck, title: 'Yetkazib berish', text: "1 000 000 so'mdan yuqori buyurtmalarga yetkazish bepul." },
+]
+
+const PLATFORM_FEATURES = [
+  { icon: Store, title: "Cheksiz e'lonlar", text: 'Mahsulot va xizmatlarni cheklovsiz joylang.' },
+  { icon: CircleDollarSign, title: '5% komissiya', text: 'Savdo summasining 95% sotuvchiga qoladi.' },
+  { icon: Bot, title: 'Bepul AI', text: 'Kuniga 50 ta agronomik savol.' },
+  { icon: Sparkles, title: 'Bepul hamyon', text: "To'lovlar va buyurtmalar bitta joyda." },
 ]
 
 export default function Home() {
@@ -103,161 +109,184 @@ export default function Home() {
   return (
     <div>
       {/* HERO */}
-      <section className="hero-mesh relative overflow-hidden text-white">
-        <div className="pattern-grid absolute inset-0 opacity-60" />
-        <div className="absolute -left-24 top-1/3 h-80 w-80 rounded-full bg-emerald-400/10 blur-3xl" />
-        <div className="absolute -right-20 top-16 h-96 w-96 rounded-full bg-lime-400/10 blur-3xl" />
+      <section className="hero-cream relative overflow-hidden">
+        <div className="absolute -left-24 top-24 h-72 w-72 rounded-full bg-emerald-600/10 blur-3xl" />
+        <div className="absolute -right-16 top-0 h-96 w-96 rounded-full bg-lime-400/30 blur-3xl" />
+        <div className="pattern-dots absolute inset-x-0 top-0 h-64 opacity-[0.35]" />
 
-        <div className="container-page relative grid gap-12 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-20">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-lime-300/25 bg-lime-300/10 px-3.5 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-lime-300">
-              <Sparkles size={13} /> O'zbekistonning raqamli agro ekotizimi
-            </span>
+        <div className="container-page relative pb-8 pt-10 sm:pt-14 lg:pb-12 lg:pt-20">
+          <div className="grid gap-12 lg:grid-cols-[1.04fr_0.96fr] lg:items-center">
+            <div className="max-w-2xl">
+              <span className="eyebrow-chip">
+                <Sparkles size={13} className="text-emerald-700" />
+                O'zbekistonning raqamli agro ekotizimi
+              </span>
 
-            <h1 className="mt-5 text-balance text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl lg:text-[58px]">
-              Fermer uchun hamma narsa —{' '}
-              <span className="text-gradient">bir joyda.</span>
-            </h1>
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-emerald-100/70 sm:text-base">
-              Agro texnika, yangi meva-sabzavot, o'g'itlar, tajribali ustalar va agronomlar.
-              Sotib oling, soting, xizmat yollang va AI maslahat oling.
-            </p>
-
-            <form onSubmit={handleSearch} className="mt-7 flex max-w-xl items-center gap-2 rounded-2xl border border-white/15 bg-white/10 p-1.5 backdrop-blur-md">
-              <Search size={18} className="ml-2.5 shrink-0 text-emerald-100/60" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Traktor, olma, karbamid yoki agronom qidiring..."
-                className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-white outline-none placeholder:text-emerald-100/40"
-              />
-              <button type="submit" className="btn btn-lime btn-sm shrink-0 sm:btn">
-                Qidirish <ArrowRight size={15} />
-              </button>
-            </form>
-
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100/40">Mashhur:</span>
-              {QUICK_TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => navigate(`/bozor?q=${encodeURIComponent(tag)}`)}
-                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-emerald-100/70 transition hover:border-lime-300/40 hover:text-lime-200"
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-7 flex flex-wrap gap-2.5">
-              <Link to="/bozor" className="btn btn-lime btn-lg">
-                Bozorni ko'rish <ArrowRight size={17} />
-              </Link>
-              <Link to="/haqida" className="btn btn-lg border-white/15 bg-white/5 text-white hover:bg-white/10">
-                Platforma haqida
-              </Link>
-            </div>
-
-            <div className="mt-8 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
-              {heroStats.map(([value, label]) => (
-                <div key={label}>
-                  <p className="text-xl font-black text-white">{value}</p>
-                  <p className="text-[10px] font-semibold text-emerald-100/45">{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* HERO VISUAL */}
-          <div className="relative mx-auto hidden w-full max-w-md lg:block">
-            <div className="absolute -left-8 top-10 h-40 w-40 rounded-full bg-lime-400/20 blur-3xl" />
-            <div className="absolute -right-6 bottom-0 h-48 w-48 rounded-full bg-emerald-400/20 blur-3xl" />
-
-            <div className="relative animate-float-slow rounded-[2rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
-              <div className="rounded-[1.4rem] bg-emerald-950/60 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-100/45">Platforma savdosi</p>
-                    <p className="mt-1 text-2xl font-black text-white">{formatNumber(totalRevenue)} so'm</p>
-                  </div>
-                  <span className="flex items-center gap-1 rounded-full bg-lime-400/15 px-2 py-1 text-[10px] font-bold text-lime-300">
-                    <TrendingUp size={11} /> {formatNumber(orders.length)} buyurtma
-                  </span>
-                </div>
-
-                <div className="mt-4 flex h-24 items-end gap-2">
-                  {weeklyBars.map((value, index) => (
-                    <div key={index} className="flex-1">
-                      <div
-                        className="rounded-t-md bg-gradient-to-t from-emerald-500/40 to-lime-300"
-                        style={{ height: `${Math.max(4, Math.round((value / maxBar) * 100))}%` }}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex justify-between text-[8px] font-semibold text-emerald-100/35">
-                  {['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'].map((day) => (
-                    <span key={day}>{day}</span>
-                  ))}
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-white/5 p-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-100/40">Buyurtmalar</p>
-                    <p className="mt-1 text-lg font-black text-white">{formatNumber(orders.length)}</p>
-                  </div>
-                  <div className="rounded-xl bg-white/5 p-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-100/40">Foydalanuvchilar</p>
-                    <p className="mt-1 text-lg font-black text-white">{formatNumber(users.length)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="absolute -left-10 top-24 w-48 animate-float rounded-2xl border border-white/20 bg-white p-3 shadow-xl">
-              <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-lg">🍎</span>
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">Yangi buyurtma</p>
-                  <p className="text-xs font-black text-emerald-950">Olma Fuji · 100 kg</p>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[10px] font-bold text-emerald-700">800 000 so'm</span>
-                <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[8px] font-bold text-emerald-600">To'landi</span>
-              </div>
-            </div>
-
-            <div className="absolute -right-8 bottom-16 w-52 animate-float-slow rounded-2xl border border-white/20 bg-white p-3 shadow-xl">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
-                  <Bot size={16} />
-                </span>
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">AI maslahatchi</p>
-                  <p className="text-[11px] font-black text-emerald-950">Pomidor kasalligi aniqlandi</p>
-                </div>
-              </div>
-              <p className="mt-2 text-[10px] leading-relaxed text-stone-500">
-                Davolash rejasi tayyor. Fungitsid va namlik bo'yicha tavsiya.
+              <h1 className="mt-5 text-[clamp(2.55rem,6vw,4.5rem)] font-extrabold leading-[0.99] tracking-[-0.055em] text-emerald-950">
+                Fermer uchun hamma narsa —{' '}
+                <span className="marker-lime">bir joyda.</span>
+              </h1>
+              <p className="mt-5 max-w-xl text-sm font-medium leading-relaxed text-stone-600 sm:text-base">
+                Agro texnika, yangi meva-sabzavot, o'g'itlar, tajribali ustalar va agronomlar.
+                Sotib oling, soting, xizmat yollang va AI maslahat oling.
               </p>
+
+              <form
+                onSubmit={handleSearch}
+                className="mt-7 flex max-w-xl items-center gap-1.5 rounded-full border border-white/90 bg-white/75 p-1.5 shadow-[0_24px_50px_-34px_rgba(8,31,19,0.55)] backdrop-blur-xl"
+              >
+                <Search size={18} className="ml-3 shrink-0 text-emerald-800/50" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Traktor, olma, karbamid yoki agronom qidiring..."
+                  className="min-w-0 flex-1 bg-transparent px-1 py-2.5 text-sm font-medium text-emerald-950 outline-none placeholder:text-stone-400"
+                />
+                <button type="submit" className="btn btn-primary shrink-0 px-4 py-2.5 text-xs sm:px-5 sm:text-sm">
+                  Qidirish <ArrowRight size={15} />
+                </button>
+              </form>
+
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-400">Mashhur:</span>
+                {QUICK_TAGS.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => navigate(`/bozor?q=${encodeURIComponent(tag)}`)}
+                    className="rounded-full border border-emerald-950/10 bg-white/60 px-2.5 py-1 text-[10px] font-bold text-emerald-900/70 backdrop-blur transition hover:border-lime-500/60 hover:bg-white hover:text-emerald-950"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-7 flex flex-wrap gap-2.5">
+                <Link to="/bozor" className="btn btn-dark btn-lg">
+                  Bozorni ko'rish <ArrowRight size={17} />
+                </Link>
+                <Link to="/haqida" className="btn btn-secondary btn-lg">
+                  Platforma haqida
+                </Link>
+              </div>
+
+              <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-bold text-emerald-900/60">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-emerald-700" /> Xavfsiz to'lov
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <BadgeCheck size={14} className="text-emerald-700" /> Tekshirilgan sotuvchilar
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Bot size={14} className="text-emerald-700" /> AI agronom
+                </span>
+              </div>
             </div>
 
-            <div className="absolute -bottom-3 left-10 flex items-center gap-2 rounded-xl border border-white/20 bg-lime-400 px-3 py-2 text-emerald-950 shadow-lg">
-              <BadgeCheck size={15} />
-              <span className="text-[10px] font-black">Tekshirilgan sotuvchilar</span>
+            {/* HERO VISUAL */}
+            <div className="relative mx-auto hidden w-full max-w-[470px] lg:block">
+              <div className="absolute -inset-7 rounded-[3rem] bg-lime-300/25 blur-3xl" />
+              <div className="relative overflow-hidden rounded-[2.4rem] border border-white/15 bg-emerald-950 p-2 shadow-[0_46px_100px_-44px_rgba(8,31,19,0.9)]">
+                <div className="rounded-[2rem] bg-gradient-to-br from-emerald-900 via-emerald-950 to-emerald-950 p-5">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-lime-300">
+                      <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-lime-400" /> AgroServ live
+                    </span>
+                    <div className="flex gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/20" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-lime-400/70" />
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-100/45">Platforma savdosi</p>
+                    <div className="mt-1.5 flex flex-wrap items-end justify-between gap-2">
+                      <p className="text-[1.65rem] font-extrabold leading-none text-white">
+                        {formatNumber(totalRevenue)} <span className="text-sm font-bold text-emerald-100/50">so'm</span>
+                      </p>
+                      <span className="flex items-center gap-1 rounded-full bg-lime-400/15 px-2 py-1 text-[10px] font-bold text-lime-300">
+                        <TrendingUp size={11} /> {formatNumber(orders.length)} buyurtma
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex h-24 items-end gap-2 rounded-2xl border border-white/5 bg-white/[0.03] px-3 pb-2 pt-3">
+                    {weeklyBars.map((value, index) => (
+                      <div key={index} className="flex h-full flex-1 items-end">
+                        <div
+                          className="w-full rounded-t-md bg-gradient-to-t from-emerald-500/50 via-lime-400/80 to-lime-300"
+                          style={{ height: `${Math.max(5, Math.round((value / maxBar) * 100))}%` }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex justify-between px-1 text-[8px] font-bold text-emerald-100/35">
+                    {['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'].map((day) => (
+                      <span key={day}>{day}</span>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 backdrop-blur">
+                      <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-emerald-100/40">Buyurtmalar</p>
+                      <p className="mt-1 text-lg font-extrabold text-white">{formatNumber(orders.length)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3 backdrop-blur">
+                      <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-emerald-100/40">Foydalanuvchilar</p>
+                      <p className="mt-1 text-lg font-extrabold text-white">{formatNumber(users.length)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute -bottom-10 -left-6 w-48 -rotate-3 animate-float rounded-2xl border border-white/80 bg-[#fffdf6] p-3 shadow-[0_24px_50px_-24px_rgba(8,31,19,0.5)]">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-lg">🍎</span>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">Yangi buyurtma</p>
+                    <p className="text-xs font-extrabold text-emerald-950">Olma Fuji · 100 kg</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-emerald-700">800 000 so'm</span>
+                  <span className="rounded-full bg-lime-200 px-1.5 py-0.5 text-[8px] font-black text-emerald-900">To'landi</span>
+                </div>
+              </div>
+
+              <div className="absolute -right-6 -top-8 w-52 animate-float-slow rounded-2xl border border-white/80 bg-[#fffdf6] p-3 shadow-[0_24px_50px_-24px_rgba(8,31,19,0.5)]">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-950 text-lime-300">
+                    <Bot size={15} />
+                  </span>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-stone-400">AI maslahatchi</p>
+                    <p className="text-[11px] font-extrabold text-emerald-950">Pomidor kasalligi aniqlandi</p>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] leading-relaxed text-stone-500">
+                  Davolash rejasi tayyor. Fungitsid va namlik bo'yicha tavsiya.
+                </p>
+              </div>
+
+              <div className="absolute -bottom-4 right-6 flex items-center gap-2 rounded-full border border-lime-600/20 bg-lime-400 px-3.5 py-2 text-emerald-950 shadow-lg">
+                <BadgeCheck size={15} />
+                <span className="text-[10px] font-black">Tekshirilgan sotuvchilar</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="relative border-t border-white/10">
-          <div className="container-page flex flex-wrap items-center justify-between gap-4 py-4 text-[10px] font-semibold text-emerald-100/45">
-            <span className="flex items-center gap-1.5"><ShieldCheck size={13} className="text-lime-300" /> Xavfsiz to'lov</span>
-            <span className="flex items-center gap-1.5"><BadgeCheck size={13} className="text-lime-300" /> Tekshirilgan sotuvchilar</span>
-            <span className="flex items-center gap-1.5"><Truck size={13} className="text-lime-300" /> Tezkor yetkazish</span>
-            <span className="flex items-center gap-1.5"><Bot size={13} className="text-lime-300" /> AI agronom</span>
-            <span className="flex items-center gap-1.5"><MapPin size={13} className="text-lime-300" /> 14 viloyat</span>
+          {/* STAT STRIP */}
+          <div className="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-[1.75rem] border border-white/80 bg-emerald-950/10 shadow-[0_24px_60px_-46px_rgba(8,31,19,0.6)] backdrop-blur-xl sm:grid-cols-4 lg:mt-14">
+            {heroStats.map(([value, label], index) => (
+              <div key={label} className="bg-[#f8f5ea]/85 px-4 py-4 sm:px-6 sm:py-5">
+                <div className="flex items-center gap-2">
+                  <span className={`h-1.5 w-1.5 rounded-full ${index === 0 ? 'bg-lime-500' : 'bg-emerald-700/40'}`} />
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-stone-400">{label}</p>
+                </div>
+                <p className="mt-1.5 text-2xl font-extrabold tracking-tight text-emerald-950 sm:text-[1.7rem]">{value}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -290,20 +319,20 @@ export default function Home() {
                 <Link key={category.id} to={to} className="card hover-lift group relative overflow-hidden p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold ${category.soft}`}>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[9px] font-bold ${category.soft}`}>
                         {category.short}
                       </span>
-                      <h3 className="mt-3 text-base font-black text-emerald-950">{category.label}</h3>
+                      <h3 className="mt-3 text-base font-extrabold text-emerald-950">{category.label}</h3>
                       <p className="mt-1 max-w-xs text-xs leading-relaxed text-stone-500">{category.description}</p>
                     </div>
-                    <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${category.gradient} text-3xl shadow-lg`}>
+                    <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${category.gradient} text-3xl shadow-[0_18px_30px_-18px_rgba(8,31,19,0.5)]`}>
                       {category.icon}
                     </span>
                   </div>
-                  <div className="mt-4 flex items-center justify-between text-[11px] font-semibold text-stone-400">
+                  <div className="mt-5 flex items-center justify-between border-t border-emerald-950/[0.06] pt-3 text-[11px] font-bold text-stone-400">
                     <span>{count !== null ? `${count} ta taklif` : 'Yangi imkoniyatlar'}</span>
-                    <span className="flex items-center gap-1 text-emerald-700 transition group-hover:gap-2">
-                      Kirish <ChevronRight size={13} />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-950/10 bg-white/70 text-emerald-800 transition group-hover:border-emerald-950 group-hover:bg-emerald-950 group-hover:text-lime-300">
+                      <ChevronRight size={14} />
                     </span>
                   </div>
                 </Link>
@@ -314,7 +343,7 @@ export default function Home() {
       </section>
 
       {/* FEATURED PRODUCTS */}
-      <section className="bg-white/60">
+      <section className="section-alt">
         <div className="container-page section-pad">
           <SectionHeader
             eyebrow="Top mahsulotlar"
@@ -334,16 +363,34 @@ export default function Home() {
       {/* WHY US */}
       <section className="section-pad">
         <div className="container-page">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <span className="eyebrow-chip mb-3">
+                <ShieldCheck size={13} /> Nega AgroServ?
+              </span>
+              <h2 className="max-w-xl text-[clamp(1.65rem,3vw,2.5rem)] font-extrabold leading-[1.08] tracking-[-0.04em] text-emerald-950">
+                Har bir bitim orqasida ishonch turadi
+              </h2>
+            </div>
+            <p className="max-w-sm text-sm leading-relaxed text-stone-500">
+              Tekshirilgan profillar, shaffof narxlar va xavfsiz to'lov — fermer uchun
+              kerakli minimal kafolatlar.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {TRUST.map((item) => {
               const Icon = item.icon
               return (
-                <div key={item.title} className="card hover-lift p-5">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                    <Icon size={20} />
+                <div key={item.title} className="card-dark hover-lift p-5">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lime-400 text-emerald-950 shadow-[0_14px_28px_-14px_rgba(196,239,69,0.9)]">
+                    <Icon size={21} />
                   </span>
-                  <h3 className="mt-3 text-sm font-black text-emerald-950">{item.title}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-stone-500">{item.text}</p>
+                  <h3 className="mt-4 text-base font-extrabold text-white">{item.title}</h3>
+                  <p className="mt-1.5 text-xs leading-relaxed text-emerald-100/65">{item.text}</p>
+                  <div className="mt-4 h-px bg-white/10" />
+                  <p className="mt-3 text-[9px] font-black uppercase tracking-[0.16em] text-lime-300/70">
+                    AgroServ kafolati
+                  </p>
                 </div>
               )
             })}
@@ -352,8 +399,10 @@ export default function Home() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="qanday-ishlaydi" className="relative overflow-hidden bg-emerald-950 text-white">
-        <div className="pattern-dots absolute inset-0 opacity-[0.08]" />
+      <section id="qanday-ishlaydi" className="relative overflow-hidden rounded-[2rem] bg-emerald-950 text-white sm:mx-3 sm:rounded-[2.75rem] lg:mx-4">
+        <div className="pattern-grid absolute inset-0 opacity-50" />
+        <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-lime-400/10 blur-3xl" />
+        <div className="absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl" />
         <div className="container-page section-pad relative">
           <SectionHeader
             light
@@ -362,19 +411,19 @@ export default function Home() {
             title="Uch qadamda foydalanishni boshlang"
             description="Ro'yxatdan o'tishdan to buyurtmani yakunlashgacha — hammasi sodda va tushunarli."
           />
-          <div className="relative grid gap-5 md:grid-cols-3">
-            <div className="absolute left-[16%] right-[16%] top-10 hidden h-px bg-gradient-to-r from-transparent via-lime-300/30 to-transparent md:block" />
+          <div className="relative grid gap-3 md:grid-cols-3">
+            <div className="absolute left-[16%] right-[16%] top-12 hidden h-px bg-gradient-to-r from-transparent via-lime-300/30 to-transparent md:block" />
             {STEPS.map((step, index) => {
               const Icon = step.icon
               return (
-                <div key={step.title} className="relative rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+                <div key={step.title} className="relative rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-6 backdrop-blur">
                   <div className="flex items-center justify-between">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-lime-400 text-emerald-950">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-lime-400 text-emerald-950">
                       <Icon size={22} />
                     </span>
-                    <span className="text-3xl font-black text-white/10">0{index + 1}</span>
+                    <span className="text-3xl font-extrabold text-white/10">0{index + 1}</span>
                   </div>
-                  <h3 className="mt-4 text-base font-black text-white">{step.title}</h3>
+                  <h3 className="mt-4 text-base font-extrabold text-white">{step.title}</h3>
                   <p className="mt-1.5 text-xs leading-relaxed text-emerald-100/60">{step.text}</p>
                 </div>
               )
@@ -402,47 +451,50 @@ export default function Home() {
       </section>
 
       {/* FREE PLATFORM */}
-      <section className="bg-white/60">
+      <section className="section-alt">
         <div className="container-page section-pad">
-          <SectionHeader
-            eyebrow="Bepul platforma"
-            title="AgroServ — obunasiz platforma"
-            description="Oylik va yillik obunalar yo'q. E'lon joylash bepul, har bir savdodan 5% komissiya."
-            action="Batafsil"
-            actionTo="/narxlar"
-          />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: Store, title: "Cheksiz e'lonlar", text: "Mahsulot va xizmatlarni cheklovsiz joylang." },
-              { icon: CircleDollarSign, title: '5% komissiya', text: "Savdo summasining 95% sotuvchiga qoladi." },
-              { icon: Bot, title: 'Bepul AI', text: 'Kuniga 50 ta agronomik savol.' },
-              { icon: Sparkles, title: 'Bepul hamyon', text: "To'lovlar va buyurtmalar bitta joyda." },
-            ].map((item) => {
-              const Icon = item.icon
-              return (
-                <div key={item.title} className="card p-5">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-                    <Icon size={20} />
-                  </span>
-                  <h3 className="mt-3 text-sm font-black text-emerald-950">{item.title}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-stone-500">{item.text}</p>
-                </div>
-              )
-            })}
-          </div>
-          <div className="mt-4 flex flex-col items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-white p-4 sm:flex-row">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-100 text-lime-700">
-                <Sparkles size={20} />
-              </span>
+          <div className="card-dark p-6 sm:p-8 lg:p-10">
+            <div className="pattern-grid absolute inset-0 opacity-20" />
+            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-lime-400/15 blur-3xl" />
+            <div className="relative grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
               <div>
-                <p className="text-sm font-black text-emerald-950">Faqat ixtiyoriy xizmat — top mahsulot</p>
-                <p className="text-[11px] text-stone-500">30 kun bozor boshida ko'rsatish. Asosiy imkoniyatlar bepul.</p>
+                <span className="eyebrow-chip eyebrow-chip-dark">
+                  <Sparkles size={13} /> Bepul platforma
+                </span>
+                <h2 className="mt-4 text-[clamp(1.7rem,3vw,2.5rem)] font-extrabold leading-[1.06] tracking-[-0.04em] text-white">
+                  AgroServ — obunasiz platforma
+                </h2>
+                <p className="mt-3 max-w-md text-sm leading-relaxed text-emerald-100/65">
+                  Oylik va yillik obunalar yo'q. E'lon joylash bepul, har bir savdodan 5% komissiya.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-2.5">
+                  <Link to="/register" className="btn btn-primary">
+                    Bepul boshlash <ArrowRight size={16} />
+                  </Link>
+                  <Link to="/narxlar" className="btn border-white/15 bg-white/5 text-white hover:bg-white/10">
+                    Tariflarni ko'rish
+                  </Link>
+                </div>
+                <div className="mt-6 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3.5 py-3 text-[11px] text-emerald-100/60">
+                  <Package size={15} className="shrink-0 text-lime-300" />
+                  Faqat ixtiyoriy xizmat — top mahsulot: 30 kun bozor boshida ko'rsatish.
+                </div>
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {PLATFORM_FEATURES.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <div key={item.title} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-lime-400/15 text-lime-300">
+                        <Icon size={18} />
+                      </span>
+                      <h3 className="mt-3 text-sm font-extrabold text-white">{item.title}</h3>
+                      <p className="mt-1 text-[11px] leading-relaxed text-emerald-100/55">{item.text}</p>
+                    </div>
+                  )
+                })}
               </div>
             </div>
-            <Link to="/narxlar" className="text-xs font-bold text-emerald-700 hover:text-emerald-900">
-              Batafsil →
-            </Link>
           </div>
         </div>
       </section>
@@ -466,51 +518,53 @@ export default function Home() {
       </section>
 
       {/* STATS + TESTIMONIALS */}
-      <section className="bg-white/60">
+      <section className="section-alt">
         <div className="container-page section-pad">
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Ishonch</span>
-              <h2 className="mt-2.5 text-2xl font-black leading-tight text-emerald-950 sm:text-3xl">
-                Har bir raqam — real foydalanuvchi va real bitim
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed text-stone-500">
-                Platformadagi barcha statistika serverdagi haqiqiy ma'lumotlardan olinadi.
-                Yangi foydalanuvchi qo'shilmaguncha raqamlar o'zgarmaydi.
-              </p>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                {trustStats.map(([value, label]) => (
-                  <div key={label} className="rounded-xl border border-emerald-900/10 bg-white p-3">
-                    <p className="text-lg font-black text-emerald-950">{value}</p>
-                    <p className="text-[10px] font-semibold text-stone-400">{label}</p>
-                  </div>
-                ))}
+          <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="card-dark p-6 sm:p-8">
+              <div className="pattern-grid absolute inset-0 opacity-20" />
+              <div className="relative">
+                <span className="eyebrow-chip eyebrow-chip-dark">Ishonch</span>
+                <h2 className="mt-4 text-[clamp(1.6rem,2.6vw,2.2rem)] font-extrabold leading-[1.08] tracking-[-0.04em] text-white">
+                  Har bir raqam — real foydalanuvchi va real bitim
+                </h2>
+                <p className="mt-3 text-sm leading-relaxed text-emerald-100/60">
+                  Platformadagi barcha statistika serverdagi haqiqiy ma'lumotlardan olinadi.
+                  Yangi foydalanuvchi qo'shilmaguncha raqamlar o'zgarmaydi.
+                </p>
+                <div className="mt-6 grid grid-cols-2 gap-2.5">
+                  {trustStats.map(([value, label]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.06] p-3.5 backdrop-blur">
+                      <p className="text-lg font-extrabold text-lime-300">{value}</p>
+                      <p className="mt-0.5 text-[10px] font-semibold text-emerald-100/50">{label}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-1">
+
+            <div className="grid content-start gap-3">
               {reviews.length === 0 ? (
                 <div className="card p-6 text-center">
-                  <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-2xl">
-                    💬
-                  </span>
-                  <p className="mt-2 text-sm font-black text-emerald-950">Hozircha fikrlar yo'q</p>
+                  <span className="icon-tile mx-auto h-12 w-12 text-2xl">💬</span>
+                  <p className="mt-3 text-sm font-extrabold text-emerald-950">Hozircha fikrlar yo'q</p>
                   <p className="mt-1 text-xs leading-relaxed text-stone-500">
                     Birinchi xaridni amalga oshirib, sotuvchi yoki xizmat haqida fikr qoldiring.
                   </p>
-                  <Link to="/bozor" className="btn btn-primary btn-sm mt-3">
+                  <Link to="/bozor" className="btn btn-primary btn-sm mt-4">
                     Bozorga o'tish
                   </Link>
                 </div>
               ) : (
                 reviews.slice(0, 3).map((review) => (
                   <div key={review.id} className="card flex gap-4 p-4">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-100 to-lime-100 text-xl">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-lime-200 to-emerald-200 text-xl">
                       {review.targetType === 'service' ? '🌿' : '🌾'}
                     </span>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-black text-emerald-950">{review.userName || 'Foydalanuvchi'}</p>
-                        <span className="text-[10px] font-semibold text-stone-400">
+                        <p className="text-sm font-extrabold text-emerald-950">{review.userName || 'Foydalanuvchi'}</p>
+                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[9px] font-bold text-stone-500">
                           {review.targetType === 'service' ? 'Xizmat' : 'Mahsulot'} fikri
                         </span>
                       </div>
@@ -530,27 +584,27 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="container-page pb-16">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-emerald-950 p-7 text-white shadow-soft sm:p-10">
-          <div className="pattern-grid absolute inset-0 opacity-20" />
-          <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-lime-400/20 blur-3xl" />
-          <div className="relative flex flex-col items-start justify-between gap-6 lg:flex-row lg:items-center">
+      <section className="container-page py-12 sm:py-16">
+        <div className="relative overflow-hidden rounded-[2rem] bg-lime-300 p-7 shadow-[0_40px_80px_-50px_rgba(111,145,20,0.9)] sm:rounded-[2.5rem] sm:p-10 lg:p-12">
+          <div className="pattern-dots absolute inset-0 opacity-20" />
+          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/40 blur-3xl" />
+          <div className="relative flex flex-col items-start justify-between gap-7 lg:flex-row lg:items-center">
             <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-lime-300">
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-950/10 bg-emerald-950/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-950">
                 <Package size={13} /> Bepul boshlang
               </span>
-              <h2 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
+              <h2 className="mt-3 text-[clamp(1.8rem,3.4vw,2.8rem)] font-extrabold leading-[1.04] tracking-[-0.045em] text-emerald-950">
                 Bugun ro'yxatdan o'ting — birinchi savdongizni boshlang
               </h2>
-              <p className="mt-2 text-sm text-emerald-100/65">
+              <p className="mt-2.5 text-sm font-medium text-emerald-950/65">
                 Fermer, sotuvchi, usta yoki agronom. Har bir rol uchun alohida imkoniyatlar.
               </p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <Link to={currentUser ? '/kabinet' : '/register'} className="btn btn-lime btn-lg">
-                {currentUser ? 'Kabinetga o\'tish' : "Ro'yxatdan o'tish"} <ArrowRight size={17} />
+              <Link to={currentUser ? '/kabinet' : '/register'} className="btn btn-dark btn-lg">
+                {currentUser ? "Kabinetga o'tish" : "Ro'yxatdan o'tish"} <ArrowRight size={17} />
               </Link>
-              <Link to="/narxlar" className="btn btn-lg border-white/20 bg-white/5 text-white hover:bg-white/10">
+              <Link to="/narxlar" className="btn btn-secondary btn-lg">
                 Tariflarni ko'rish
               </Link>
             </div>

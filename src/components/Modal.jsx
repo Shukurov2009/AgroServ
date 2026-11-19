@@ -34,18 +34,18 @@ export default function Modal({ open, onClose, title, subtitle, children, footer
         className="absolute inset-0 bg-emerald-950/60 backdrop-blur-sm"
       />
       <div
-        className={`relative max-h-[92vh] w-full animate-fade-up overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl ${SIZES[size] || SIZES.md}`}
+        className={`relative max-h-[92vh] w-full animate-fade-up overflow-hidden rounded-t-[1.75rem] border border-white/80 bg-[#fffdf6] shadow-2xl sm:rounded-[1.75rem] ${SIZES[size] || SIZES.md}`}
       >
         {(title || subtitle) && (
-          <div className="flex items-start justify-between gap-4 border-b border-emerald-900/5 px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4 border-b border-emerald-900/[0.07] px-5 py-4 sm:px-6">
             <div>
-              {title && <h2 className="text-lg font-black text-emerald-950">{title}</h2>}
+              {title && <h2 className="text-lg font-extrabold text-emerald-950">{title}</h2>}
               {subtitle && <p className="mt-1 text-xs text-stone-500">{subtitle}</p>}
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-500 transition hover:bg-stone-200 hover:text-stone-700"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-500 transition hover:bg-stone-200 hover:text-stone-700"
             >
               <X size={17} />
             </button>
@@ -53,7 +53,7 @@ export default function Modal({ open, onClose, title, subtitle, children, footer
         )}
         <div className="max-h-[calc(92vh-9rem)] overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
         {footer && (
-          <div className="border-t border-emerald-900/5 bg-stone-50/60 px-5 py-4 sm:px-6">
+          <div className="border-t border-emerald-900/[0.07] bg-stone-50/70 px-5 py-4 sm:px-6">
             {footer}
           </div>
         )}

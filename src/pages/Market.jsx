@@ -167,36 +167,42 @@ export default function Market() {
             </form>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3">
-            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">
-              <SlidersHorizontal size={13} /> Filtr
-            </span>
-            <select value={region} onChange={(event) => setRegion(event.target.value)} className="input w-auto py-1.5 text-xs">
-              <option value="all">Barcha viloyatlar</option>
-              {REGIONS.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-            <select value={sort} onChange={(event) => setSort(event.target.value)} className="input w-auto py-1.5 text-xs">
-              {Object.entries(SORTS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            <input
-              type="number"
-              value={maxPrice}
-              onChange={(event) => setMaxPrice(event.target.value)}
-              placeholder="Maks. narx (so'm)"
-              className="input w-36 py-1.5 text-xs"
-            />
-            {(query || region !== 'all' || sort !== 'new' || maxPrice || category !== 'all') && (
-              <button type="button" onClick={resetFilters} className="text-[10px] font-bold text-rose-500 hover:text-rose-700">
-                Filtrni tozalash
-              </button>
-            )}
-            <span className="ml-auto text-[11px] font-semibold text-stone-400">
-              {formatNumber(filtered.length)} ta natija
-            </span>
+          <div className="mt-3 border-t border-stone-100 pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">
+                <SlidersHorizontal size={13} /> Filtr
+              </span>
+              <div className="flex items-center gap-3">
+                {(query || region !== 'all' || sort !== 'new' || maxPrice || category !== 'all') && (
+                  <button type="button" onClick={resetFilters} className="text-[10px] font-bold text-rose-500 hover:text-rose-700">
+                    Filtrni tozalash
+                  </button>
+                )}
+                <span className="text-[11px] font-semibold text-stone-400">
+                  {formatNumber(filtered.length)} ta natija
+                </span>
+              </div>
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <select value={region} onChange={(event) => setRegion(event.target.value)} className="input w-full py-1.5 text-xs">
+                <option value="all">Barcha viloyatlar</option>
+                {REGIONS.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+              <select value={sort} onChange={(event) => setSort(event.target.value)} className="input w-full py-1.5 text-xs">
+                {Object.entries(SORTS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={maxPrice}
+                onChange={(event) => setMaxPrice(event.target.value)}
+                placeholder="Maks. narx (so'm)"
+                className="input w-full py-1.5 text-xs"
+              />
+            </div>
           </div>
         </div>
 

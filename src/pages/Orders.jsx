@@ -205,7 +205,7 @@ export default function Orders() {
             </div>
           </div>
           <div className="card flex items-center gap-3 p-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime-100 text-lime-800">
               <Clock size={18} />
             </span>
             <div>
@@ -216,7 +216,7 @@ export default function Orders() {
             </div>
           </div>
           <div className="card flex items-center gap-3 p-4">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800">
               <CheckCircle2 size={18} />
             </span>
             <div>

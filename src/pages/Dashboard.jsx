@@ -79,10 +79,10 @@ export default function Dashboard() {
 
   const quickActions = [
     { to: '/bozor', icon: ShoppingBag, label: 'Bozor', text: "Mahsulot xarid qilish", tone: 'bg-emerald-50 text-emerald-700' },
-    { to: '/xizmatlar', icon: Wrench, label: 'Xizmatlar', text: "Usta yoki agronom yollash", tone: 'bg-amber-50 text-amber-700' },
-    { to: '/ai-maslahatchi', icon: Bot, label: 'AI maslahat', text: `${aiRemaining === Infinity ? 'Cheksiz' : aiRemaining} savol qoldi`, tone: 'bg-violet-50 text-violet-700' },
-    { to: '/sevimlilar', icon: Heart, label: 'Sevimlilar', text: `${favoriteIds.length} ta saqlangan`, tone: 'bg-rose-50 text-rose-700' },
-    { to: '/buyurtmalar', icon: Receipt, label: 'Buyurtmalar', text: `${myOrders.length} ta buyurtma`, tone: 'bg-sky-50 text-sky-700' },
+    { to: '/xizmatlar', icon: Wrench, label: 'Xizmatlar', text: "Usta yoki agronom yollash", tone: 'bg-lime-50 text-lime-800' },
+    { to: '/ai-maslahatchi', icon: Bot, label: 'AI maslahat', text: `${aiRemaining === Infinity ? 'Cheksiz' : aiRemaining} savol qoldi`, tone: 'bg-emerald-100 text-emerald-800' },
+    { to: '/sevimlilar', icon: Heart, label: 'Sevimlilar', text: `${favoriteIds.length} ta saqlangan`, tone: 'bg-lime-100 text-lime-800' },
+    { to: '/buyurtmalar', icon: Receipt, label: 'Buyurtmalar', text: `${myOrders.length} ta buyurtma`, tone: 'bg-stone-100 text-stone-700' },
     { to: currentUser.role === 'admin' ? '/admin' : '/profil', icon: currentUser.role === 'admin' ? BadgeCheck : Wallet, label: currentUser.role === 'admin' ? 'Admin panel' : 'Hamyon', text: currentUser.role === 'admin' ? "Platforma boshqaruvi" : formatSom(currentUser.wallet || 0), tone: 'bg-stone-100 text-stone-600' },
   ]
 
@@ -98,7 +98,7 @@ export default function Dashboard() {
       icon: Truck,
       label: 'Yetkazib berish',
       text: `${deliveryOrders.length} ta biriktirilgan buyurtma`,
-      tone: 'bg-sky-50 text-sky-700',
+      tone: 'bg-emerald-100 text-emerald-800',
     })
   }
 
@@ -217,8 +217,8 @@ export default function Dashboard() {
                         <Icon size={15} />
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-[11px] font-black text-emerald-950">{action.label}</span>
-                        <span className="block truncate text-[9px] text-stone-400">{action.text}</span>
+                        <span className="line-clamp-2 text-[11px] font-black leading-tight text-emerald-950">{action.label}</span>
+                        <span className="mt-0.5 block truncate text-[9px] text-stone-400">{action.text}</span>
                       </span>
                     </Link>
                   )

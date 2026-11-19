@@ -820,7 +820,7 @@ export default function Profile() {
                     Faoliyatingizga mos rolni tanlang. Rol kabinet imkoniyatlarini o'zgartiradi.
                   </p>
                   {isAdmin ? (
-                    <div className="mt-3 rounded-xl bg-purple-50 p-3 text-[11px] text-purple-700">
+                    <div className="mt-3 rounded-xl bg-lime-50 p-3 text-[11px] text-lime-900">
                       Administrator roli faqat admin panel orqali boshqa foydalanuvchilarga beriladi.
                     </div>
                   ) : (

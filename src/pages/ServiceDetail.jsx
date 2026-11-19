@@ -105,7 +105,7 @@ export default function ServiceDetail() {
         </button>
 
         <div className="mt-4 grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="overflow-hidden rounded-3xl border border-emerald-900/10 bg-white shadow-card">
+          <div className="card overflow-hidden">
             <div className={`relative min-h-64 bg-gradient-to-br ${service.gradient} p-6 text-white`}>
               <div className="pattern-grid absolute inset-0 opacity-20" />
               <div className="relative flex items-start justify-between gap-4">

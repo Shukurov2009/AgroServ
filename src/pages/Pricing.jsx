@@ -73,13 +73,13 @@ const BENEFITS = [
     icon: Bot,
     title: 'Bepul AI maslahat',
     text: 'Kuniga 50 ta agronomik savol — obuna talab qilinmaydi.',
-    tone: 'bg-violet-50 text-violet-700',
+    tone: 'bg-emerald-100 text-emerald-800',
   },
   {
     icon: Wallet,
     title: 'Bepul hamyon',
     text: "To'lovlar, buyurtmalar va moliyaviy tarix bitta joyda.",
-    tone: 'bg-sky-50 text-sky-700',
+    tone: 'bg-stone-100 text-stone-700',
   },
 ]
 
@@ -206,7 +206,7 @@ export default function Pricing() {
         </div>
       </section>
 
-      <section className="bg-white/60">
+      <section className="section-alt">
         <div className="container-page section-pad">
           <SectionHeader center eyebrow="Savollar" title="Bepul platforma bo'yicha savol-javob" />
           <div className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">

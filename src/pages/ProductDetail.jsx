@@ -134,7 +134,7 @@ export default function ProductDetail() {
 
         <div className="mt-4 grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
           {/* VISUAL */}
-          <div className="overflow-hidden rounded-3xl border border-emerald-900/10 bg-white shadow-card">
+          <div className="card overflow-hidden">
             <div className={`relative flex h-72 items-center justify-center bg-gradient-to-br ${product.gradient} sm:h-96`}>
               <div className="pattern-dots absolute inset-0 opacity-20" />
               <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-3xl" />
@@ -193,7 +193,7 @@ export default function ProductDetail() {
                   </span>
                 )}
                 {product.year && (
-                  <span className="rounded-full border border-sky-100 bg-sky-50 px-2.5 py-0.5 text-[9px] font-bold text-sky-700">
+                  <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-0.5 text-[9px] font-bold text-emerald-700">
                     {product.year} yil
                   </span>
                 )}

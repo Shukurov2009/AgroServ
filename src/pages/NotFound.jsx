@@ -24,7 +24,7 @@ export default function NotFound() {
       <div className="container-page flex min-h-[75vh] flex-col items-center justify-center py-16 text-center">
         <div className="relative">
           <div className="pattern-dots absolute -inset-10 opacity-40" />
-          <span className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 text-5xl shadow-soft">
+          <span className="relative flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-lime-300 via-lime-400 to-emerald-500 text-5xl shadow-soft">
             🌱
           </span>
         </div>

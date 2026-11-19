@@ -218,7 +218,7 @@ export default function About() {
       </section>
 
       {/* VALUES */}
-      <section className="bg-white/60">
+      <section className="section-alt">
         <div className="container-page section-pad">
           <SectionHeader
             center
@@ -321,14 +321,14 @@ export default function About() {
               title: '5% komissiya',
               value: '5%',
               text: "Har bir savdodan 5% komissiya olinadi, summaning 95% sotuvchiga qoladi.",
-              tone: 'bg-violet-50 text-violet-700',
+              tone: 'bg-lime-50 text-lime-800',
             },
             {
               icon: Target,
               title: 'Top mahsulot',
               value: "25 000 so'm",
               text: "Ixtiyoriy xizmat: mahsulotni 30 kun davomida bozor boshida ko'rsatadi.",
-              tone: 'bg-amber-50 text-amber-700',
+              tone: 'bg-emerald-100 text-emerald-800',
             },
           ].map((item) => {
             const Icon = item.icon
@@ -349,7 +349,7 @@ export default function About() {
       </section>
 
       {/* FAQ */}
-      <section className="bg-white/60">
+      <section className="section-alt">
         <div className="container-page section-pad">
           <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr]">
             <div>

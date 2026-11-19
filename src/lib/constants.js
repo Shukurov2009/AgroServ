@@ -70,8 +70,8 @@ export const CATEGORIES = [
     short: 'Texnika',
     icon: '🚜',
     description: 'Traktor, kombayn, seyalka va boshqa texnikalar',
-    gradient: 'from-sky-400 via-blue-500 to-indigo-600',
-    soft: 'bg-sky-50 text-sky-700 border-sky-100',
+    gradient: 'from-emerald-600 via-emerald-800 to-emerald-950',
+    soft: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   },
   {
     id: 'meva',
@@ -79,8 +79,8 @@ export const CATEGORIES = [
     short: 'Meva',
     icon: '🍎',
     description: "Fermerdan to'g'ridan-to'g'ri yangi mahsulotlar",
-    gradient: 'from-rose-300 via-red-400 to-orange-500',
-    soft: 'bg-rose-50 text-rose-700 border-rose-100',
+    gradient: 'from-lime-300 via-lime-400 to-emerald-500',
+    soft: 'bg-lime-50 text-lime-800 border-lime-200',
   },
   {
     id: 'ogit',
@@ -88,8 +88,8 @@ export const CATEGORIES = [
     short: "O'g'it",
     icon: '🧪',
     description: 'Mineral va organik ozuqalar, NPK komplekslari',
-    gradient: 'from-teal-300 via-cyan-400 to-blue-500',
-    soft: 'bg-teal-50 text-teal-700 border-teal-100',
+    gradient: 'from-emerald-400 via-emerald-600 to-emerald-800',
+    soft: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   },
   {
     id: 'xizmat',
@@ -97,8 +97,8 @@ export const CATEGORIES = [
     short: 'Xizmat',
     icon: '🔧',
     description: 'Yer tekislash, shudgor, ekish va yig\'im xizmatlari',
-    gradient: 'from-amber-300 via-orange-400 to-amber-600',
-    soft: 'bg-amber-50 text-amber-700 border-amber-100',
+    gradient: 'from-lime-400 via-emerald-500 to-emerald-700',
+    soft: 'bg-lime-50 text-lime-800 border-lime-200',
   },
   {
     id: 'agronom',
@@ -106,7 +106,7 @@ export const CATEGORIES = [
     short: 'Agronom',
     icon: '🌿',
     description: 'Kasallik, o\'g\'it va hosildorlik bo\'yicha maslahat',
-    gradient: 'from-emerald-300 via-green-400 to-teal-600',
+    gradient: 'from-emerald-400 via-emerald-600 to-emerald-900',
     soft: 'bg-emerald-50 text-emerald-700 border-emerald-100',
   },
   {
@@ -115,8 +115,8 @@ export const CATEGORIES = [
     short: 'Ish',
     icon: '💼',
     description: 'Agro sohada ish va mutaxassislar',
-    gradient: 'from-violet-300 via-purple-400 to-indigo-600',
-    soft: 'bg-violet-50 text-violet-700 border-violet-100',
+    gradient: 'from-emerald-900 via-emerald-950 to-emerald-950',
+    soft: 'bg-stone-100 text-stone-600 border-stone-200',
   },
 ]
 
@@ -237,7 +237,7 @@ export const ROLES = {
     short: 'Admin',
     icon: '🛡️',
     description: 'Platforma boshqaruvi, foydalanuvchilar va to\'lovlar',
-    badge: 'bg-purple-50 text-purple-700 border-purple-200',
+    badge: 'bg-lime-100 text-lime-900 border-lime-300',
   },
 }
 
@@ -381,21 +381,21 @@ export const PRODUCT_UNITS = ['dona', 'kg', 'tonna', 'ga', 'litr', 'xizmat']
 export const PRODUCT_EMOJIS = ['🚜', '🌾', '🍎', '🍅', '🍇', '🥔', '🥒', '🧪', '🌱', '🍑', '🥕', '🍉', '🌽', '🐄', '🚛', '🔧']
 
 export const PRODUCT_GRADIENTS = [
-  'from-sky-400 via-blue-500 to-indigo-600',
-  'from-rose-300 via-red-400 to-orange-500',
-  'from-emerald-300 via-green-400 to-teal-600',
-  'from-lime-300 via-emerald-400 to-green-600',
-  'from-amber-300 via-orange-400 to-rose-500',
-  'from-violet-300 via-purple-400 to-indigo-600',
-  'from-teal-300 via-cyan-400 to-blue-500',
-  'from-yellow-300 via-amber-400 to-orange-500',
+  'from-emerald-600 via-emerald-800 to-emerald-950',
+  'from-lime-300 via-lime-400 to-emerald-500',
+  'from-emerald-400 via-emerald-600 to-emerald-900',
+  'from-lime-300 via-emerald-400 to-emerald-700',
+  'from-emerald-700 via-emerald-900 to-emerald-950',
+  'from-lime-200 via-lime-400 to-emerald-600',
+  'from-emerald-500 via-emerald-700 to-emerald-900',
+  'from-emerald-300 via-emerald-500 to-emerald-800',
 ]
 
 export const SERVICE_GRADIENTS = [
-  'from-amber-400 via-orange-500 to-rose-500',
-  'from-emerald-400 via-green-500 to-teal-600',
-  'from-sky-400 via-blue-500 to-indigo-600',
-  'from-violet-400 via-purple-500 to-indigo-600',
+  'from-emerald-500 via-emerald-700 to-emerald-900',
+  'from-lime-300 via-emerald-400 to-emerald-600',
+  'from-emerald-700 via-emerald-900 to-emerald-950',
+  'from-lime-400 via-lime-500 to-emerald-600',
 ]
 
 export function getPlan() {

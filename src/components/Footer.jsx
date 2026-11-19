@@ -38,10 +38,13 @@ export default function Footer() {
   }
 
   return (
-    <footer className="relative overflow-hidden bg-emerald-950 text-emerald-100">
+    <footer className="relative mt-10 overflow-hidden rounded-t-[2.25rem] border-t border-white/10 bg-emerald-950 text-emerald-100 sm:rounded-t-[3rem]">
       <div className="pattern-grid absolute inset-0 opacity-40" />
       <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
       <div className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-lime-400/10 blur-3xl" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 select-none text-center text-[17vw] font-black leading-[0.7] tracking-tighter text-white/[0.035]">
+        AgroServ
+      </div>
 
       <div className="container-page relative py-14">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-12">
@@ -52,20 +55,20 @@ export default function Footer() {
               platformada birlashtirgan raqamli agro ekotizim.
             </p>
             <div className="mt-6 space-y-3 text-xs text-emerald-100/75">
-              <a href="tel:+998712000000" className="flex items-center gap-2.5 transition hover:text-white">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+              <a href="tel:+998712000000" className="flex items-center gap-2.5 transition hover:text-lime-300">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10">
                   <Phone size={14} />
                 </span>
                 +998 71 200 00 00
               </a>
-              <a href="mailto:salom@agroserv.uz" className="flex items-center gap-2.5 transition hover:text-white">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+              <a href="mailto:salom@agroserv.uz" className="flex items-center gap-2.5 transition hover:text-lime-300">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10">
                   <Mail size={14} />
                 </span>
                 salom@agroserv.uz
               </a>
               <p className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10">
                   <MapPin size={14} />
                 </span>
                 Toshkent shahri, Amir Temur ko'chasi 108
@@ -74,9 +77,9 @@ export default function Footer() {
                 href="https://t.me/agroserv_uz"
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2.5 transition hover:text-white"
+                className="flex items-center gap-2.5 transition hover:text-lime-300"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10">
                   <Send size={14} />
                 </span>
                 Telegram: @agroserv_uz
@@ -117,24 +120,24 @@ export default function Footer() {
             <p className="mt-4 text-sm text-emerald-100/70">
               Har hafta bozor narxlari, agrotexnika va yangi imkoniyatlar haqida xabar yuboramiz.
             </p>
-            <form onSubmit={handleSubscribe} className="mt-4 flex gap-2">
+            <form onSubmit={handleSubscribe} className="mt-4 flex gap-2 rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur">
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="Email manzilingiz"
-                className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/10 px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-emerald-100/40 focus:border-lime-400"
+                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-emerald-100/40"
                 required
               />
               <button
                 type="submit"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-lime-400 text-emerald-950 transition hover:bg-lime-300"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lime-400 text-emerald-950 transition hover:bg-lime-300"
                 aria-label="Obuna bo'lish"
               >
                 <ArrowRight size={18} />
               </button>
             </form>
-            <div className="mt-5 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-emerald-100/60">
+            <div className="mt-5 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-emerald-100/60">
               <ShieldCheck size={15} className="text-lime-300" />
               Ma'lumotlaringiz xavfsiz saqlanadi. Spam yubormaymiz.
             </div>
@@ -142,7 +145,7 @@ export default function Footer() {
               {['UzCard', 'Humo', 'Visa', 'Mastercard', 'Click', 'Payme'].map((item) => (
                 <span
                   key={item}
-                  className="rounded-md border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-bold text-emerald-100/70"
+                  className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-bold text-emerald-100/70"
                 >
                   {item}
                 </span>
@@ -153,7 +156,7 @@ export default function Footer() {
 
         <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 text-[11px] text-emerald-100/45 sm:flex-row">
           <p>© {YEAR} AgroServ. Barcha huquqlar himoyalangan.</p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Link to="/maxfiylik" className="transition hover:text-white">
               Maxfiylik siyosati
             </Link>
