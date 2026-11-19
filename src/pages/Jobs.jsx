@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   Send,
+  UserRound,
   Users,
 } from 'lucide-react'
 import { useStore } from '../context/StoreContext'
@@ -19,7 +20,17 @@ import Modal from '../components/Modal'
 import EmptyState from '../components/EmptyState'
 
 export default function Jobs() {
-  const { jobs, users, currentUser, addJob, applyToJob, applications } = useStore()
+  const {
+    jobs,
+    users,
+    currentUser,
+    addJob,
+    updateJob,
+    deleteJob,
+    applyToJob,
+    applications,
+    isAdmin,
+  } = useStore()
   const [query, setQuery] = useState('')
   const [type, setType] = useState('all')
   const [location, setLocation] = useState('all')
@@ -40,9 +51,17 @@ export default function Jobs() {
 
   const myApplications = applications.filter((entry) => entry.userId === currentUser?.id)
   const appliedJobIds = myApplications.map((entry) => entry.jobId)
+  const myJobs = useMemo(
+    () =>
+      jobs
+        .filter((job) => job.userId === currentUser?.id)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+    [jobs, currentUser?.id],
+  )
+  const visibleJobsCount = jobs.filter((job) => job.status === 'active' || isAdmin).length
 
   const filtered = useMemo(() => {
-    let list = [...jobs]
+    let list = jobs.filter((job) => job.status === 'active' || isAdmin)
     if (type !== 'all') list = list.filter((job) => job.type === type)
     if (location !== 'all') list = list.filter((job) => job.location === location)
     if (query.trim()) {
@@ -52,7 +71,7 @@ export default function Jobs() {
       )
     }
     return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-  }, [jobs, type, location, query])
+  }, [jobs, type, location, query, isAdmin])
 
   function openApply(job) {
     if (!currentUser) {
@@ -104,6 +123,30 @@ export default function Jobs() {
     }
   }
 
+  async function handleToggleJob(job) {
+    const next = job.status === 'active' ? 'paused' : 'active'
+    const result = await updateJob(job.id, { status: next })
+    if (result.ok) {
+      toast.success(next === 'active' ? "E'lon qayta faollashtirildi" : "E'lon qaytarib olindi")
+    } else {
+      toast.error(result.error)
+    }
+  }
+
+  async function handleDeleteJob(job) {
+    if (
+      !window.confirm(
+        `«${job.title}» e'lonini butunlay o'chirmoqchimisiz? Unga yuborilgan arizalar ham o'chadi. Bu amalni qaytarib bo'lmaydi.`,
+      )
+    ) {
+      return
+    }
+    const result = await deleteJob(job.id)
+    if (result.ok) toast.success("Ish e'loni o'chirildi")
+    else toast.error(result.error)
+  }
+
+  const listJobs = tab === 'myjobs' ? myJobs : filtered
   const totalApplicants = jobs.reduce((sum, job) => sum + (job.applicants || 0), 0)
 
   return (
@@ -129,7 +172,7 @@ export default function Jobs() {
               <Plus size={16} /> Ish e'loni joylash
             </button>
             <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-emerald-100/70">
-              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">{jobs.length} ta e'lon</span>
+              <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">{visibleJobsCount} ta e'lon</span>
               <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1">{totalApplicants} ta ariza</span>
             </div>
           </>
@@ -146,7 +189,19 @@ export default function Jobs() {
             }`}
           >
             <Briefcase size={14} /> Barcha ishlar
-            <span className={`rounded-full px-1.5 text-[9px] ${tab === 'all' ? 'bg-white/20' : 'bg-stone-100'}`}>{jobs.length}</span>
+            <span className={`rounded-full px-1.5 text-[9px] ${tab === 'all' ? 'bg-white/20' : 'bg-stone-100'}`}>{visibleJobsCount}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('myjobs')}
+            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+              tab === 'myjobs' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-stone-600 hover:bg-emerald-50'
+            }`}
+          >
+            <UserRound size={14} /> Mening e'lonlarim
+            <span className={`rounded-full px-1.5 text-[9px] ${tab === 'myjobs' ? 'bg-white/20' : 'bg-stone-100'}`}>
+              {myJobs.length}
+            </span>
           </button>
           <button
             type="button"
@@ -162,9 +217,10 @@ export default function Jobs() {
           </button>
         </div>
 
-        {tab === 'all' ? (
+        {tab !== 'mine' ? (
           <>
-            <div className="card mt-4 p-4">
+            {tab === 'all' && (
+              <div className="card mt-4 p-4">
               <div className="flex flex-col gap-2 sm:flex-row">
                 <div className="relative flex-1">
                   <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -204,20 +260,42 @@ export default function Jobs() {
                   </button>
                 )}
               </div>
-            </div>
+              </div>
+            )}
 
-            {filtered.length > 0 ? (
+            {tab === 'myjobs' && (
+              <p className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-[11px] leading-relaxed text-emerald-800">
+                Bu yerda o'z e'lonlaringizni qaytarib olish, qayta faollashtirish yoki butunlay
+                o'chirish mumkin.
+              </p>
+            )}
+
+            {listJobs.length > 0 ? (
               <div className="mt-5 grid gap-4 md:grid-cols-2">
-                {filtered.map((job) => (
+                {listJobs.map((job) => (
                   <div key={job.id} className="relative">
                     {appliedJobIds.includes(job.id) && (
                       <span className="absolute -top-2 right-3 z-10 flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-bold text-white shadow">
                         <CheckCircle2 size={10} /> Ariza yuborilgan
                       </span>
                     )}
-                    <JobCard job={job} onApply={openApply} />
+                    <JobCard
+                      job={job}
+                      onApply={openApply}
+                      onToggle={handleToggleJob}
+                      onDelete={handleDeleteJob}
+                      canManage={isAdmin || job.userId === currentUser?.id}
+                    />
                   </div>
                 ))}
+              </div>
+            ) : tab === 'myjobs' ? (
+              <div className="mt-5">
+                <EmptyState
+                  icon="📣"
+                  title="Sizda hali e'lon yo'q"
+                  description="Ish e'loni joylashtirsangiz, u shu yerda ko'rinadi va istalgan vaqtda qaytarib olish yoki o'chirish mumkin bo'ladi."
+                />
               </div>
             ) : (
               <div className="mt-5">

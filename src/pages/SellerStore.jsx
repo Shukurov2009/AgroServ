@@ -233,7 +233,7 @@ export default function SellerStore() {
     const next = product.status === 'active' ? 'paused' : 'active'
     const result = await updateProduct(product.id, { status: next })
     if (result.ok) {
-      toast.success(next === 'active' ? 'Mahsulot faollashtirildi' : "Mahsulot to'xtatildi")
+      toast.success(next === 'active' ? "E'lon qayta faollashtirildi" : "E'lon qaytarib olindi")
     } else {
       toast.error(result.error)
     }
@@ -494,7 +494,7 @@ export default function SellerStore() {
                     </button>
                     <button type="button" onClick={() => toggleStatus(product)} className="btn btn-secondary btn-sm">
                       {product.status === 'active' ? <EyeOff size={13} /> : <Eye size={13} />}
-                      {product.status === 'active' ? "To'xtatish" : 'Faollashtirish'}
+                      {product.status === 'active' ? 'Qaytarib olish' : 'Qayta faollashtirish'}
                     </button>
                     <button
                       type="button"
@@ -505,7 +505,7 @@ export default function SellerStore() {
                       <Sparkles size={13} /> Top
                     </button>
                     <button type="button" onClick={() => handleDelete(product)} className="btn btn-danger btn-sm">
-                      <Trash2 size={13} />
+                      <Trash2 size={13} /> O'chirish
                     </button>
                   </div>
                 </div>

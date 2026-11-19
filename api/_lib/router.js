@@ -1710,10 +1710,44 @@ async function createJob(ctx) {
   return { job: toJob(rows[0]) }
 }
 
+async function updateJob(ctx) {
+  const body = await readBody(ctx.req)
+  const existing = await query('SELECT * FROM jobs WHERE id = $1', [ctx.params.id])
+  const job = existing.rows[0]
+  if (!job) throw new HttpError(404, 'Ish topilmadi', 'JOB_NOT_FOUND')
+  if (job.user_id !== ctx.user.id && ctx.user.role !== 'admin') {
+    throw new HttpError(403, "Ruxsat yo'q", 'FORBIDDEN')
+  }
+  const status = ['active', 'paused'].includes(body.status) ? body.status : ''
+  if (!status) throw new HttpError(400, "Noto'g'ri e'lon holati", 'BAD_STATUS')
+  const { rows } = await query(
+    'UPDATE jobs SET status = $1 WHERE id = $2 RETURNING *',
+    [status, job.id],
+  )
+  return { job: toJob(rows[0]) }
+}
+
+async function deleteJob(ctx) {
+  const existing = await query('SELECT * FROM jobs WHERE id = $1', [ctx.params.id])
+  const job = existing.rows[0]
+  if (!job) throw new HttpError(404, 'Ish topilmadi', 'JOB_NOT_FOUND')
+  if (job.user_id !== ctx.user.id && ctx.user.role !== 'admin') {
+    throw new HttpError(403, "Ruxsat yo'q", 'FORBIDDEN')
+  }
+  await query('DELETE FROM jobs WHERE id = $1', [job.id])
+  return { deleted: true }
+}
+
 async function applyToJob(ctx) {
   const body = await readBody(ctx.req)
   const job = await query('SELECT * FROM jobs WHERE id = $1', [ctx.params.id])
   if (!job.rows[0]) throw new HttpError(404, 'Ish topilmadi', 'JOB_NOT_FOUND')
+  if (job.rows[0].user_id === ctx.user.id) {
+    throw new HttpError(400, "O'z e'loningizga ariza yubora olmaysiz", 'OWN_JOB')
+  }
+  if (job.rows[0].status !== 'active') {
+    throw new HttpError(400, "Bu e'lon faol emas", 'JOB_INACTIVE')
+  }
   const existing = await query('SELECT 1 FROM applications WHERE job_id = $1 AND user_id = $2', [
     ctx.params.id,
     ctx.user.id,
@@ -2754,6 +2788,8 @@ route('POST', '/services', createService)
 route('PATCH', '/services/:id', updateService)
 route('DELETE', '/services/:id', deleteService)
 route('POST', '/jobs', createJob)
+route('PATCH', '/jobs/:id', updateJob)
+route('DELETE', '/jobs/:id', deleteJob)
 route('POST', '/jobs/:id/apply', applyToJob)
 route('POST', '/videos', createVideo)
 route('DELETE', '/videos/:id', deleteVideo)

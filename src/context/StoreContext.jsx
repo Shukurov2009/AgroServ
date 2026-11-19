@@ -297,6 +297,11 @@ export function StoreProvider({ children }) {
   const deleteService = useCallback((serviceId) => run(() => api.delete(`/services/${serviceId}`)), [run])
 
   const addJob = useCallback((payload) => run(() => api.post('/jobs', payload)), [run])
+  const updateJob = useCallback(
+    (jobId, patch) => run(() => api.patch(`/jobs/${jobId}`, patch)),
+    [run],
+  )
+  const deleteJob = useCallback((jobId) => run(() => api.delete(`/jobs/${jobId}`)), [run])
   const applyToJob = useCallback(
     (jobId, payload) => run(() => api.post(`/jobs/${jobId}/apply`, payload)),
     [run],
@@ -454,6 +459,8 @@ export function StoreProvider({ children }) {
     updateService,
     deleteService,
     addJob,
+    updateJob,
+    deleteJob,
     applyToJob,
     addVideo,
     deleteVideo,

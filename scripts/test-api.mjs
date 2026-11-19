@@ -82,6 +82,7 @@ async function deleteTestUsers(ids) {
   await query('DELETE FROM otp_codes WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM products WHERE seller_id = ANY($1)', [ids])
   await query('DELETE FROM services WHERE user_id = ANY($1)', [ids])
+  await query('DELETE FROM jobs WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM reviews WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM applications WHERE user_id = ANY($1)', [ids])
   await query('DELETE FROM cart_items WHERE user_id = ANY($1)', [ids])
@@ -809,6 +810,179 @@ try {
     [401, 403, 404].includes(oldApprove.status),
     'eski admin tasdiqlash endpointi olib tashlangan',
     oldApprove,
+  )
+
+  // Har bir rol o'z e'lonini qaytarib olishi yoki butunlay o'chirishi mumkin.
+  const listingProduct = await call('POST', '/api/products', {
+    cookie: sellerCookie,
+    body: {
+      title: 'Qaytarib olinadigan mahsulot',
+      category: 'meva',
+      price: 12000,
+      stock: 3,
+      unit: 'kg',
+      region: 'Toshkent',
+      imageUrl: 'https://example.test/listing.jpg',
+    },
+  })
+  assert(listingProduct.status === 200, "mahsulot e'loni yaratildi", listingProduct)
+  const listingProductId = listingProduct.data.product.id
+
+  const pausedProduct = await call('PATCH', `/api/products/${listingProductId}`, {
+    cookie: sellerCookie,
+    body: { status: 'paused' },
+  })
+  assert(
+    pausedProduct.status === 200 && pausedProduct.data.product.status === 'paused',
+    "mahsulot e'loni qaytarib olindi",
+    pausedProduct,
+  )
+
+  const publicAfterProductPause = await call('GET', '/api/bootstrap')
+  assert(
+    !publicAfterProductPause.data.products.some((item) => item.id === listingProductId),
+    "qaytarib olingan mahsulot ommaviy bozorda ko'rinmaydi",
+    publicAfterProductPause.data.products,
+  )
+
+  const ownerAfterProductPause = await call('GET', '/api/bootstrap', { cookie: sellerCookie })
+  assert(
+    ownerAfterProductPause.data.products.some((item) => item.id === listingProductId),
+    "mahsulot egasi qaytarib olingan e'lonni ko'radi",
+    ownerAfterProductPause.data.products,
+  )
+
+  const foreignProductPause = await call('PATCH', `/api/products/${listingProductId}`, {
+    cookie: workerCookie,
+    body: { status: 'active' },
+  })
+  assert(
+    foreignProductPause.status === 403,
+    "boshqa foydalanuvchi mahsulot e'lonini o'zgartira olmaydi",
+    foreignProductPause,
+  )
+
+  const deletedProduct = await call('DELETE', `/api/products/${listingProductId}`, {
+    cookie: sellerCookie,
+  })
+  assert(
+    deletedProduct.status === 200 && deletedProduct.data.deleted,
+    "mahsulot e'loni butunlay o'chirildi",
+    deletedProduct,
+  )
+
+  const listingService = await call('POST', '/api/services', {
+    cookie: workerCookie,
+    body: {
+      type: 'agronomist',
+      serviceType: 'Qaytarib olinadigan xizmat',
+      price: 50000,
+      unit: 'tashrif',
+      region: 'Toshkent',
+    },
+  })
+  assert(listingService.status === 200, "xizmat e'loni yaratildi", listingService)
+  const listingServiceId = listingService.data.service.id
+
+  const pausedService = await call('PATCH', `/api/services/${listingServiceId}`, {
+    cookie: workerCookie,
+    body: { status: 'paused' },
+  })
+  assert(
+    pausedService.status === 200 && pausedService.data.service.status === 'paused',
+    "xizmat e'loni qaytarib olindi",
+    pausedService,
+  )
+
+  const publicAfterServicePause = await call('GET', '/api/bootstrap')
+  assert(
+    !publicAfterServicePause.data.services.some((item) => item.id === listingServiceId),
+    "qaytarib olingan xizmat ommaviy ro'yxatda ko'rinmaydi",
+    publicAfterServicePause.data.services,
+  )
+
+  const deletedService = await call('DELETE', `/api/services/${listingServiceId}`, {
+    cookie: workerCookie,
+  })
+  assert(
+    deletedService.status === 200 && deletedService.data.deleted,
+    "xizmat e'loni butunlay o'chirildi",
+    deletedService,
+  )
+
+  const listingJob = await call('POST', '/api/jobs', {
+    cookie: workerCookie,
+    body: {
+      title: 'Qaytarib olinadigan ish',
+      company: 'Test ferma',
+      type: "To'liq kun",
+      location: 'Toshkent',
+      salary: '5 000 000',
+      description: 'Test ish tavsifi',
+      requirements: 'Tajriba',
+      contact: '+998901112233',
+    },
+  })
+  assert(listingJob.status === 200, "ish e'loni yaratildi", listingJob)
+  const listingJobId = listingJob.data.job.id
+
+  const pausedJob = await call('PATCH', `/api/jobs/${listingJobId}`, {
+    cookie: workerCookie,
+    body: { status: 'paused' },
+  })
+  assert(
+    pausedJob.status === 200 && pausedJob.data.job.status === 'paused',
+    "ish e'loni qaytarib olindi",
+    pausedJob,
+  )
+
+  const publicAfterJobPause = await call('GET', '/api/bootstrap')
+  assert(
+    !publicAfterJobPause.data.jobs.some((item) => item.id === listingJobId),
+    "qaytarib olingan ish e'loni ommaviy ro'yxatda ko'rinmaydi",
+    publicAfterJobPause.data.jobs,
+  )
+
+  const ownerAfterJobPause = await call('GET', '/api/bootstrap', { cookie: workerCookie })
+  assert(
+    ownerAfterJobPause.data.jobs.some((item) => item.id === listingJobId),
+    "ish e'loni egasi qaytarib olingan e'lonni ko'radi",
+    ownerAfterJobPause.data.jobs,
+  )
+
+  const applyPausedJob = await call('POST', `/api/jobs/${listingJobId}/apply`, {
+    cookie: sellerCookie,
+    body: { name: 'Test Sotuvchi', phone: '+998901112233', message: 'test' },
+  })
+  assert(
+    applyPausedJob.status === 400 && applyPausedJob.data.code === 'JOB_INACTIVE',
+    "qaytarib olingan ish e'loniga ariza yuborilmaydi",
+    applyPausedJob,
+  )
+
+  const foreignJobDelete = await call('DELETE', `/api/jobs/${listingJobId}`, {
+    cookie: sellerCookie,
+  })
+  assert(
+    foreignJobDelete.status === 403,
+    "boshqa foydalanuvchi ish e'lonini o'chira olmaydi",
+    foreignJobDelete,
+  )
+
+  const deletedJob = await call('DELETE', `/api/jobs/${listingJobId}`, {
+    cookie: workerCookie,
+  })
+  assert(
+    deletedJob.status === 200 && deletedJob.data.deleted,
+    "ish e'loni butunlay o'chirildi",
+    deletedJob,
+  )
+
+  const ownerAfterJobDelete = await call('GET', '/api/bootstrap', { cookie: workerCookie })
+  assert(
+    !ownerAfterJobDelete.data.jobs.some((item) => item.id === listingJobId),
+    "o'chirilgan ish e'loni bazadan yo'qoldi",
+    ownerAfterJobDelete.data.jobs,
   )
 
   console.log('\nBarcha API testlari muvaffaqiyatli o‘tdi.')

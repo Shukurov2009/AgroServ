@@ -189,7 +189,7 @@ export default function MyServices() {
     const next = service.status === 'active' ? 'paused' : 'active'
     const result = await updateService(service.id, { status: next })
     if (result.ok) {
-      toast.success(next === 'active' ? 'Xizmat faollashtirildi' : "Xizmat to'xtatildi")
+      toast.success(next === 'active' ? "E'lon qayta faollashtirildi" : "E'lon qaytarib olindi")
     } else {
       toast.error(result.error)
     }
@@ -449,10 +449,10 @@ export default function MyServices() {
                     </button>
                     <button type="button" onClick={() => toggleStatus(service)} className="btn btn-secondary btn-sm">
                       {service.status === 'active' ? <EyeOff size={13} /> : <Eye size={13} />}
-                      {service.status === 'active' ? "To'xtatish" : 'Faollashtirish'}
+                      {service.status === 'active' ? 'Qaytarib olish' : 'Qayta faollashtirish'}
                     </button>
                     <button type="button" onClick={() => handleDelete(service)} className="btn btn-danger btn-sm">
-                      <Trash2 size={13} />
+                      <Trash2 size={13} /> O'chirish
                     </button>
                   </div>
                 </div>
